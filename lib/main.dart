@@ -1,0 +1,41 @@
+import 'package:flutter/material.dart';
+import 'app.dart';
+import 'core/chat/customer_chat_store.dart';
+import 'core/addresses/customer_address_store.dart';
+import 'core/customer/customer_country.dart';
+import 'core/customer/customer_personal_info_store.dart';
+import 'core/customer/customer_profile_photo_store.dart';
+import 'core/favorites/customer_favorites_store.dart';
+import 'core/gift_cards/customer_gift_card_store.dart';
+import 'core/membership/customer_membership_store.dart';
+import 'core/payments/customer_payment_method_store.dart';
+import 'core/reviews/customer_review_store.dart';
+import 'core/rewards/customer_rewards_store.dart';
+import 'core/rewards/customer_play_store.dart';
+import 'core/rewards/customer_stamp_card_store.dart';
+import 'core/settings/customer_settings_store.dart';
+import 'core/vouchers/customer_voucher_store.dart';
+import 'features/cart/cart_controller.dart';
+import 'features/orders/orders_screen.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await CustomerCountryStore.initialize();
+  await CustomerChatStore.initialize();
+  await CustomerAddressStore.initialize();
+  await CustomerPersonalInfoStore.initialize();
+  await CustomerProfilePhotoStore.initialize();
+  await CustomerFavoritesStore.initialize();
+  await CustomerGiftCardStore.initialize();
+  await CustomerMembershipStore.initialize();
+  await CustomerPaymentMethodStore.initialize();
+  await CustomerRewardsStore.initialize();
+  await CustomerPlayStore.initialize();
+  await CustomerStampCardStore.initialize();
+  await CustomerSettingsStore.initialize();
+  await CustomerVoucherStore.initialize();
+  await CustomerReviewStore.initialize();
+  await CustomerOrdersController.initialize();
+  await CartController.initialize();
+  runApp(const GetinCoffeeApp());
+}

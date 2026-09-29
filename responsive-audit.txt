@@ -1,0 +1,1 @@
+PASS: no TextOverflow.ellipsis, TextOverflow.fade, or maxLines: 1 remain.

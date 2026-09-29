@@ -1,0 +1,906 @@
+===== GETIN MENU + NAV DISCOVERY =====
+
+PROJECT:
+/Users/mohammed/StudioProjects/getin_coffee
+
+
+===== FILE: lib/features/home/home_shell.dart =====
+import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
+import '../location/models/branch.dart';
+import '../location/services/branch_service.dart';
+import 'home_screen.dart';
+
+class HomeShell extends StatefulWidget {
+  final Branch branch;
+  final String serviceType;
+  final double distanceKm;
+  final double userLatitude;
+  final double userLongitude;
+
+  const HomeShell({
+    super.key,
+    required this.branch,
+    required this.serviceType,
+    required this.distanceKm,
+    required this.userLatitude,
+    required this.userLongitude,
+  });
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  int _index = 0;
+  late Branch _branch;
+  late String _serviceType;
+
+  @override
+  void initState() {
+    super.initState();
+    _branch = widget.branch;
+    _serviceType = widget.serviceType;
+  }
+
+  void _changeService(String value) {
+    if (_serviceType == value) return;
+
+    final nearest = BranchService().nearest(
+      latitude: widget.userLatitude,
+      longitude: widget.userLongitude,
+      serviceType: value,
+    );
+
+    setState(() {
+      _serviceType = value;
+      if (nearest != null) {
+        _branch = nearest;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      HomeScreen(
+        branch: _branch,
+        serviceType: _serviceType,
+        userLatitude: widget.userLatitude,
+        userLongitude: widget.userLongitude,
+        onBranchChanged: (value) {
+          setState(() => _branch = value);
+        },
+        onServiceChanged: _changeService,
+      ),
+      const _PlaceholderPage(title: 'Menu'),
+      const _PlaceholderPage(title: 'Membership'),
+      const _PlaceholderPage(title: 'Profile'),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(
+        index: _index,
+        children: pages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) {
+          setState(() => _index = value);
+        },
+        backgroundColor: Colors.white,
+        indicatorColor: AppColors.beige,
+        height: 68,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.local_cafe_outlined),
+            selectedIcon: Icon(Icons.local_cafe_rounded),
+            label: 'Menu',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.workspace_premium_outlined),
+            selectedIcon: Icon(Icons.workspace_premium_rounded),
+            label: 'Membership',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceholderPage extends StatelessWidget {
+  final String title;
+
+  const _PlaceholderPage({
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: Center(
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.green,
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+===== FILE: lib/features/home/home_screen.dart =====
+import 'package:flutter/material.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../location/branch_list_screen.dart';
+import '../location/branch_map_screen.dart';
+import '../location/models/branch.dart';
+import '../location/services/branch_service.dart';
+import '../qr/qr_scanner_screen.dart';
+import 'widgets/hero_carousel.dart';
+import 'widgets/home_header.dart';
+import 'widgets/menu_categories_section.dart';
+import 'widgets/nearest_branches_section.dart';
+import 'widgets/product_sections.dart';
+import 'widgets/qr_map_row.dart';
+import 'widgets/rewards_progress_card.dart';
+
+class HomeScreen extends StatelessWidget {
+  final Branch branch;
+  final String serviceType;
+  final double userLatitude;
+  final double userLongitude;
+  final ValueChanged<Branch> onBranchChanged;
+  final ValueChanged<String> onServiceChanged;
+
+  const HomeScreen({
+    super.key,
+    required this.branch,
+    required this.serviceType,
+    required this.userLatitude,
+    required this.userLongitude,
+    required this.onBranchChanged,
+    required this.onServiceChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final branchService = BranchService();
+
+    final nearbyBranches = branchService.nearbyBranches(
+      latitude: userLatitude,
+      longitude: userLongitude,
+      serviceType: serviceType,
+    );
+
+    final selectedDistance = branchService.distanceKm(
+      latitude: userLatitude,
+      longitude: userLongitude,
+      branch: branch,
+    );
+
+    Future<void> chooseBranch() async {
+      final selected = await Navigator.push<Branch>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BranchListScreen(
+            userLatitude: userLatitude,
+            userLongitude: userLongitude,
+            serviceType: serviceType,
+            selectedBranch: branch,
+          ),
+        ),
+      );
+
+      if (selected != null) {
+        onBranchChanged(selected);
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: HomeHeader(
+                branch: branch,
+                distanceKm: selectedDistance,
+                serviceType: serviceType,
+                stars: 120,
+                onNotification: () {},
+                onServiceChanged: onServiceChanged,
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                15,
+                16,
+                28,
+              ),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate(
+                  [
+                    NearestBranchesSection(
+                      branches: nearbyBranches,
+                      selectedBranch: branch,
+                      onBranchSelected: onBranchChanged,
+                      onViewAll: chooseBranch,
+                    ),
+                    const SizedBox(
+                      height: 15,
+                    ),
+                    RewardsProgressCard(
+                      stars: 120,
+                      targetStars: 150,
+                      onTap: () {},
+                    ),
+                    const SizedBox(
+                      height: 15,
+                    ),
+                    QrMapRow(
+                      branch: branch,
+                      distanceKm: selectedDistance,
+                      onScanQr: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const QrScannerScreen(),
+                          ),
+                        );
+                      },
+                      onOpenMap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BranchMapScreen(
+                              branch: branch,
+                              userLatitude: userLatitude,
+                              userLongitude: userLongitude,
+                            ),
+                          ),
+                        );
+                      },
+                      onChangeBranch: chooseBranch,
+                    ),
+                    const SizedBox(
+                      height: 15,
+                    ),
+                    const HeroCarousel(),
+                    const SizedBox(
+                      height: 18,
+                    ),
+                    const MenuCategoriesSection(),
+                    const SizedBox(
+                      height: 18,
+                    ),
+                    ProductSections(
+                      branchName: branch.name,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+===== FILE: lib/features/home/widgets/qr_map_row.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../location/models/branch.dart';
+
+class QrMapRow extends StatelessWidget {
+  final Branch branch;
+  final double distanceKm;
+  final VoidCallback onScanQr;
+  final VoidCallback onOpenMap;
+  final VoidCallback onChangeBranch;
+
+  const QrMapRow({
+    super.key,
+    required this.branch,
+    required this.distanceKm,
+    required this.onScanQr,
+    required this.onOpenMap,
+    required this.onChangeBranch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 350;
+
+        if (compact) {
+          return Column(
+            children: [
+              _QrCard(onTap: onScanQr),
+              const SizedBox(height: 10),
+              _MapCard(
+                branch: branch,
+                distanceKm: distanceKm,
+                onOpenMap: onOpenMap,
+                onChangeBranch: onChangeBranch,
+              ),
+            ],
+          );
+        }
+
+        return SizedBox(
+          height: 120,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 4,
+                child: _QrCard(onTap: onScanQr),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 5,
+                child: _MapCard(
+                  branch: branch,
+                  distanceKm: distanceKm,
+                  onOpenMap: onOpenMap,
+                  onChangeBranch: onChangeBranch,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _QrCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _QrCard({
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.green,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: const Padding(
+          padding: EdgeInsets.all(15),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Color(0xFF29453E),
+                child: Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: AppColors.beige,
+                  size: 27,
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Scan QR',
+                      style: TextStyle(
+                        color: AppColors.beige,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Pay at branch\nEarn rewards',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 10.5,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.beige,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MapCard extends StatelessWidget {
+  final Branch branch;
+  final double distanceKm;
+  final VoidCallback onOpenMap;
+  final VoidCallback onChangeBranch;
+
+  const _MapCard({
+    required this.branch,
+    required this.distanceKm,
+    required this.onOpenMap,
+    required this.onChangeBranch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final point = LatLng(
+      branch.latitude,
+      branch.longitude,
+    );
+
+    return Container(
+      height: 120,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          Expanded(
+            flex: 5,
+            child: InkWell(
+              onTap: onOpenMap,
+              child: IgnorePointer(
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: point,
+                    initialZoom: 14.2,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.none,
+                    ),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.getincoffee.getin_coffee',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: point,
+                          width: 42,
+                          height: 42,
+                          child: const CircleAvatar(
+                            backgroundColor: AppColors.green,
+                            child: Icon(
+                              Icons.location_on_rounded,
+                              color: AppColors.beige,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    branch.name.replaceFirst('Getin ', ''),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.green,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${distanceKm.toStringAsFixed(1)} km away',
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 10.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 34,
+                    child: OutlinedButton(
+                      onPressed: onChangeBranch,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.green,
+                        side: const BorderSide(
+                          color: AppColors.border,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: const Text(
+                        'Change',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+===== FILE: lib/features/menu/menu_screen.dart =====
+[MISSING]
+
+===== FILE: lib/features/menu/screens/menu_screen.dart =====
+[MISSING]
+
+===== FILE: lib/features/orders/orders_screen.dart =====
+[MISSING]
+
+===== FILE: lib/features/order/orders_screen.dart =====
+[MISSING]
+
+===== FILE: lib/core/theme/app_colors.dart =====
+import 'package:flutter/material.dart';
+
+class AppColors {
+  static const Color green = Color(0xFF132D26);
+  static const Color greenDark = Color(0xFF0D211C);
+  static const Color beige = Color(0xFFD7CCB0);
+  static const Color cream = Color(0xFFF7F5F0);
+  static const Color gold = Color(0xFFC9A35B);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color muted = Color(0xFF7A817E);
+  static const Color border = Color(0xFFE5E1D8);
+}
+
+===== FILE: pubspec.yaml =====
+name: getin_coffee
+description: "Getin Coffee Customer App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.4 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+  video_player: ^2.9.5
+  shared_preferences: ^2.3.3
+  geolocator: ^13.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  mobile_scanner: 5.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/home/sections/
+    - assets/images/products/
+    - assets/images/categories/
+    - assets/images/branches/
+    - assets/images/home/
+    - assets/videos/getin_splash_compat.mp4
+    - assets/images/
+===== MENU / ORDER / NAV RELATED DART FILES =====
+lib/features/home/home_shell.dart
+lib/features/home/widgets/menu_categories_section.dart
+
+===== HOME / PRODUCT ASSETS =====
+assets/images/categories/category_bakery.png
+assets/images/categories/category_coffee.png
+assets/images/categories/category_food.png
+assets/images/categories/category_merchandise.png
+assets/images/categories/category_non_coffee.png
+assets/images/categories/category_refreshments.png
+assets/images/home/home_hero_1.png
+assets/images/home/home_hero_2.png
+assets/images/home/home_hero_3.png
+assets/images/home/rewards_banner.png
+assets/images/home/sections/berry_hibiscus.png
+assets/images/home/sections/blueberry_muffin.png
+assets/images/home/sections/caramel_latte.png
+assets/images/home/sections/final_membership_banner.png
+assets/images/home/sections/iced_latte.png
+assets/images/home/sections/maple_croissant.png
+assets/images/home/sections/offer_breakfast_bundle.png
+assets/images/home/sections/offer_rewards_free_drink.png
+assets/images/home/sections/pistachio_latte.png
+assets/images/home/sections/turkey_sandwich.png
+assets/images/home_hero_1.png
+assets/images/home_hero_2.png
+assets/images/home_hero_3.png
+assets/images/products/blueberry_muffin.png
+assets/images/products/butter_croissant.png
+assets/images/products/caramel_macchiato.png
+assets/images/products/iced_americano.png
+assets/images/products/iced_latte.png
+assets/images/products/pistachio_latte.png
+assets/images/products/turkey_cheese_sandwich.png
+
+===== HOME SHELL / NAV GREP =====
+lib/features/home/home_shell.dart:7:class HomeShell extends StatefulWidget {
+lib/features/home/home_shell.dart:14:  const HomeShell({
+lib/features/home/home_shell.dart:24:  State<HomeShell> createState() => _HomeShellState();
+lib/features/home/home_shell.dart:27:class _HomeShellState extends State<HomeShell> {
+lib/features/home/home_shell.dart:69:      const _PlaceholderPage(title: 'Menu'),
+lib/features/home/home_shell.dart:70:      const _PlaceholderPage(title: 'Membership'),
+lib/features/home/home_shell.dart:71:      const _PlaceholderPage(title: 'Profile'),
+lib/features/home/home_shell.dart:79:      bottomNavigationBar: NavigationBar(
+lib/features/home/home_shell.dart:88:          NavigationDestination(
+lib/features/home/home_shell.dart:93:          NavigationDestination(
+lib/features/home/home_shell.dart:96:            label: 'Menu',
+lib/features/home/home_shell.dart:98:          NavigationDestination(
+lib/features/home/home_shell.dart:101:            label: 'Membership',
+lib/features/home/home_shell.dart:103:          NavigationDestination(
+lib/features/home/home_shell.dart:106:            label: 'Profile',
+lib/features/home/home_screen.dart:11:import 'widgets/menu_categories_section.dart';
+lib/features/home/home_screen.dart:145:                    const MenuCategoriesSection(),
+lib/features/home/widgets/hero_carousel.dart:36:        borderRadius: BorderRadius.circular(20),
+lib/features/home/widgets/hero_carousel.dart:134:                        'Order Now',
+lib/features/home/widgets/hero_carousel.dart:169:                      borderRadius: BorderRadius.circular(99),
+lib/features/home/widgets/menu_categories_section.dart:6:class MenuCategoriesSection extends StatelessWidget {
+lib/features/home/widgets/menu_categories_section.dart:7:  const MenuCategoriesSection({
+lib/features/home/widgets/menu_categories_section.dart:35:                      borderRadius: BorderRadius.circular(16),
+lib/features/home/widgets/menu_categories_section.dart:88:            'Explore Our Menu',
+lib/features/home/widgets/nearest_branches_section.dart:106:            borderRadius: BorderRadius.circular(13),
+lib/features/home/widgets/nearest_branches_section.dart:152:      borderRadius: BorderRadius.circular(15),
+lib/features/home/widgets/nearest_branches_section.dart:155:        borderRadius: BorderRadius.circular(15),
+lib/features/home/widgets/nearest_branches_section.dart:158:            borderRadius: BorderRadius.circular(15),
+lib/features/home/widgets/nearest_branches_section.dart:159:            border: Border.all(
+lib/features/home/widgets/nearest_branches_section.dart:160:              color: selected ? AppColors.green : AppColors.border,
+lib/features/home/widgets/nearest_branches_section.dart:168:                borderRadius: const BorderRadius.vertical(
+lib/features/home/widgets/rewards_progress_card.dart:25:      borderRadius: BorderRadius.circular(18),
+lib/features/home/widgets/rewards_progress_card.dart:28:        borderRadius: BorderRadius.circular(18),
+lib/features/home/widgets/rewards_progress_card.dart:76:                      borderRadius: BorderRadius.circular(99),
+lib/features/home/widgets/qr_map_row.dart:82:      borderRadius: BorderRadius.circular(18),
+lib/features/home/widgets/qr_map_row.dart:85:        borderRadius: BorderRadius.circular(18),
+lib/features/home/widgets/qr_map_row.dart:161:        border: Border.all(color: AppColors.border),
+lib/features/home/widgets/qr_map_row.dart:162:        borderRadius: BorderRadius.circular(18),
+lib/features/home/widgets/qr_map_row.dart:241:                        side: const BorderSide(
+lib/features/home/widgets/qr_map_row.dart:242:                          color: AppColors.border,
+lib/features/home/widgets/qr_map_row.dart:245:                        shape: RoundedRectangleBorder(
+lib/features/home/widgets/qr_map_row.dart:246:                          borderRadius: BorderRadius.circular(999),
+lib/features/home/widgets/product_sections.dart:40:  static const _orderAgain = <_HomeProduct>[
+lib/features/home/widgets/product_sections.dart:138:          title: 'Order Again',
+lib/features/home/widgets/product_sections.dart:143:          products: _orderAgain,
+lib/features/home/widgets/product_sections.dart:295:        borderRadius: BorderRadius.circular(16),
+lib/features/home/widgets/product_sections.dart:296:        border: Border.all(color: AppColors.border),
+lib/features/home/widgets/product_sections.dart:332:                        borderRadius: BorderRadius.circular(999),
+lib/features/home/widgets/product_sections.dart:333:                        border: Border.all(
+lib/features/home/widgets/product_sections.dart:439:              buttonLabel: 'Order Now',
+lib/features/home/widgets/product_sections.dart:484:      borderRadius: BorderRadius.circular(18),
+lib/features/home/widgets/product_sections.dart:628:        borderRadius: BorderRadius.circular(20),
+lib/features/home/widgets/product_sections.dart:633:              'assets/images/home/sections/final_membership_banner.png',
+lib/features/home/widgets/product_sections.dart:660:                          'GETIN MEMBERSHIP',
+lib/features/home/widgets/home_header.dart:28:        borderRadius: BorderRadius.vertical(
+lib/features/home/widgets/home_header.dart:128:              borderRadius: BorderRadius.circular(16),
+lib/features/home/widgets/home_header.dart:129:              border: Border.all(
+lib/features/home/widgets/home_header.dart:159:              borderRadius: BorderRadius.circular(16),
+lib/features/home/widgets/home_header.dart:212:      borderRadius: BorderRadius.circular(999),
+lib/features/home/widgets/home_header.dart:215:        borderRadius: BorderRadius.circular(999),
+lib/features/home/widgets/home_header.dart:245:      borderRadius: BorderRadius.circular(12),
+lib/features/home/widgets/home_header.dart:248:        borderRadius: BorderRadius.circular(12),
+lib/features/auth/phone_login_screen.dart:105:                  border: Border.all(color: AppColors.border),
+lib/features/auth/phone_login_screen.dart:106:                  borderRadius: BorderRadius.circular(16),
+lib/features/auth/phone_login_screen.dart:124:                          border: InputBorder.none,
+lib/features/auth/sign_up_screen.dart:14:      enabledBorder: OutlineInputBorder(
+lib/features/auth/sign_up_screen.dart:15:        borderRadius: BorderRadius.circular(16),
+lib/features/auth/sign_up_screen.dart:16:        borderSide: const BorderSide(color: AppColors.border),
+lib/features/auth/sign_up_screen.dart:18:      focusedBorder: OutlineInputBorder(
+lib/features/auth/sign_up_screen.dart:19:        borderRadius: BorderRadius.circular(16),
+lib/features/auth/sign_up_screen.dart:20:        borderSide: const BorderSide(color: AppColors.green),
+lib/features/auth/sign_up_screen.dart:50:                'Create your Getin Coffee account and order your way.',
+lib/features/auth/otp_screen.dart:79:                          border: OutlineInputBorder(),
+lib/features/auth/sign_in_screen.dart:29:      enabledBorder: OutlineInputBorder(
+lib/features/auth/sign_in_screen.dart:30:        borderRadius: BorderRadius.circular(16),
+lib/features/auth/sign_in_screen.dart:31:        borderSide: const BorderSide(color: AppColors.border),
+lib/features/auth/sign_in_screen.dart:33:      focusedBorder: OutlineInputBorder(
+lib/features/auth/sign_in_screen.dart:34:        borderRadius: BorderRadius.circular(16),
+lib/features/auth/sign_in_screen.dart:35:        borderSide: const BorderSide(color: AppColors.green),
+lib/features/location/branch_list_screen.dart:46:            borderRadius: BorderRadius.circular(18),
+lib/features/location/branch_list_screen.dart:48:              borderRadius: BorderRadius.circular(18),
+lib/features/location/branch_list_screen.dart:59:                        borderRadius: BorderRadius.circular(16),
+lib/features/location/branch_map_screen.dart:159:                    shape: RoundedRectangleBorder(
+lib/features/location/branch_map_screen.dart:160:                      borderRadius: BorderRadius.circular(16),
+lib/features/location/location_permission_screen.dart:120:        builder: (_) => HomeShell(
+lib/features/location/location_permission_screen.dart:232:                        border: Border.all(
+lib/features/location/location_permission_screen.dart:233:                          color: AppColors.border,
+lib/features/location/location_permission_screen.dart:235:                        borderRadius: BorderRadius.circular(16),
+lib/features/location/location_permission_screen.dart:296:                          shape: RoundedRectangleBorder(
+lib/features/location/location_permission_screen.dart:297:                            borderRadius: BorderRadius.circular(16),
+lib/features/location/location_permission_screen.dart:317:                          side: const BorderSide(
+lib/features/location/location_permission_screen.dart:320:                          shape: RoundedRectangleBorder(
+lib/features/location/location_permission_screen.dart:321:                            borderRadius: BorderRadius.circular(16),
+lib/features/location/location_permission_screen.dart:349:        borderRadius: BorderRadius.circular(16),
+lib/features/location/location_permission_screen.dart:397:      borderRadius: BorderRadius.circular(12),
+lib/features/location/location_permission_screen.dart:400:        borderRadius: BorderRadius.circular(12),
+lib/features/qr/qr_scanner_screen.dart:96:                borderRadius: BorderRadius.circular(26),
+lib/features/qr/qr_scanner_screen.dart:97:                border: Border.all(
+lib/features/onboarding/onboarding_screen.dart:26:      title: 'Order Your Way',
+lib/features/onboarding/onboarding_screen.dart:155:                          borderRadius: BorderRadius.circular(99),
+lib/features/onboarding/onboarding_screen.dart:169:                        shape: RoundedRectangleBorder(
+lib/features/onboarding/onboarding_screen.dart:170:                          borderRadius: BorderRadius.circular(16),
+lib/core/theme/app_colors.dart:11:  static const Color border = Color(0xFFE5E1D8);
+lib/core/widgets/getin_logo.dart:17:        borderRadius: BorderRadius.circular(size * 0.22),
+lib/core/widgets/getin_primary_button.dart:34:          shape: RoundedRectangleBorder(
+lib/core/widgets/getin_primary_button.dart:35:            borderRadius: BorderRadius.circular(16),
+
+===== QR MAP ROW GREP =====
+lib/features/home/home_shell.dart:10:  final double distanceKm;
+lib/features/home/home_shell.dart:18:    required this.distanceKm,
+lib/features/home/home_shell.dart:39:  void _changeService(String value) {
+lib/features/home/home_shell.dart:64:        onBranchChanged: (value) {
+lib/features/home/home_shell.dart:67:        onServiceChanged: _changeService,
+lib/features/home/home_screen.dart:5:import '../location/branch_map_screen.dart';
+lib/features/home/home_screen.dart:14:import 'widgets/qr_map_row.dart';
+lib/features/home/home_screen.dart:22:  final ValueChanged<Branch> onBranchChanged;
+lib/features/home/home_screen.dart:23:  final ValueChanged<String> onServiceChanged;
+lib/features/home/home_screen.dart:31:    required this.onBranchChanged,
+lib/features/home/home_screen.dart:32:    required this.onServiceChanged,
+lib/features/home/home_screen.dart:45:    final selectedDistance = branchService.distanceKm(
+lib/features/home/home_screen.dart:65:        onBranchChanged(selected);
+lib/features/home/home_screen.dart:79:                distanceKm: selectedDistance,
+lib/features/home/home_screen.dart:83:                onServiceChanged: onServiceChanged,
+lib/features/home/home_screen.dart:99:                      onBranchSelected: onBranchChanged,
+lib/features/home/home_screen.dart:113:                    QrMapRow(
+lib/features/home/home_screen.dart:115:                      distanceKm: selectedDistance,
+lib/features/home/home_screen.dart:124:                      onOpenMap: () {
+lib/features/home/home_screen.dart:128:                            builder: (_) => BranchMapScreen(
+lib/features/home/home_screen.dart:136:                      onChangeBranch: chooseBranch,
+lib/features/home/widgets/hero_carousel.dart:43:              onPageChanged: (value) {
+lib/features/home/widgets/nearest_branches_section.dart:10:  final ValueChanged<Branch> onBranchSelected;
+lib/features/home/widgets/nearest_branches_section.dart:215:                            '${item.distanceKm.toStringAsFixed(1)} km',
+lib/features/home/widgets/qr_map_row.dart:2:import 'package:flutter_map/flutter_map.dart';
+lib/features/home/widgets/qr_map_row.dart:7:class QrMapRow extends StatelessWidget {
+lib/features/home/widgets/qr_map_row.dart:9:  final double distanceKm;
+lib/features/home/widgets/qr_map_row.dart:11:  final VoidCallback onOpenMap;
+lib/features/home/widgets/qr_map_row.dart:12:  final VoidCallback onChangeBranch;
+lib/features/home/widgets/qr_map_row.dart:14:  const QrMapRow({
+lib/features/home/widgets/qr_map_row.dart:17:    required this.distanceKm,
+lib/features/home/widgets/qr_map_row.dart:19:    required this.onOpenMap,
+lib/features/home/widgets/qr_map_row.dart:20:    required this.onChangeBranch,
+lib/features/home/widgets/qr_map_row.dart:34:              _MapCard(
+lib/features/home/widgets/qr_map_row.dart:36:                distanceKm: distanceKm,
+lib/features/home/widgets/qr_map_row.dart:37:                onOpenMap: onOpenMap,
+lib/features/home/widgets/qr_map_row.dart:38:                onChangeBranch: onChangeBranch,
+lib/features/home/widgets/qr_map_row.dart:56:                child: _MapCard(
+lib/features/home/widgets/qr_map_row.dart:58:                  distanceKm: distanceKm,
+lib/features/home/widgets/qr_map_row.dart:59:                  onOpenMap: onOpenMap,
+lib/features/home/widgets/qr_map_row.dart:60:                  onChangeBranch: onChangeBranch,
+lib/features/home/widgets/qr_map_row.dart:106:                      'Scan QR',
+lib/features/home/widgets/qr_map_row.dart:137:class _MapCard extends StatelessWidget {
+lib/features/home/widgets/qr_map_row.dart:139:  final double distanceKm;
+lib/features/home/widgets/qr_map_row.dart:140:  final VoidCallback onOpenMap;
+lib/features/home/widgets/qr_map_row.dart:141:  final VoidCallback onChangeBranch;
+lib/features/home/widgets/qr_map_row.dart:143:  const _MapCard({
+lib/features/home/widgets/qr_map_row.dart:145:    required this.distanceKm,
+lib/features/home/widgets/qr_map_row.dart:146:    required this.onOpenMap,
+lib/features/home/widgets/qr_map_row.dart:147:    required this.onChangeBranch,
+lib/features/home/widgets/qr_map_row.dart:170:              onTap: onOpenMap,
+lib/features/home/widgets/qr_map_row.dart:172:                child: FlutterMap(
+lib/features/home/widgets/qr_map_row.dart:173:                  options: MapOptions(
+lib/features/home/widgets/qr_map_row.dart:183:                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+lib/features/home/widgets/qr_map_row.dart:227:                    '${distanceKm.toStringAsFixed(1)} km away',
+lib/features/home/widgets/qr_map_row.dart:238:                      onPressed: onChangeBranch,
+lib/features/home/widgets/qr_map_row.dart:250:                        'Change',
+lib/features/home/widgets/product_sections.dart:77:      name: 'Maple Croissant',
+lib/features/home/widgets/product_sections.dart:80:      image: 'assets/images/home/sections/maple_croissant.png',
+lib/features/home/widgets/home_header.dart:7:  final double distanceKm;
+lib/features/home/widgets/home_header.dart:11:  final ValueChanged<String> onServiceChanged;
+lib/features/home/widgets/home_header.dart:16:    required this.distanceKm,
+lib/features/home/widgets/home_header.dart:20:    required this.onServiceChanged,
+lib/features/home/widgets/home_header.dart:109:                  '${branch.name} • ${distanceKm.toStringAsFixed(1)} km',
+lib/features/home/widgets/home_header.dart:140:                    onTap: () => onServiceChanged('delivery'),
+lib/features/home/widgets/home_header.dart:148:                    onTap: () => onServiceChanged('pickup'),
+lib/features/location/branch_list_screen.dart:81:                            '${item.distanceKm.toStringAsFixed(1)} km away',
+lib/features/location/branch_map_screen.dart:2:import 'package:flutter_map/flutter_map.dart';
+lib/features/location/branch_map_screen.dart:8:class BranchMapScreen extends StatelessWidget {
+lib/features/location/branch_map_screen.dart:13:  const BranchMapScreen({
+lib/features/location/branch_map_screen.dart:33:      body: FlutterMap(
+lib/features/location/branch_map_screen.dart:34:        options: MapOptions(
+lib/features/location/branch_map_screen.dart:40:            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+lib/features/location/branch_map_screen.dart:49:                child: const _MapMarker(
+lib/features/location/branch_map_screen.dart:59:                child: const _MapMarker(
+lib/features/location/branch_map_screen.dart:73:class MapPickerScreen extends StatefulWidget {
+lib/features/location/branch_map_screen.dart:76:  const MapPickerScreen({
+lib/features/location/branch_map_screen.dart:82:  State<MapPickerScreen> createState() => _MapPickerScreenState();
+lib/features/location/branch_map_screen.dart:85:class _MapPickerScreenState extends State<MapPickerScreen> {
+lib/features/location/branch_map_screen.dart:99:        title: const Text('Choose on Map'),
+lib/features/location/branch_map_screen.dart:107:            child: FlutterMap(
+lib/features/location/branch_map_screen.dart:108:              options: MapOptions(
+lib/features/location/branch_map_screen.dart:119:                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+lib/features/location/branch_map_screen.dart:128:                      child: const _MapMarker(
+lib/features/location/branch_map_screen.dart:173:class _MapMarker extends StatelessWidget {
+lib/features/location/branch_map_screen.dart:178:  const _MapMarker({
+lib/features/location/services/branch_service.dart:8:  final double distanceKm;
+lib/features/location/services/branch_service.dart:12:    required this.distanceKm,
+lib/features/location/services/branch_service.dart:81:        .map(
+lib/features/location/services/branch_service.dart:84:            distanceKm: distanceKm(
+lib/features/location/services/branch_service.dart:93:    result.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+lib/features/location/services/branch_service.dart:97:  double distanceKm({
+lib/features/location/location_permission_screen.dart:2:import 'package:flutter_map/flutter_map.dart';
+lib/features/location/location_permission_screen.dart:7:import 'branch_map_screen.dart';
+lib/features/location/location_permission_screen.dart:25:  final _mapController = MapController();
+lib/features/location/location_permission_screen.dart:43:      _mapController.move(point, 15.0);
+lib/features/location/location_permission_screen.dart:72:  Future<void> _chooseOnMap() async {
+lib/features/location/location_permission_screen.dart:76:        builder: (_) => MapPickerScreen(
+lib/features/location/location_permission_screen.dart:89:    _mapController.move(selected, 15.0);
+lib/features/location/location_permission_screen.dart:111:    final distance = _branchService.distanceKm(
+lib/features/location/location_permission_screen.dart:123:          distanceKm: distance,
+lib/features/location/location_permission_screen.dart:143:                    child: FlutterMap(
+lib/features/location/location_permission_screen.dart:144:                      mapController: _mapController,
+lib/features/location/location_permission_screen.dart:145:                      options: MapOptions(
+lib/features/location/location_permission_screen.dart:155:                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+lib/features/location/location_permission_screen.dart:192:                    child: _MapTopCard(),
+lib/features/location/location_permission_screen.dart:220:                      'Choose delivery or pickup, then use your current location or select a point on the map.',
+lib/features/location/location_permission_screen.dart:307:                        onPressed: _chooseOnMap,
+lib/features/location/location_permission_screen.dart:308:                        icon: const Icon(Icons.map_outlined),
+lib/features/location/location_permission_screen.dart:310:                          'Choose on Map',
+lib/features/location/location_permission_screen.dart:337:class _MapTopCard extends StatelessWidget {
+lib/features/location/location_permission_screen.dart:338:  const _MapTopCard();
+
+===== FLUTTER VERSION =====
+Flutter 3.22.3 • channel [user-branch] • unknown source
+Framework • revision b0850beeb2 (2 years, 2 months ago) • 2024-07-16 21:43:41 -0700
+Engine • revision 235db911ba
+Tools • Dart 3.4.4 • DevTools 2.34.3
+
+===== GIT STATUS =====

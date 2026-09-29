@@ -1,0 +1,45 @@
+name: getin_coffee
+description: "Getin Coffee Customer App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.4 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+  video_player: ^2.9.5
+  shared_preferences: ^2.3.3
+  share_plus: 10.1.4
+  image_picker: ^1.1.2
+  path_provider: ^2.1.5
+  geolocator: ^13.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  mobile_scanner: 5.2.3
+  country_picker: ^2.0.27
+  speech_to_text: 6.6.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/profile/
+    - assets/images/membership/
+    - assets/images/home/sections/
+    - assets/images/products/
+    - assets/images/categories/
+    - assets/images/branches/
+    - assets/images/home/
+    - assets/videos/getin_splash_compat.mp4
+    - assets/images/

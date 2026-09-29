@@ -1,0 +1,4069 @@
+GETIN COFFEE CART + CHECKOUT DISCOVERY
+Generated: Sun Sep 20 14:35:07 EEST 2026
+
+
+================================================================
+FILE: lib/features/home/home_screen.dart
+================================================================
+import 'package:flutter/material.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../location/branch_list_screen.dart';
+import '../location/branch_map_screen.dart';
+import '../location/models/branch.dart';
+import '../location/services/branch_service.dart';
+import '../qr/qr_scanner_screen.dart';
+import 'widgets/hero_carousel.dart';
+import 'widgets/home_header.dart';
+import 'widgets/menu_categories_section.dart';
+import 'widgets/nearest_branches_section.dart';
+import 'widgets/product_sections.dart';
+import 'widgets/qr_map_row.dart';
+import 'widgets/rewards_progress_card.dart';
+
+class HomeScreen extends StatelessWidget {
+  final Branch branch;
+  final String serviceType;
+  final double userLatitude;
+  final double userLongitude;
+  final ValueChanged<Branch> onBranchChanged;
+  final ValueChanged<String> onServiceChanged;
+
+  const HomeScreen({
+    super.key,
+    required this.branch,
+    required this.serviceType,
+    required this.userLatitude,
+    required this.userLongitude,
+    required this.onBranchChanged,
+    required this.onServiceChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final branchService = BranchService();
+
+    final nearbyBranches = branchService.nearbyBranches(
+      latitude: userLatitude,
+      longitude: userLongitude,
+      serviceType: serviceType,
+    );
+
+    final selectedDistance = branchService.distanceKm(
+      latitude: userLatitude,
+      longitude: userLongitude,
+      branch: branch,
+    );
+
+    Future<void> chooseBranch() async {
+      final selected = await Navigator.push<Branch>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BranchListScreen(
+            userLatitude: userLatitude,
+            userLongitude: userLongitude,
+            serviceType: serviceType,
+            selectedBranch: branch,
+          ),
+        ),
+      );
+
+      if (selected != null) {
+        onBranchChanged(selected);
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: HomeHeader(
+                branch: branch,
+                distanceKm: selectedDistance,
+                serviceType: serviceType,
+                stars: 120,
+                onNotification: () {},
+                onServiceChanged: onServiceChanged,
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                15,
+                16,
+                28,
+              ),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate(
+                  [
+                    NearestBranchesSection(
+                      branches: nearbyBranches,
+                      selectedBranch: branch,
+                      onBranchSelected: onBranchChanged,
+                      onViewAll: chooseBranch,
+                    ),
+                    const SizedBox(
+                      height: 15,
+                    ),
+                    RewardsProgressCard(
+                      stars: 120,
+                      targetStars: 150,
+                      onTap: () {},
+                    ),
+                    const SizedBox(
+                      height: 15,
+                    ),
+                    QrMapRow(
+                      branch: branch,
+                      distanceKm: selectedDistance,
+                      onScanQr: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const QrScannerScreen(),
+                          ),
+                        );
+                      },
+                      onOpenMap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BranchMapScreen(
+                              branch: branch,
+                              userLatitude: userLatitude,
+                              userLongitude: userLongitude,
+                            ),
+                          ),
+                        );
+                      },
+                      onChangeBranch: chooseBranch,
+                    ),
+                    const SizedBox(
+                      height: 15,
+                    ),
+                    const HeroCarousel(),
+                    const SizedBox(
+                      height: 18,
+                    ),
+                    const MenuCategoriesSection(),
+                    const SizedBox(
+                      height: 18,
+                    ),
+                    ProductSections(
+                      branchName: branch.name,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+================================================================
+FILE: lib/features/home/widgets/home_header.dart
+================================================================
+import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../location/models/branch.dart';
+
+class HomeHeader extends StatelessWidget {
+  final Branch branch;
+  final double distanceKm;
+  final String serviceType;
+  final int stars;
+  final VoidCallback onNotification;
+  final ValueChanged<String> onServiceChanged;
+
+  const HomeHeader({
+    super.key,
+    required this.branch,
+    required this.distanceKm,
+    required this.serviceType,
+    required this.stars,
+    required this.onNotification,
+    required this.onServiceChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.green,
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(28),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Good morning',
+                  style: TextStyle(
+                    color: AppColors.beige,
+                    fontSize: 27,
+                    height: 1,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+              ),
+              _HeaderAction(
+                onTap: onNotification,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(
+                      Icons.notifications_none_rounded,
+                      color: AppColors.beige,
+                    ),
+                    Positioned(
+                      right: -1,
+                      top: -1,
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF07A77),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _HeaderAction(
+                onTap: () {},
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.star_rounded,
+                      color: AppColors.gold,
+                      size: 21,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$stars',
+                      style: const TextStyle(
+                        color: AppColors.beige,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                color: AppColors.beige,
+                size: 19,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  '${branch.name} • ${distanceKm.toStringAsFixed(1)} km',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.beige,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ModeButton(
+                    label: 'Delivery',
+                    icon: Icons.delivery_dining_rounded,
+                    selected: serviceType == 'delivery',
+                    onTap: () => onServiceChanged('delivery'),
+                  ),
+                ),
+                Expanded(
+                  child: _ModeButton(
+                    label: 'Pickup',
+                    icon: Icons.shopping_bag_outlined,
+                    selected: serviceType == 'pickup',
+                    onTap: () => onServiceChanged('pickup'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(width: 14),
+                Icon(
+                  Icons.search_rounded,
+                  color: AppColors.green,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Search for drinks, food, or more...',
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppColors.cream,
+                    child: Icon(
+                      Icons.tune_rounded,
+                      color: AppColors.green,
+                      size: 19,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderAction extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _HeaderAction({
+    required this.onTap,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModeButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.beige : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: selected ? AppColors.green : AppColors.beige,
+                size: 20,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? AppColors.green : AppColors.beige,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+================================================================
+FILE: lib/features/home/home_shell.dart
+================================================================
+import 'package:flutter/material.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../location/models/branch.dart';
+import '../location/services/branch_service.dart';
+import '../menu/menu_screen.dart';
+import '../membership/membership_screen.dart';
+import '../orders/orders_screen.dart';
+import '../profile/profile_screen.dart';
+import 'home_screen.dart';
+
+class HomeShell extends StatefulWidget {
+  final Branch branch;
+  final String serviceType;
+  final double distanceKm;
+  final double userLatitude;
+  final double userLongitude;
+
+  const HomeShell({
+    super.key,
+    required this.branch,
+    required this.serviceType,
+    required this.distanceKm,
+    required this.userLatitude,
+    required this.userLongitude,
+  });
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  int _index = 0;
+  late Branch _branch;
+  late String _serviceType;
+
+  @override
+  void initState() {
+    super.initState();
+    _branch = widget.branch;
+    _serviceType = widget.serviceType;
+  }
+
+  void _changeService(String value) {
+    if (_serviceType == value) return;
+
+    final nearest = BranchService().nearest(
+      latitude: widget.userLatitude,
+      longitude: widget.userLongitude,
+      serviceType: value,
+    );
+
+    setState(() {
+      _serviceType = value;
+      if (nearest != null) {
+        _branch = nearest;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      HomeScreen(
+        branch: _branch,
+        serviceType: _serviceType,
+        userLatitude: widget.userLatitude,
+        userLongitude: widget.userLongitude,
+        onBranchChanged: (value) {
+          setState(() => _branch = value);
+        },
+        onServiceChanged: _changeService,
+      ),
+      MenuScreen(
+        branch: _branch,
+        serviceType: _serviceType,
+      ),
+      OrdersScreen(
+        branch: _branch,
+      ),
+      const MembershipScreen(),
+      ProfileScreen(
+        onOpenOrders: () {
+          setState(() => _index = 2);
+        },
+        onOpenMembership: () {
+          setState(() => _index = 3);
+        },
+      ),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(
+        index: _index,
+        children: pages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) {
+          setState(() => _index = value);
+        },
+        backgroundColor: Colors.white,
+        indicatorColor: AppColors.beige,
+        height: 68,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.local_cafe_outlined),
+            selectedIcon: Icon(Icons.local_cafe_rounded),
+            label: 'Menu',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.shopping_bag_outlined),
+            selectedIcon: Icon(Icons.shopping_bag_rounded),
+            label: 'Orders',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.workspace_premium_outlined),
+            selectedIcon: Icon(Icons.workspace_premium_rounded),
+            label: 'Membership',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+================================================================
+FILE: lib/features/product/product_detail_screen.dart
+================================================================
+import 'package:flutter/material.dart';
+
+import '../../core/theme/app_colors.dart';
+
+class ProductDetailScreen extends StatefulWidget {
+  final String name;
+  final String description;
+  final String image;
+  final String price;
+  final String branchName;
+  final String serviceType;
+
+  const ProductDetailScreen({
+    super.key,
+    required this.name,
+    required this.description,
+    required this.image,
+    required this.price,
+    required this.branchName,
+    required this.serviceType,
+  });
+
+  @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  String? _size;
+  String? _temperature;
+  String? _milk;
+  String _strength = 'Regular';
+  String _sweetness = 'Regular';
+  int _quantity = 1;
+
+  final Set<String> _addOns = <String>{};
+
+  double get _basePrice {
+    final match = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(widget.price);
+    return double.tryParse(match?.group(1) ?? '') ?? 65;
+  }
+
+  bool get _requiredComplete {
+    return _size != null && _temperature != null && _milk != null;
+  }
+
+  double get _unitTotal {
+    var value = _basePrice;
+
+    if (_size == 'Large') {
+      value += 10;
+    }
+
+    if (_milk == 'Oat Milk' || _milk == 'Coconut Milk') {
+      value += 15;
+    }
+
+    if (_strength == 'Extra Shot') {
+      value += 20;
+    }
+
+    const addOnPrices = <String, double>{
+      'Vanilla': 20,
+      'Caramel': 20,
+      'Hazelnut': 20,
+      'Chocolate Drizzle': 20,
+      'Extra Espresso': 25,
+    };
+
+    for (final addOn in _addOns) {
+      value += addOnPrices[addOn] ?? 0;
+    }
+
+    return value;
+  }
+
+  double get _total => _unitTotal * _quantity;
+
+  void _applyQuickChoice({
+    required String size,
+    required String temperature,
+    required String milk,
+    required String strength,
+    required String sweetness,
+  }) {
+    setState(() {
+      _size = size;
+      _temperature = temperature;
+      _milk = milk;
+      _strength = strength;
+      _sweetness = sweetness;
+      _addOns.clear();
+    });
+  }
+
+  String _money(double value) {
+    final whole = value == value.roundToDouble();
+    return whole
+        ? 'EGP ${value.toStringAsFixed(0)}'
+        : 'EGP ${value.toStringAsFixed(2)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shortBranch = widget.branchName.replaceFirst(
+      'Getin ',
+      '',
+    );
+
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _HeroSection(
+                      image: widget.image,
+                      name: widget.name,
+                      description: widget.description,
+                      price: widget.price,
+                      branchName: shortBranch,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        18,
+                        16,
+                        0,
+                      ),
+                      child: _QuickChoices(
+                        onPopular: () {
+                          _applyQuickChoice(
+                            size: 'Large',
+                            temperature: 'Iced',
+                            milk: 'Coconut Milk',
+                            strength: 'Regular',
+                            sweetness: 'Regular',
+                          );
+                        },
+                        onClassic: () {
+                          _applyQuickChoice(
+                            size: 'Regular',
+                            temperature: 'Iced',
+                            milk: 'Low Fat',
+                            strength: 'Regular',
+                            sweetness: 'No Sugar',
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        20,
+                        16,
+                        0,
+                      ),
+                      child: _RequiredSingleChoiceSection(
+                        title: 'Size',
+                        subtitle: 'Choose 1',
+                        selected: _size,
+                        choices: const [
+                          _SingleChoice(
+                            title: 'Regular',
+                            subtitle: '350 ml',
+                          ),
+                          _SingleChoice(
+                            title: 'Large',
+                            subtitle: '450 ml',
+                            surcharge: '+ EGP 10',
+                          ),
+                        ],
+                        onSelected: (value) {
+                          setState(() => _size = value);
+                        },
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        18,
+                        16,
+                        0,
+                      ),
+                      child: _RequiredSingleChoiceSection(
+                        title: 'Temperature',
+                        subtitle: 'Choose 1',
+                        selected: _temperature,
+                        choices: const [
+                          _SingleChoice(
+                            title: 'Iced',
+                            icon: Icons.ac_unit_rounded,
+                          ),
+                          _SingleChoice(
+                            title: 'Hot',
+                            icon: Icons.local_fire_department_outlined,
+                          ),
+                        ],
+                        onSelected: (value) {
+                          setState(() => _temperature = value);
+                        },
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        18,
+                        16,
+                        0,
+                      ),
+                      child: _RequiredSingleChoiceSection(
+                        title: 'Milk',
+                        subtitle: 'Choose 1',
+                        selected: _milk,
+                        choices: const [
+                          _SingleChoice(title: 'Full Fat'),
+                          _SingleChoice(title: 'Low Fat'),
+                          _SingleChoice(
+                            title: 'Oat Milk',
+                            surcharge: '+ EGP 15',
+                          ),
+                          _SingleChoice(
+                            title: 'Coconut Milk',
+                            surcharge: '+ EGP 15',
+                          ),
+                        ],
+                        onSelected: (value) {
+                          setState(() => _milk = value);
+                        },
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        18,
+                        16,
+                        0,
+                      ),
+                      child: _OptionalSingleChoiceSection(
+                        title: 'Coffee Strength',
+                        selected: _strength,
+                        choices: const [
+                          _SingleChoice(title: 'Regular'),
+                          _SingleChoice(
+                            title: 'Extra Shot',
+                            surcharge: '+ EGP 20',
+                          ),
+                        ],
+                        onSelected: (value) {
+                          setState(() => _strength = value);
+                        },
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        18,
+                        16,
+                        0,
+                      ),
+                      child: _OptionalSingleChoiceSection(
+                        title: 'Sweetness',
+                        selected: _sweetness,
+                        choices: const [
+                          _SingleChoice(title: 'No Sugar'),
+                          _SingleChoice(title: 'Less Sweet'),
+                          _SingleChoice(title: 'Regular'),
+                          _SingleChoice(title: 'Extra Sweet'),
+                        ],
+                        onSelected: (value) {
+                          setState(() => _sweetness = value);
+                        },
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        18,
+                        16,
+                        0,
+                      ),
+                      child: _AddOnsSection(
+                        selected: _addOns,
+                        onChanged: (name, checked) {
+                          setState(() {
+                            if (checked) {
+                              _addOns.add(name);
+                            } else {
+                              _addOns.remove(name);
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        22,
+                        16,
+                        0,
+                      ),
+                      child: _OftenOrderedWith(),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        22,
+                        16,
+                        24,
+                      ),
+                      child: _ProductInformation(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _StickyCartBar(
+              quantity: _quantity,
+              enabled: _requiredComplete,
+              total: _money(_total),
+              onDecrease: () {
+                if (_quantity <= 1) return;
+                setState(() => _quantity -= 1);
+              },
+              onIncrease: () {
+                setState(() => _quantity += 1);
+              },
+              onAdd: () {
+                if (!_requiredComplete) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${widget.name} added to cart · ${_money(_total)}',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroSection extends StatelessWidget {
+  final String image;
+  final String name;
+  final String description;
+  final String price;
+  final String branchName;
+
+  const _HeroSection({
+    required this.image,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.branchName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Stack(
+          children: [
+            Container(
+              height: 320,
+              width: double.infinity,
+              color: Colors.white,
+              alignment: Alignment.center,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Image.asset(
+                  image,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 14,
+              child: _RoundIconButton(
+                icon: Icons.arrow_back_rounded,
+                onTap: () => Navigator.pop(context),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 60,
+              child: _RoundIconButton(
+                icon: Icons.favorite_border_rounded,
+                onTap: () {},
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 14,
+              child: _RoundIconButton(
+                icon: Icons.share_outlined,
+                onTap: () {},
+              ),
+            ),
+          ],
+        ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            17,
+            16,
+            16,
+          ),
+          color: AppColors.cream,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.45,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.beige,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'BEST SELLER',
+                      style: TextStyle(
+                        color: AppColors.green,
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Text(
+                description,
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 11.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 13),
+              Row(
+                children: [
+                  Text(
+                    price,
+                    style: const TextStyle(
+                      color: AppColors.green,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  const Text(
+                    'EGP 75',
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 11,
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.beige,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'Member Price',
+                      style: TextStyle(
+                        color: AppColors.green,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.star_rounded,
+                    color: Color(0xFFD2A64A),
+                    size: 18,
+                  ),
+                  SizedBox(width: 5),
+                  Text(
+                    'Earn 120 Stars',
+                    style: TextStyle(
+                      color: AppColors.green,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      color: AppColors.green,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Getin $branchName',
+                            style: const TextStyle(
+                              color: AppColors.green,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            '0.4 km away · Open now',
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE7F2E9),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'Available',
+                        style: TextStyle(
+                          color: AppColors.green,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _RoundIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(0.92),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(
+            icon,
+            color: AppColors.green,
+            size: 21,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickChoices extends StatelessWidget {
+  final VoidCallback onPopular;
+  final VoidCallback onClassic;
+
+  const _QuickChoices({
+    required this.onPopular,
+    required this.onClassic,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Try these quick choices',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                'Ready to go',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            'Popular combinations you can use instantly.',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 9.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _QuickChoiceCard(
+                  label: 'MOST POPULAR',
+                  lines: const [
+                    'Large',
+                    'Iced',
+                    'Coconut Milk',
+                    'Regular Sweetness',
+                  ],
+                  onTap: onPopular,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: _QuickChoiceCard(
+                  label: 'CLASSIC',
+                  lines: const [
+                    'Regular',
+                    'Iced',
+                    'Low Fat Milk',
+                    'No Sugar',
+                  ],
+                  onTap: onClassic,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickChoiceCard extends StatelessWidget {
+  final String label;
+  final List<String> lines;
+  final VoidCallback onTap;
+
+  const _QuickChoiceCard({
+    required this.label,
+    required this.lines,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 7,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.beige,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.green,
+                fontSize: 7.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(height: 9),
+          ...lines.map(
+            (line) => Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                line,
+                style: const TextStyle(
+                  color: AppColors.green,
+                  fontSize: 9.2,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 34,
+            child: FilledButton(
+              onPressed: onTap,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.green,
+                foregroundColor: AppColors.beige,
+                padding: EdgeInsets.zero,
+              ),
+              child: const Text(
+                'Use this',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RequiredSingleChoiceSection extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String? selected;
+  final List<_SingleChoice> choices;
+  final ValueChanged<String> onSelected;
+
+  const _RequiredSingleChoiceSection({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.choices,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChoiceSection(
+      title: title,
+      subtitle: subtitle,
+      badge: 'Required',
+      child: _ChoiceWrap(
+        selected: selected,
+        choices: choices,
+        onSelected: onSelected,
+      ),
+    );
+  }
+}
+
+class _OptionalSingleChoiceSection extends StatelessWidget {
+  final String title;
+  final String selected;
+  final List<_SingleChoice> choices;
+  final ValueChanged<String> onSelected;
+
+  const _OptionalSingleChoiceSection({
+    required this.title,
+    required this.selected,
+    required this.choices,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChoiceSection(
+      title: title,
+      badge: 'Optional',
+      child: _ChoiceWrap(
+        selected: selected,
+        choices: choices,
+        onSelected: onSelected,
+      ),
+    );
+  }
+}
+
+class _ChoiceSection extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final String badge;
+  final Widget child;
+
+  const _ChoiceSection({
+    required this.title,
+    required this.badge,
+    required this.child,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.green,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      badge == 'Required' ? AppColors.green : AppColors.beige,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    color:
+                        badge == 'Required' ? AppColors.beige : AppColors.green,
+                    fontSize: 7.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 9.5,
+              ),
+            ),
+          ],
+          const SizedBox(height: 11),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ChoiceWrap extends StatelessWidget {
+  final String? selected;
+  final List<_SingleChoice> choices;
+  final ValueChanged<String> onSelected;
+
+  const _ChoiceWrap({
+    required this.selected,
+    required this.choices,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final width = (constraints.maxWidth - gap) / 2;
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: choices
+              .map(
+                (choice) => SizedBox(
+                  width: width,
+                  child: _ChoiceTile(
+                    choice: choice,
+                    selected: selected == choice.title,
+                    onTap: () => onSelected(choice.title),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _ChoiceTile extends StatelessWidget {
+  final _SingleChoice choice;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ChoiceTile({
+    required this.choice,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.beige.withOpacity(0.33) : Colors.white,
+      borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(13),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 76),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: selected ? AppColors.green : AppColors.border,
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 19,
+                height: 19,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.green : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? AppColors.green : AppColors.muted,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: AppColors.beige,
+                        size: 12,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (choice.icon != null) ...[
+                          Icon(
+                            choice.icon,
+                            color: AppColors.green,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                        Expanded(
+                          child: Text(
+                            choice.title,
+                            style: const TextStyle(
+                              color: AppColors.green,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (choice.subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        choice.subtitle!,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 8.5,
+                        ),
+                      ),
+                    ],
+                    if (choice.surcharge != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        choice.surcharge!,
+                        style: const TextStyle(
+                          color: AppColors.green,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddOnsSection extends StatelessWidget {
+  final Set<String> selected;
+  final void Function(String name, bool checked) onChanged;
+
+  const _AddOnsSection({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  static const addOns = <_AddOn>[
+    _AddOn('Vanilla', '+ EGP 20'),
+    _AddOn('Caramel', '+ EGP 20'),
+    _AddOn('Hazelnut', '+ EGP 20'),
+    _AddOn('Chocolate Drizzle', '+ EGP 20'),
+    _AddOn('Extra Espresso', '+ EGP 25'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Add-ons',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                'Optional',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 9,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          ...addOns.asMap().entries.map(
+            (entry) {
+              final item = entry.value;
+              final checked = selected.contains(item.name);
+
+              return Column(
+                children: [
+                  InkWell(
+                    onTap: () => onChanged(
+                      item.name,
+                      !checked,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              style: const TextStyle(
+                                color: AppColors.green,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            item.price,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 9.5,
+                            ),
+                          ),
+                          const SizedBox(width: 9),
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: checked
+                                  ? AppColors.green
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color:
+                                    checked ? AppColors.green : AppColors.muted,
+                              ),
+                            ),
+                            child: checked
+                                ? const Icon(
+                                    Icons.check_rounded,
+                                    size: 14,
+                                    color: AppColors.beige,
+                                  )
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (entry.key != addOns.length - 1)
+                    const Divider(
+                      height: 1,
+                      color: AppColors.border,
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OftenOrderedWith extends StatelessWidget {
+  const _OftenOrderedWith();
+
+  static const items = <_PairingItem>[
+    _PairingItem(
+      name: 'Butter Croissant',
+      price: 'EGP 45',
+      image: 'assets/images/products/butter_croissant.png',
+    ),
+    _PairingItem(
+      name: 'Blueberry Muffin',
+      price: 'EGP 60',
+      image: 'assets/images/products/blueberry_muffin.png',
+    ),
+    _PairingItem(
+      name: 'Turkey & Cheese',
+      price: 'EGP 95',
+      image: 'assets/images/products/turkey_cheese_sandwich.png',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Often Ordered With',
+          style: TextStyle(
+            color: AppColors.green,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 3),
+        const Text(
+          'Complete your Getin moment.',
+          style: TextStyle(
+            color: AppColors.muted,
+            fontSize: 9.5,
+          ),
+        ),
+        const SizedBox(height: 11),
+        SizedBox(
+          height: 154,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 9),
+            itemBuilder: (context, index) {
+              final item = items[index];
+
+              return Container(
+                width: 126,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        item.image,
+                        width: double.infinity,
+                        height: 77,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.price,
+                            style: const TextStyle(
+                              color: AppColors.green,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 25,
+                          height: 25,
+                          decoration: const BoxDecoration(
+                            color: AppColors.green,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            color: AppColors.beige,
+                            size: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProductInformation extends StatelessWidget {
+  const _ProductInformation();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Product Information',
+            style: TextStyle(
+              color: AppColors.green,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 9),
+          _InfoTile(
+            title: 'Description',
+            preview:
+                'Smooth espresso, fresh milk and ice, crafted for a balanced cup.',
+          ),
+          _InfoTile(
+            title: 'Ingredients',
+            preview:
+                'Espresso, milk, ice. Customizations may add other ingredients.',
+          ),
+          _InfoTile(
+            title: 'Allergens',
+            preview:
+                'Contains milk. Add-ons may contain nuts or other allergens.',
+          ),
+          _InfoTile(
+            title: 'Nutrition',
+            preview: 'Nutrition varies by size and customization.',
+          ),
+          _InfoTile(
+            title: 'About Our Coffee',
+            preview:
+                'Crafted with Getin-selected beans for a balanced, modern profile.',
+            last: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatefulWidget {
+  final String title;
+  final String preview;
+  final bool last;
+
+  const _InfoTile({
+    required this.title,
+    required this.preview,
+    this.last = false,
+  });
+
+  @override
+  State<_InfoTile> createState() => _InfoTileState();
+}
+
+class _InfoTileState extends State<_InfoTile> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: () {
+            setState(() => _expanded = !_expanded);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: AppColors.green,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.chevron_right_rounded,
+                  color: AppColors.green,
+                  size: 19,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded)
+          Padding(
+            padding: const EdgeInsets.only(
+              right: 24,
+              bottom: 10,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                widget.preview,
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 9.5,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+        if (!widget.last)
+          const Divider(
+            height: 1,
+            color: AppColors.border,
+          ),
+      ],
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  final Widget child;
+
+  const _SectionCard({
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _StickyCartBar extends StatelessWidget {
+  final int quantity;
+  final bool enabled;
+  final String total;
+  final VoidCallback onDecrease;
+  final VoidCallback onIncrease;
+  final VoidCallback onAdd;
+
+  const _StickyCartBar({
+    required this.quantity,
+    required this.enabled,
+    required this.total,
+    required this.onDecrease,
+    required this.onIncrease,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        14,
+        9,
+        14,
+        10,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: AppColors.border),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!enabled)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 7),
+                child: Text(
+                  'Select required options to add item',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 9.5,
+                  ),
+                ),
+              ),
+            Row(
+              children: [
+                Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.cream,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: onDecrease,
+                        icon: const Icon(
+                          Icons.remove_rounded,
+                          color: AppColors.green,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 22,
+                        child: Center(
+                          child: Text(
+                            '$quantity',
+                            style: const TextStyle(
+                              color: AppColors.green,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: onIncrease,
+                        icon: const Icon(
+                          Icons.add_rounded,
+                          color: AppColors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: enabled ? onAdd : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.green,
+                        foregroundColor: AppColors.beige,
+                        disabledBackgroundColor:
+                            AppColors.muted.withOpacity(0.18),
+                        disabledForegroundColor: AppColors.muted,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Add to Cart',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            total,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SingleChoice {
+  final String title;
+  final String? subtitle;
+  final String? surcharge;
+  final IconData? icon;
+
+  const _SingleChoice({
+    required this.title,
+    this.subtitle,
+    this.surcharge,
+    this.icon,
+  });
+}
+
+class _AddOn {
+  final String name;
+  final String price;
+
+  const _AddOn(
+    this.name,
+    this.price,
+  );
+}
+
+class _PairingItem {
+  final String name;
+  final String price;
+  final String image;
+
+  const _PairingItem({
+    required this.name,
+    required this.price,
+    required this.image,
+  });
+}
+
+================================================================
+FILE: lib/features/menu/menu_screen.dart
+================================================================
+import 'package:flutter/material.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../location/models/branch.dart';
+import '../product/product_detail_screen.dart';
+
+enum MenuDisplayMode {
+  list,
+  grid,
+}
+
+class MenuScreen extends StatefulWidget {
+  final Branch branch;
+  final String serviceType;
+
+  const MenuScreen({
+    super.key,
+    required this.branch,
+    required this.serviceType,
+  });
+
+  @override
+  State<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  MenuDisplayMode _displayMode = MenuDisplayMode.list;
+
+  String _selectedCategory = 'All';
+  String _query = '';
+
+  static const _categories = <_MenuCategory>[
+    _MenuCategory(
+      title: 'All',
+      image: 'assets/images/categories/category_coffee.png',
+    ),
+    _MenuCategory(
+      title: 'Coffee',
+      image: 'assets/images/categories/category_coffee.png',
+    ),
+    _MenuCategory(
+      title: 'Non-Coffee',
+      image: 'assets/images/categories/category_non_coffee.png',
+    ),
+    _MenuCategory(
+      title: 'Food',
+      image: 'assets/images/categories/category_food.png',
+    ),
+    _MenuCategory(
+      title: 'Bakery',
+      image: 'assets/images/categories/category_bakery.png',
+    ),
+    _MenuCategory(
+      title: 'Refreshments',
+      image: 'assets/images/categories/category_refreshments.png',
+    ),
+    _MenuCategory(
+      title: 'Merchandise',
+      image: 'assets/images/categories/category_merchandise.png',
+    ),
+  ];
+
+  static const _products = <_MenuProduct>[
+    _MenuProduct(
+      name: 'Iced Latte',
+      description: 'Double espresso, fresh milk and ice.',
+      price: 'EGP 65',
+      category: 'Coffee',
+      image: 'assets/images/products/iced_latte.png',
+      badge: 'BEST SELLER',
+    ),
+    _MenuProduct(
+      name: 'Caramel Macchiato',
+      description: 'Espresso, milk and caramel finish.',
+      price: 'EGP 70',
+      category: 'Coffee',
+      image: 'assets/images/products/caramel_macchiato.png',
+    ),
+    _MenuProduct(
+      name: 'Pistachio Latte',
+      description: 'Creamy pistachio latte with a nutty finish.',
+      price: 'EGP 75',
+      category: 'Non-Coffee',
+      image: 'assets/images/products/pistachio_latte.png',
+      badge: 'NEW',
+    ),
+    _MenuProduct(
+      name: 'Iced Americano',
+      description: 'Espresso over ice with filtered water.',
+      price: 'EGP 55',
+      category: 'Coffee',
+      image: 'assets/images/products/iced_americano.png',
+    ),
+    _MenuProduct(
+      name: 'Turkey & Cheese Sandwich',
+      description: 'Turkey, cheese and fresh greens.',
+      price: 'EGP 95',
+      category: 'Food',
+      image: 'assets/images/products/turkey_cheese_sandwich.png',
+    ),
+    _MenuProduct(
+      name: 'Butter Croissant',
+      description: 'Classic buttery flaky croissant.',
+      price: 'EGP 45',
+      category: 'Bakery',
+      image: 'assets/images/products/butter_croissant.png',
+    ),
+    _MenuProduct(
+      name: 'Blueberry Muffin',
+      description: 'Soft muffin with blueberry pieces.',
+      price: 'EGP 60',
+      category: 'Bakery',
+      image: 'assets/images/products/blueberry_muffin.png',
+    ),
+    _MenuProduct(
+      name: 'Berry Hibiscus Refresher',
+      description: 'Bright berry hibiscus drink served cold.',
+      price: 'EGP 65',
+      category: 'Refreshments',
+      image: 'assets/images/home/sections/berry_hibiscus.png',
+      badge: 'LIMITED',
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_MenuProduct> get _filteredProducts {
+    final normalizedQuery = _query.trim().toLowerCase();
+
+    return _products.where((product) {
+      final categoryMatches =
+          _selectedCategory == 'All' || product.category == _selectedCategory;
+
+      final queryMatches = normalizedQuery.isEmpty ||
+          product.name.toLowerCase().contains(normalizedQuery) ||
+          product.description.toLowerCase().contains(normalizedQuery) ||
+          product.category.toLowerCase().contains(normalizedQuery);
+
+      return categoryMatches && queryMatches;
+    }).toList();
+  }
+
+  void _openProduct(_MenuProduct product) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProductDetailScreen(
+          name: product.name,
+          description: product.description,
+          image: product.image,
+          price: product.price,
+          branchName: widget.branch.name,
+          serviceType: widget.serviceType,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final products = _filteredProducts;
+    final shortBranch = widget.branch.name.replaceFirst(
+      'Getin ',
+      '',
+    );
+
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: _MenuHeader(
+                branchName: shortBranch,
+                serviceType: widget.serviceType,
+                controller: _searchController,
+                queryChanged: (value) {
+                  setState(() {
+                    _query = value;
+                  });
+                },
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  14,
+                  16,
+                  0,
+                ),
+                child: _DisplayModeBar(
+                  mode: _displayMode,
+                  productCount: products.length,
+                  onModeChanged: (value) {
+                    setState(() {
+                      _displayMode = value;
+                    });
+                  },
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: 14,
+                ),
+                child: _CategoryStrip(
+                  categories: _categories,
+                  selected: _selectedCategory,
+                  onSelected: (value) {
+                    setState(() {
+                      _selectedCategory = value;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 16),
+            ),
+            if (products.isEmpty)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyMenuState(),
+              )
+            else if (_displayMode == MenuDisplayMode.list)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  0,
+                  16,
+                  28,
+                ),
+                sliver: SliverList.separated(
+                  itemCount: products.length,
+                  separatorBuilder: (_, __) => const SizedBox(
+                    height: 10,
+                  ),
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openProduct(products[index]),
+                      child: _MenuListCard(
+                        product: products[index],
+                        onOpen: () => _openProduct(products[index]),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  0,
+                  16,
+                  28,
+                ),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _openProduct(products[index]),
+                        child: _MenuGridCard(
+                          product: products[index],
+                          onOpen: () => _openProduct(products[index]),
+                        ),
+                      );
+                    },
+                    childCount: products.length,
+                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.72,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuHeader extends StatelessWidget {
+  final String branchName;
+  final String serviceType;
+  final TextEditingController controller;
+  final ValueChanged<String> queryChanged;
+
+  const _MenuHeader({
+    required this.branchName,
+    required this.serviceType,
+    required this.controller,
+    required this.queryChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final modeLabel = serviceType == 'pickup' ? 'Pickup' : 'Delivery';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        18,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.green,
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Menu',
+            style: TextStyle(
+              color: AppColors.beige,
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const Icon(
+                Icons.storefront_rounded,
+                color: AppColors.beige,
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '$branchName • $modeLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          TextField(
+            controller: controller,
+            onChanged: queryChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search drinks, food, bakery...',
+              hintStyle: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12.5,
+              ),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                color: AppColors.green,
+              ),
+              suffixIcon: const Icon(
+                Icons.tune_rounded,
+                color: AppColors.green,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 13,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(
+                  16,
+                ),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(
+                  16,
+                ),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(
+                  16,
+                ),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisplayModeBar extends StatelessWidget {
+  final MenuDisplayMode mode;
+  final int productCount;
+  final ValueChanged<MenuDisplayMode> onModeChanged;
+
+  const _DisplayModeBar({
+    required this.mode,
+    required this.productCount,
+    required this.onModeChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$productCount items',
+            style: const TextStyle(
+              color: AppColors.green,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(
+              color: AppColors.border,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              _ViewButton(
+                icon: Icons.view_agenda_rounded,
+                selected: mode == MenuDisplayMode.list,
+                onTap: () => onModeChanged(
+                  MenuDisplayMode.list,
+                ),
+              ),
+              _ViewButton(
+                icon: Icons.grid_view_rounded,
+                selected: mode == MenuDisplayMode.grid,
+                onTap: () => onModeChanged(
+                  MenuDisplayMode.grid,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ViewButton extends StatelessWidget {
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ViewButton({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.green : Colors.transparent,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: SizedBox(
+          width: 38,
+          height: 34,
+          child: Icon(
+            icon,
+            size: 19,
+            color: selected ? AppColors.beige : AppColors.green,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryStrip extends StatelessWidget {
+  final List<_MenuCategory> categories;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  const _CategoryStrip({
+    required this.categories,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 94,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+        ),
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final active = selected == category.title;
+
+          return GestureDetector(
+            onTap: () => onSelected(
+              category.title,
+            ),
+            child: SizedBox(
+              width: 72,
+              child: Column(
+                children: [
+                  Container(
+                    width: 62,
+                    height: 62,
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColors.green
+                          : AppColors.beige.withOpacity(
+                              0.42,
+                            ),
+                      borderRadius: BorderRadius.circular(
+                        16,
+                      ),
+                      border: Border.all(
+                        color: active ? AppColors.green : AppColors.border,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: active && category.title == 'All'
+                        ? const Icon(
+                            Icons.restaurant_menu_rounded,
+                            color: AppColors.beige,
+                          )
+                        : Image.asset(
+                            category.image,
+                            fit: BoxFit.cover,
+                            color: active && category.title == 'All'
+                                ? AppColors.beige
+                                : null,
+                            colorBlendMode: BlendMode.srcIn,
+                            errorBuilder: (_, __, ___) {
+                              return Icon(
+                                Icons.local_cafe_rounded,
+                                color:
+                                    active ? AppColors.beige : AppColors.green,
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    category.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.green,
+                      fontSize: 9.5,
+                      fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MenuListCard extends StatelessWidget {
+  final _MenuProduct product;
+
+  final VoidCallback onOpen;
+  const _MenuListCard({
+    required this.product,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 126,
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: SizedBox(
+              width: 108,
+              height: 108,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    product.image,
+                    fit: BoxFit.cover,
+                  ),
+                  if (product.badge != null)
+                    Positioned(
+                      left: 7,
+                      top: 7,
+                      child: _ProductBadge(
+                        label: product.badge!,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.green,
+                    fontSize: 14,
+                    height: 1.08,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  product.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 10.2,
+                    height: 1.2,
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        product.price,
+                        style: const TextStyle(
+                          color: AppColors.green,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    _AddButton(
+                      onTap: onOpen,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuGridCard extends StatelessWidget {
+  final _MenuProduct product;
+
+  final VoidCallback onOpen;
+  const _MenuGridCard({
+    required this.product,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.border,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 6,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  product.image,
+                  fit: BoxFit.cover,
+                ),
+                if (product.badge != null)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: _ProductBadge(
+                      label: product.badge!,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 5,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                10,
+                9,
+                10,
+                9,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.green,
+                      fontSize: 12.5,
+                      height: 1.05,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    product.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 9.4,
+                      height: 1.15,
+                    ),
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          product.price,
+                          style: const TextStyle(
+                            color: AppColors.green,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      _AddButton(
+                        onTap: onOpen,
+                        compact: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductBadge extends StatelessWidget {
+  final String label;
+
+  const _ProductBadge({
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 7,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.green.withOpacity(0.94),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.beige,
+          fontSize: 7.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool compact;
+
+  const _AddButton({
+    required this.onTap,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final size = compact ? 30.0 : 34.0;
+
+    return Material(
+      color: AppColors.green,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: const Icon(
+            Icons.add_rounded,
+            color: AppColors.beige,
+            size: 19,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyMenuState extends StatelessWidget {
+  const _EmptyMenuState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: AppColors.beige,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                color: AppColors.green,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'No menu items found',
+              style: TextStyle(
+                color: AppColors.green,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Try another category or search term.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuCategory {
+  final String title;
+  final String image;
+
+  const _MenuCategory({
+    required this.title,
+    required this.image,
+  });
+}
+
+class _MenuProduct {
+  final String name;
+  final String description;
+  final String price;
+  final String category;
+  final String image;
+  final String? badge;
+
+  const _MenuProduct({
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.category,
+    required this.image,
+    this.badge,
+  });
+}
+
+================================================================
+FILE: lib/features/orders/orders_screen.dart
+================================================================
+import 'package:flutter/material.dart';
+
+import '../../core/theme/app_colors.dart';
+import '../location/models/branch.dart';
+import 'order_detail_screen.dart';
+
+enum OrderFilter {
+  all,
+  active,
+  completed,
+  cancelled,
+}
+
+enum GetinOrderStatus {
+  confirmed,
+  preparing,
+  ready,
+  outForDelivery,
+  delivered,
+  cancelled,
+}
+
+class GetinOrder {
+  final String id;
+  final DateTime placedAt;
+  final String branchName;
+  final String fulfillment;
+  final GetinOrderStatus status;
+  final int itemCount;
+  final String total;
+  final List<String> itemImages;
+  final String? driverName;
+  final String? eta;
+  final String? deliveryAddress;
+  final double? deliveryLatitude;
+  final double? deliveryLongitude;
+  final String? deliveryCode;
+
+  const GetinOrder({
+    required this.id,
+    required this.placedAt,
+    required this.branchName,
+    required this.fulfillment,
+    required this.status,
+    required this.itemCount,
+    required this.total,
+    required this.itemImages,
+    this.driverName,
+    this.eta,
+    this.deliveryAddress,
+    this.deliveryLatitude,
+    this.deliveryLongitude,
+    this.deliveryCode,
+  });
+
+  bool get isActive {
+    return status == GetinOrderStatus.confirmed ||
+        status == GetinOrderStatus.preparing ||
+        status == GetinOrderStatus.ready ||
+        status == GetinOrderStatus.outForDelivery;
+  }
+}
+
+class OrdersScreen extends StatefulWidget {
+  final Branch branch;
+
+  const OrdersScreen({
+    super.key,
+    required this.branch,
+  });
+
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
+  static const bool _previewLoggedIn = bool.fromEnvironment(
+    'GETIN_PREVIEW_LOGGED_IN',
+    defaultValue: true,
+  );
+
+  OrderFilter _filter = OrderFilter.all;
+
+  late final List<GetinOrder> _orders = [
+    GetinOrder(
+      id: 'GC-10582',
+      placedAt: DateTime(2026, 9, 19, 14, 14),
+      branchName: widget.branch.name,
+      fulfillment: 'Delivery',
+      status: GetinOrderStatus.outForDelivery,
+      itemCount: 3,
+      total: 'EGP 245',
+      itemImages: const [
+        'assets/images/products/iced_latte.png',
+        'assets/images/products/butter_croissant.png',
+        'assets/images/products/blueberry_muffin.png',
+      ],
+      driverName: 'Ahmed Hassan',
+      eta: '12 min',
+      deliveryAddress: 'Stanley, Alexandria',
+      // Development sample destination.
+      // Production values must come from the customer's saved checkout location.
+      deliveryLatitude: 31.2453,
+      deliveryLongitude: 29.9668,
+      deliveryCode: '4729',
+    ),
+    GetinOrder(
+      id: 'GC-10491',
+      placedAt: DateTime(2026, 9, 18, 9, 35),
+      branchName: widget.branch.name,
+      fulfillment: 'Pickup',
+      status: GetinOrderStatus.delivered,
+      itemCount: 2,
+      total: 'EGP 135',
+      itemImages: const [
+        'assets/images/products/caramel_macchiato.png',
+        'assets/images/products/turkey_cheese_sandwich.png',
+      ],
+    ),
+    GetinOrder(
+      id: 'GC-10376',
+      placedAt: DateTime(2026, 9, 16, 18, 8),
+      branchName: widget.branch.name,
+      fulfillment: 'Delivery',
+      status: GetinOrderStatus.cancelled,
+      itemCount: 1,
+      total: 'EGP 75',
+      itemImages: const [
+        'assets/images/products/pistachio_latte.png',
+      ],
+    ),
+  ];
+
+  List<GetinOrder> get _visibleOrders {
+    switch (_filter) {
+      case OrderFilter.all:
+        return _orders;
+      case OrderFilter.active:
+        return _orders.where((order) => order.isActive).toList();
+      case OrderFilter.completed:
+        return _orders
+            .where(
+              (order) => order.status == GetinOrderStatus.delivered,
+            )
+            .toList();
+      case OrderFilter.cancelled:
+        return _orders
+            .where(
+              (order) => order.status == GetinOrderStatus.cancelled,
+            )
+            .toList();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_previewLoggedIn) {
+      return const _LoggedOutOrders();
+    }
+
+    final orders = _visibleOrders;
+
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'My Orders',
+                    style: TextStyle(
+                      color: AppColors.green,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Track active orders and review your order history.',
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _OrderTabs(
+                    selected: _filter,
+                    onChanged: (value) {
+                      setState(() {
+                        _filter = value;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: orders.isEmpty
+                  ? const _EmptyOrdersState()
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        24,
+                      ),
+                      itemCount: orders.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 11),
+                      itemBuilder: (context, index) {
+                        final order = orders[index];
+
+                        return _OrderCard(
+                          order: order,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => OrderDetailScreen(
+                                  order: order,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderTabs extends StatelessWidget {
+  final OrderFilter selected;
+  final ValueChanged<OrderFilter> onChanged;
+
+  const _OrderTabs({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          _OrderTab(
+            label: 'All',
+            value: OrderFilter.all,
+            selected: selected,
+            onTap: onChanged,
+          ),
+          _OrderTab(
+            label: 'Active',
+            value: OrderFilter.active,
+            selected: selected,
+            onTap: onChanged,
+          ),
+          _OrderTab(
+            label: 'Completed',
+            value: OrderFilter.completed,
+            selected: selected,
+            onTap: onChanged,
+          ),
+          _OrderTab(
+            label: 'Cancelled',
+            value: OrderFilter.cancelled,
+            selected: selected,
+            onTap: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderTab extends StatelessWidget {
+  final String label;
+  final OrderFilter value;
+  final OrderFilter selected;
+  final ValueChanged<OrderFilter> onTap;
+
+  const _OrderTab({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = value == selected;
+
+    return Expanded(
+      child: Material(
+        color: active ? AppColors.green : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => onTap(value),
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 40,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: active ? AppColors.beige : AppColors.green,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderCard extends StatelessWidget {
+  final GetinOrder order;
+  final VoidCallback onTap;
+
+  const _OrderCard({
+    required this.order,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _statusText(order.status);
+    final active = order.isActive;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color:
+                  active ? AppColors.green.withOpacity(0.28) : AppColors.border,
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'ORDER #${order.id}',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                  ),
+                  _StatusPill(
+                    text: status,
+                    status: order.status,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _OrderImages(
+                    images: order.itemImages,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          order.branchName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.green,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${order.fulfillment} · ${order.itemCount} items',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 10,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          order.total,
+                          style: const TextStyle(
+                            color: AppColors.green,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.green,
+                  ),
+                ],
+              ),
+              if (order.status == GetinOrderStatus.outForDelivery) ...[
+                const SizedBox(height: 11),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.beige.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.delivery_dining_rounded,
+                        color: AppColors.green,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          'Driver ${order.driverName ?? ''} · ETA ${order.eta ?? '--'}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.green,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderImages extends StatelessWidget {
+  final List<String> images;
+
+  const _OrderImages({
+    required this.images,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = images.take(3).toList();
+
+    return SizedBox(
+      width: 78,
+      height: 58,
+      child: Stack(
+        children: List.generate(
+          visible.length,
+          (index) {
+            return Positioned(
+              left: index * 18,
+              top: 0,
+              child: Container(
+                width: 50,
+                height: 58,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  visible[index],
+                  fit: BoxFit.cover,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final String text;
+  final GetinOrderStatus status;
+
+  const _StatusPill({
+    required this.text,
+    required this.status,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isCancelled = status == GetinOrderStatus.cancelled;
+    final isDelivered = status == GetinOrderStatus.delivered;
+
+    final background = isCancelled
+        ? const Color(0xFFFCE8E8)
+        : isDelivered
+            ? const Color(0xFFE9F3ED)
+            : AppColors.beige.withOpacity(0.52);
+
+    final foreground = isCancelled ? const Color(0xFFB84242) : AppColors.green;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 8.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _LoggedOutOrders extends StatelessWidget {
+  const _LoggedOutOrders();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            24,
+            20,
+            24,
+            28,
+          ),
+          child: Column(
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'My Orders',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.8,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                width: 92,
+                height: 92,
+                decoration: const BoxDecoration(
+                  color: AppColors.beige,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.green,
+                  size: 42,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Sign in to view your orders',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.green,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Track active orders, delivery progress and previous purchases.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 12,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Connect this button to the existing Sign In flow in the next auth integration step.',
+                        ),
+                      ),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.green,
+                    foregroundColor: AppColors.beige,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Sign In',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () {},
+                child: const Text(
+                  'Create Account',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyOrdersState extends StatelessWidget {
+  const _EmptyOrdersState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: const BoxDecoration(
+                color: AppColors.beige,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.shopping_bag_outlined,
+                color: AppColors.green,
+                size: 34,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No orders found',
+              style: TextStyle(
+                color: AppColors.green,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Your Getin orders will appear here.',
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _statusText(GetinOrderStatus status) {
+  switch (status) {
+    case GetinOrderStatus.confirmed:
+      return 'CONFIRMED';
+    case GetinOrderStatus.preparing:
+      return 'PREPARING';
+    case GetinOrderStatus.ready:
+      return 'READY';
+    case GetinOrderStatus.outForDelivery:
+      return 'OUT FOR DELIVERY';
+    case GetinOrderStatus.delivered:
+      return 'COMPLETED';
+    case GetinOrderStatus.cancelled:
+      return 'CANCELLED';
+  }
+}
+
+================================================================
+FILE: lib/core/theme/app_colors.dart
+================================================================
+import 'package:flutter/material.dart';
+
+class AppColors {
+  static const Color green = Color(0xFF132D26);
+  static const Color greenDark = Color(0xFF0D211C);
+  static const Color beige = Color(0xFFD7CCB0);
+  static const Color cream = Color(0xFFF7F5F0);
+  static const Color gold = Color(0xFFC9A35B);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color muted = Color(0xFF7A817E);
+  static const Color border = Color(0xFFE5E1D8);
+}
+
+================================================================
+FILE: pubspec.yaml
+================================================================
+name: getin_coffee
+description: "Getin Coffee Customer App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.4 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+  video_player: ^2.9.5
+  shared_preferences: ^2.3.3
+  geolocator: ^13.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  mobile_scanner: 5.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/profile/
+    - assets/images/membership/
+    - assets/images/home/sections/
+    - assets/images/products/
+    - assets/images/categories/
+    - assets/images/branches/
+    - assets/images/home/
+    - assets/videos/getin_splash_compat.mp4
+    - assets/images/
+================================================================
+CURRENT CART/CHECKOUT REFERENCES
+================================================================
+lib/features/qr/qr_scanner_screen.dart:57:                  'Payment / reward validation will be connected to the Laravel API later.',
+lib/features/product/product_detail_screen.dart:339:            _StickyCartBar(
+lib/features/product/product_detail_screen.dart:356:                      '${widget.name} added to cart · ${_money(_total)}',
+lib/features/product/product_detail_screen.dart:1477:class _StickyCartBar extends StatelessWidget {
+lib/features/product/product_detail_screen.dart:1485:  const _StickyCartBar({
+lib/features/product/product_detail_screen.dart:1585:                              'Add to Cart',
+lib/features/profile/settings_screen.dart:94:                      label: 'Payment Methods',
+lib/features/profile/settings_screen.dart:97:                        'Payment Methods',
+lib/features/profile/profile_screen.dart:91:                      label: 'Vouchers',
+lib/features/profile/profile_screen.dart:92:                      onTap: () => _notReady(context, 'Vouchers'),
+lib/features/profile/profile_screen.dart:137:                      label: 'Payment Methods',
+lib/features/profile/profile_screen.dart:140:                        'Payment Methods',
+lib/features/profile/profile_screen.dart:488:            label: 'Vouchers',
+lib/features/orders/orders_screen.dart:102:      // Production values must come from the customer's saved checkout location.
+lib/features/orders/order_detail_screen.dart:55:          _PaymentSummary(order: order),
+lib/features/orders/order_detail_screen.dart:556:class _PaymentSummary extends StatelessWidget {
+lib/features/orders/order_detail_screen.dart:559:  const _PaymentSummary({
+lib/features/membership/membership_screen.dart:998:                      'Membership checkout will be connected in the next step.',
+
+================================================================
+CURRENT ASSETS
+================================================================
+assets/.DS_Store
+assets/images/.DS_Store
+assets/images/branches/getin_san_stefano.png
+assets/images/branches/getin_smouha.png
+assets/images/branches/getin_stanley.png
+assets/images/categories/category_bakery.png
+assets/images/categories/category_coffee.png
+assets/images/categories/category_food.png
+assets/images/categories/category_merchandise.png
+assets/images/categories/category_non_coffee.png
+assets/images/categories/category_refreshments.png
+assets/images/getin_logo_mark.png
+assets/images/home/home_hero_1.png
+assets/images/home/home_hero_2.png
+assets/images/home/home_hero_3.png
+assets/images/home/rewards_banner.png
+assets/images/home/sections/berry_hibiscus.png
+assets/images/home/sections/blueberry_muffin.png
+assets/images/home/sections/caramel_latte.png
+assets/images/home/sections/final_membership_banner.png
+assets/images/home/sections/iced_latte.png
+assets/images/home/sections/maple_croissant.png
+assets/images/home/sections/offer_breakfast_bundle.png
+assets/images/home/sections/offer_rewards_free_drink.png
+assets/images/home/sections/pistachio_latte.png
+assets/images/home/sections/turkey_sandwich.png
+assets/images/home_hero_1.png
+assets/images/home_hero_2.png
+assets/images/home_hero_3.png
+assets/images/membership/membership_hero_products.jpg
+assets/images/membership/perk_bundle.jpg
+assets/images/membership/perk_free_drink.jpg
+assets/images/membership/perk_size_upgrade.jpg
+assets/images/onboarding_1.png
+assets/images/onboarding_2.png
+assets/images/onboarding_3.png
+assets/images/products/blueberry_muffin.png
+assets/images/products/butter_croissant.png
+assets/images/products/caramel_macchiato.png
+assets/images/products/iced_americano.png
+assets/images/products/iced_latte.png
+assets/images/products/pistachio_latte.png
+assets/images/products/turkey_cheese_sandwich.png
+assets/images/profile/profile_membership_banner.jpg
+assets/videos/getin_splash.mp4
+assets/videos/getin_splash_compat.mp4
+
+================================================================
+GIT STATUS
+================================================================
