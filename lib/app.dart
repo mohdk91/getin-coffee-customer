@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'core/config/app_config.dart';
 import 'core/theme/app_colors.dart';
 import 'features/splash/splash_screen.dart';
 
 class GetinCoffeeApp extends StatelessWidget {
-  const GetinCoffeeApp({super.key});
+  final AppConfig config;
+
+  const GetinCoffeeApp({
+    super.key,
+    required this.config,
+  });
 
   @override
   Widget build(BuildContext context) {
