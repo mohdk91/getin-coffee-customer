@@ -30,6 +30,7 @@ class GetinCoffeeApp extends StatelessWidget {
       ),
       home: MobileStartupGate(
         appConfig: config,
+        appKind: MobileAppKind.customer,
         loader: config.isApiConfigured
             ? MobileSystemConfigRepository(ApiClient(config))
             : null,
