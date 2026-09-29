@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'core/config/app_config.dart';
+import 'core/network/api_client.dart';
+import 'core/system/mobile_system_config_repository.dart';
 import 'core/theme/app_colors.dart';
+import 'core/widgets/mobile_startup_gate.dart';
 import 'features/splash/splash_screen.dart';
 
 class GetinCoffeeApp extends StatelessWidget {
@@ -25,7 +28,13 @@ class GetinCoffeeApp extends StatelessWidget {
           surface: AppColors.cream,
         ),
       ),
-      home: const SplashScreen(),
+      home: MobileStartupGate(
+        appConfig: config,
+        loader: config.isApiConfigured
+            ? MobileSystemConfigRepository(ApiClient(config))
+            : null,
+        child: const SplashScreen(),
+      ),
     );
   }
 }
