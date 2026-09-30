@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/catalog/customer_catalog_store.dart';
+import 'core/content/mobile_app_content_store.dart';
 import 'core/auth/customer_account_sync.dart';
 import 'core/auth/customer_auth_store.dart';
 import 'core/chat/customer_chat_store.dart';
@@ -30,6 +31,7 @@ Future<void> main() async {
   final config = AppConfig.fromEnvironment();
   await CustomerAuthStore.initialize(config);
   await CustomerCatalogStore.initialize(CustomerAuthStore.instance.context);
+  await MobileAppContentStore.initialize(CustomerAuthStore.instance.context);
   await CustomerCountryStore.initialize();
   await CustomerChatStore.initialize();
   await CustomerAddressStore.initialize(
