@@ -21,6 +21,7 @@ import 'widgets/nearest_branches_section.dart';
 import 'widgets/play_win_card.dart';
 import 'widgets/product_sections.dart';
 import 'widgets/qr_map_row.dart';
+import 'widgets/secondary_banner_card.dart';
 import 'widgets/rewards_progress_card.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -223,6 +224,10 @@ class HomeScreen extends StatelessWidget {
                           onOrderNow: openMenu,
                         ),
                       ),
+                      const SizedBox(
+                        height: 18,
+                      ),
+                      const SecondaryBannerCard(),
                       const SizedBox(
                         height: 18,
                       ),
