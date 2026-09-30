@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/customer_repository.dart';
+import '../engagement/customer_engagement_api_repository.dart';
+
 enum RewardBenefitType {
   freeDrink,
   freeSizeUpgrade,
@@ -167,7 +170,7 @@ class CustomerRewardsStore extends ChangeNotifier {
   static const String _redeemedKey = 'getin_demo_redeemed_rewards_v1';
   static const String _historyKey = 'getin_demo_rewards_history_v1';
 
-  static const List<RewardDefinition> catalog = [
+  static List<RewardDefinition> catalog = const [
     RewardDefinition(
       id: 'free-size-upgrade',
       title: 'Free Size Upgrade',
@@ -191,11 +194,13 @@ class CustomerRewardsStore extends ChangeNotifier {
     ),
   ];
 
+  CustomerEngagementApiRepository? _repository;
   SharedPreferences? _preferences;
   int _stars = 120;
   List<RedeemedReward> _redeemedRewards = <RedeemedReward>[];
   List<RewardHistoryEntry> _history = <RewardHistoryEntry>[];
 
+  bool get usesApi => _repository?.usesApi ?? false;
   int get stars => _stars;
   List<RedeemedReward> get redeemedRewards =>
       List.unmodifiable(_redeemedRewards);
@@ -236,10 +241,43 @@ class CustomerRewardsStore extends ChangeNotifier {
     return costs.isEmpty ? 1 : costs.last;
   }
 
-  static Future<void> initialize() async {
+  static Future<void> initialize([CustomerRepositoryContext? context]) async {
     final store = instance;
+    if (context != null) {
+      store._repository = CustomerEngagementApiRepository(context);
+    }
+    if (store.usesApi) {
+      await store._refreshLoyaltyApi();
+      return;
+    }
     store._preferences = await SharedPreferences.getInstance();
     store._load();
+  }
+
+  Future<void> _refreshLoyaltyApi() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) return;
+    final summary = await repository.loyalty();
+    final account = summary['account'];
+    if (account is Map) {
+      _stars = (account['points_balance'] as num?)?.toInt() ?? 0;
+    }
+    final transactions = await repository.loyaltyTransactions();
+    _history = transactions.map((item) {
+      final createdAt =
+          DateTime.tryParse(item['created_at']?.toString() ?? '') ??
+              DateTime.now();
+      return RewardHistoryEntry(
+        id: item['id']?.toString() ?? '',
+        title: item['description']?.toString() ??
+            item['type']?.toString() ??
+            'Loyalty activity',
+        starsDelta: (item['points'] as num?)?.toInt() ?? 0,
+        occurredAt: createdAt,
+        subtitle: item['reference']?.toString(),
+      );
+    }).toList(growable: false);
+    notifyListeners();
   }
 
   RewardDefinition definitionFor(String definitionId) {
