@@ -6,6 +6,7 @@ import '../network/api_exception.dart';
 import '../storage/secure_store.dart';
 import 'customer_account_models.dart';
 import 'customer_account_repository.dart';
+import 'customer_session_repository.dart';
 
 class CustomerAuthStore extends ChangeNotifier {
   CustomerAuthStore._();
@@ -15,12 +16,15 @@ class CustomerAuthStore extends ChangeNotifier {
   CustomerRepositoryContext? _context;
   CustomerAccountRepository? _repository;
   CustomerAccount? _customer;
+  CustomerSessionRepository? _sessionRepository;
+  List<CustomerSessionInfo> _sessions = const <CustomerSessionInfo>[];
   bool _busy = false;
 
   CustomerAccount? get customer => _customer;
   bool get isAuthenticated => _customer != null;
   bool get busy => _busy;
   bool get usesApi => _repository?.usesApi ?? false;
+  List<CustomerSessionInfo> get sessions => List.unmodifiable(_sessions);
 
   CustomerAccountRepository get repository {
     final repository = _repository;
@@ -48,6 +52,7 @@ class CustomerAuthStore extends ChangeNotifier {
     );
     instance._context = context;
     instance._repository = CustomerAccountRepository(context);
+    instance._sessionRepository = CustomerSessionRepository(context);
   }
 
   Future<CustomerAccount> login({
@@ -65,6 +70,7 @@ class CustomerAuthStore extends ChangeNotifier {
       );
       _customer = result.customer;
       notifyListeners();
+      await _registerDeviceBestEffort();
       return result.customer;
     });
   }
@@ -95,6 +101,7 @@ class CustomerAuthStore extends ChangeNotifier {
       );
       _customer = result.customer;
       notifyListeners();
+      await _registerDeviceBestEffort();
       return result.customer;
     });
   }
@@ -129,6 +136,31 @@ class CustomerAuthStore extends ChangeNotifier {
       notifyListeners();
       return account;
     });
+  }
+
+  Future<void> _registerDeviceBestEffort() async {
+    try {
+      await _sessionRepository?.registerCurrentDevice();
+    } catch (_) {
+      // Device registration must never invalidate a successful login.
+    }
+  }
+
+  Future<List<CustomerSessionInfo>> refreshSessions() async {
+    final repository = _sessionRepository;
+    if (repository == null) return const <CustomerSessionInfo>[];
+    final sessions = await repository.listSessions();
+    _sessions = sessions;
+    notifyListeners();
+    return sessions;
+  }
+
+  Future<void> revokeSession(int id) async {
+    final repository = _sessionRepository;
+    if (repository == null) return;
+    await repository.revokeSession(id);
+    _sessions = _sessions.where((session) => session.id != id).toList();
+    notifyListeners();
   }
 
   Future<T> _runBusy<T>(Future<T> Function() action) async {

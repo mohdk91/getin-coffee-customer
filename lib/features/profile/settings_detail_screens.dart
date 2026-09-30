@@ -2,6 +2,7 @@ import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/customer/customer_country.dart';
 import '../../core/settings/customer_settings_store.dart';
 import '../../core/theme/app_colors.dart';
@@ -593,36 +594,104 @@ class SettingsSecurityScreen extends StatelessWidget {
           const SizedBox(height: 18),
           const _SectionTitle('Sessions & Devices'),
           const SizedBox(height: 9),
-          const _SessionCard(
-            icon: Icons.smartphone_rounded,
-            title: 'Android Device',
-            subtitle: 'Current demo session',
-            current: true,
-          ),
-          if (store.otherDemoSessionActive) ...[
+          const _CustomerSessionsPanel(),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomerSessionsPanel extends StatefulWidget {
+  const _CustomerSessionsPanel();
+
+  @override
+  State<_CustomerSessionsPanel> createState() => _CustomerSessionsPanelState();
+}
+
+class _CustomerSessionsPanelState extends State<_CustomerSessionsPanel> {
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = CustomerAuthStore.instance;
+    try {
+      await auth.refreshSessions();
+      if (mounted) setState(() => _loading = false);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = auth.userMessage(error);
+        });
+      }
+    }
+  }
+
+  Future<void> _revoke(int id) async {
+    final auth = CustomerAuthStore.instance;
+    try {
+      await auth.revokeSession(id);
+      if (mounted) _showSnack(context, 'Session signed out.');
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = CustomerAuthStore.instance;
+    if (_loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(18),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    if (_error != null) {
+      return _InfoCard(
+        icon: Icons.sync_problem_rounded,
+        title: 'Could not load sessions',
+        text: _error!,
+      );
+    }
+    if (auth.sessions.isEmpty) {
+      return const _InfoCard(
+        icon: Icons.verified_user_outlined,
+        title: 'No active sessions',
+        text: 'No customer sessions were returned by your account.',
+      );
+    }
+    return AnimatedBuilder(
+      animation: auth,
+      builder: (context, _) => Column(
+        children: [
+          for (final session in auth.sessions) ...[
+            _SessionCard(
+              icon: session.device?.platform == 'ios'
+                  ? Icons.phone_iphone_rounded
+                  : Icons.smartphone_rounded,
+              title: session.device?.deviceName?.trim().isNotEmpty == true
+                  ? session.device!.deviceName!.trim()
+                  : session.name,
+              subtitle: [
+                if (session.device?.platform.isNotEmpty == true)
+                  session.device!.platform.toUpperCase(),
+                if (session.device?.appVersion?.isNotEmpty == true)
+                  'App ${session.device!.appVersion}',
+                if (session.lastActiveAt != null)
+                  'Last active ${session.lastActiveAt!.toLocal()}',
+              ].join(' · '),
+              current: session.isCurrent,
+              onRevoke: session.isCurrent ? null : () => _revoke(session.id),
+            ),
             const SizedBox(height: 8),
-            const _SessionCard(
-              icon: Icons.laptop_mac_rounded,
-              title: 'Chrome on Mac',
-              subtitle: 'Demo session · last active 2 hours ago',
-            ),
-            const SizedBox(height: 12),
-            _DangerButton(
-              label: 'Sign Out Other Devices',
-              onPressed: () async {
-                await store.signOutOtherDemoSessions();
-                if (context.mounted) {
-                  _showSnack(context, 'Other demo sessions signed out.');
-                }
-              },
-            ),
-          ] else ...[
-            const SizedBox(height: 8),
-            const _InfoCard(
-              icon: Icons.verified_user_outlined,
-              title: 'No other demo sessions',
-              text: 'Only the current device remains active.',
-            ),
           ],
         ],
       ),
@@ -2169,12 +2238,14 @@ class _SessionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool current;
+  final VoidCallback? onRevoke;
 
   const _SessionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     this.current = false,
+    this.onRevoke,
   });
 
   @override
@@ -2223,6 +2294,15 @@ class _SessionCard extends StatelessWidget {
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
                 ),
+              ),
+            ),
+          if (!current && onRevoke != null)
+            IconButton(
+              tooltip: 'Sign out this device',
+              onPressed: onRevoke,
+              icon: const Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFB94A48),
               ),
             ),
         ],
