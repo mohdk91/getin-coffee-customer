@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/customer_auth_store.dart';
+import 'customer_preferences_repository.dart';
+
 @immutable
 class CustomerSupportRequest {
   final String id;
@@ -60,10 +63,12 @@ class CustomerSupportRequest {
   }
 }
 
-/// Local/demo settings state for Task #16.
+/// Hybrid customer settings state.
 ///
-/// Laravel/auth/push-provider integrations can later replace the persistence
-/// layer without changing the settings screens' public behavior.
+/// Account identity and server-backed preferences use Laravel in API mode.
+/// Device-only presentation/privacy toggles remain local until their dedicated
+/// integrations are completed. Legacy SharedPreferences keys are retained to
+/// preserve existing development data during the roadmap migration.
 class CustomerSettingsStore extends ChangeNotifier {
   CustomerSettingsStore._();
 
@@ -113,6 +118,11 @@ class CustomerSettingsStore extends ChangeNotifier {
   DateTime? _deleteRequestedAt;
   final List<CustomerSupportRequest> _supportRequests =
       <CustomerSupportRequest>[];
+  CustomerPreferencesRepository? _preferencesRepository;
+  bool _inAppNotificationsEnabled = true;
+
+  bool get usesApi => _preferencesRepository?.usesApi ?? false;
+  bool get inAppNotificationsEnabled => _inAppNotificationsEnabled;
 
   String get phone => _phone;
   String get email => _email;
@@ -134,15 +144,58 @@ class CustomerSettingsStore extends ChangeNotifier {
   int get enabledNotificationCount =>
       _notifications.values.where((enabled) => enabled).length;
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({
+    CustomerPreferencesRepository? repository,
+  }) async {
+    instance._preferencesRepository = repository;
     await instance._load();
+    if (repository?.usesApi == true &&
+        CustomerAuthStore.instance.isAuthenticated) {
+      await instance.refreshFromApi();
+    }
+  }
+
+  Future<void> refreshFromApi() async {
+    final repository = _preferencesRepository;
+    if (repository == null || !repository.usesApi ||
+        !CustomerAuthStore.instance.isAuthenticated) {
+      return;
+    }
+    final preferences = await repository.fetch();
+    final account = CustomerAuthStore.instance.customer;
+    if (account != null) {
+      _phone = account.phone;
+      _email = account.email;
+    }
+    _language = preferences.language == 'ar' ? 'العربية' : 'English';
+    _inAppNotificationsEnabled = preferences.inAppNotificationsEnabled;
+    for (final key in notificationKeys) {
+      _notifications[key] = preferences.pushNotificationsEnabled;
+    }
+    for (final key in const <String>[
+      'Offers & promotions',
+      'New products',
+      'Member-only offers',
+    ]) {
+      _notifications[key] = preferences.marketingNotificationsEnabled;
+    }
+    await _saveCorePreferences();
+    notifyListeners();
   }
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     _phone = prefs.getString(_phoneKey) ?? '+20 10 0000 0000';
     _email = prefs.getString(_emailKey) ?? 'mohammed@example.com';
-    _language = prefs.getString(_languageKey) ?? 'English';
+    final account = CustomerAuthStore.instance.customer;
+    if (account != null) {
+      _phone = account.phone;
+      _email = account.email;
+      _language = account.language == 'ar' ? 'العربية' : 'English';
+    }
+    _language = account == null
+        ? (prefs.getString(_languageKey) ?? 'English')
+        : _language;
     _appearance = prefs.getString(_appearanceKey) ?? 'System Default';
     _biometricLogin = prefs.getBool(_biometricKey) ?? false;
     _locationAccess = prefs.getBool(_locationKey) ?? true;
@@ -184,23 +237,33 @@ class CustomerSettingsStore extends ChangeNotifier {
 
   Future<void> setPhone(String value) async {
     final normalized = value.trim();
-    if (normalized.isEmpty) {
-      return;
+    if (normalized.isEmpty) return;
+    if (usesApi) {
+      final account = await CustomerAuthStore.instance.updateProfile(
+        <String, dynamic>{'phone': normalized},
+      );
+      _phone = account.phone;
+    } else {
+      _phone = normalized;
     }
-    _phone = normalized;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_phoneKey, normalized);
+    await prefs.setString(_phoneKey, _phone);
     notifyListeners();
   }
 
   Future<void> setEmail(String value) async {
-    final normalized = value.trim();
-    if (normalized.isEmpty) {
-      return;
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return;
+    if (usesApi) {
+      final account = await CustomerAuthStore.instance.updateProfile(
+        <String, dynamic>{'email': normalized},
+      );
+      _email = account.email;
+    } else {
+      _email = normalized;
     }
-    _email = normalized;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_emailKey, normalized);
+    await prefs.setString(_emailKey, _email);
     notifyListeners();
   }
 
@@ -214,13 +277,23 @@ class CustomerSettingsStore extends ChangeNotifier {
     '简体中文',
   };
 
+  Set<String> get availableLanguages => usesApi
+      ? const <String>{'English', 'العربية'}
+      : supportedLanguages;
+
   Future<void> setLanguage(String value) async {
-    if (!supportedLanguages.contains(value)) {
-      return;
+    if (!availableLanguages.contains(value)) return;
+    final repository = _preferencesRepository;
+    if (repository != null && repository.usesApi) {
+      final result = await repository.update(<String, dynamic>{
+        'language': value == 'العربية' ? 'ar' : 'en',
+      });
+      _language = result.language == 'ar' ? 'العربية' : 'English';
+    } else {
+      _language = value;
     }
-    _language = value;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_languageKey, value);
+    await prefs.setString(_languageKey, _language);
     notifyListeners();
   }
 
@@ -236,10 +309,21 @@ class CustomerSettingsStore extends ChangeNotifier {
   }
 
   Future<void> setNotification(String key, bool value) async {
-    if (!notificationKeys.contains(key)) {
-      return;
-    }
+    if (!notificationKeys.contains(key)) return;
     _notifications[key] = value;
+    final repository = _preferencesRepository;
+    if (repository != null && repository.usesApi) {
+      final isMarketing = const <String>{
+        'Offers & promotions',
+        'New products',
+        'Member-only offers',
+      }.contains(key);
+      await repository.update(<String, dynamic>{
+        isMarketing
+            ? 'marketing_notifications_enabled'
+            : 'push_notifications_enabled': value,
+      });
+    }
     await _saveNotifications();
     notifyListeners();
   }
@@ -337,6 +421,12 @@ class CustomerSettingsStore extends ChangeNotifier {
     await _saveSupportRequests();
     notifyListeners();
     return request;
+  }
+
+  Future<void> _saveCorePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_languageKey, _language);
+    await _saveNotifications();
   }
 
   Future<void> _saveNotifications() async {

@@ -53,4 +53,6 @@ class MemorySecureStore implements SecureStore {
 abstract final class SecureStoreKeys {
   static const accessToken = 'getin.access_token';
   static const refreshToken = 'getin.refresh_token';
+  static const deviceId = 'getin.device_id';
+  static const customerAccountCache = 'getin.customer_account_cache';
 }

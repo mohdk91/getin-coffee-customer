@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../auth/sign_in_screen.dart';
+import '../location/location_permission_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -43,7 +45,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const SignInScreen()),
+      MaterialPageRoute(
+        builder: (_) => CustomerAuthStore.instance.isAuthenticated
+            ? const LocationPermissionScreen()
+            : const SignInScreen(),
+      ),
     );
   }
 

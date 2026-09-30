@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/customer/customer_country.dart';
 import '../../core/customer/customer_personal_info_store.dart';
 import '../../core/favorites/customer_favorites_store.dart';
@@ -16,6 +17,8 @@ import '../cart/cart_screen.dart';
 import '../product/product_detail_screen.dart';
 import '../payments/payment_methods_screen.dart';
 import '../gift_cards/gift_cards_screen.dart' as gift_cards_ui;
+import '../auth/otp_screen.dart';
+import '../auth/sign_in_screen.dart';
 import 'profile_photo_actions.dart';
 import 'settings_detail_screens.dart';
 
@@ -30,22 +33,70 @@ class PersonalInformationScreen extends StatefulWidget {
 }
 
 class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
-  final firstName = TextEditingController(text: 'Mohammed');
-  final lastName = TextEditingController(text: 'Abukalloub');
-  final email = TextEditingController(text: 'mohammed@example.com');
-  final phone = TextEditingController(text: '10 0000 0000');
-  String _phoneCode = '+20';
-  String _phoneFlag = '🇪🇬';
-  final birthday = TextEditingController(text: '4 February 1988');
+  final firstName = TextEditingController();
+  final lastName = TextEditingController();
+  final email = TextEditingController();
+  final phone = TextEditingController();
+  final birthday = TextEditingController();
+  String _phoneCode = '';
+  String _phoneFlag = '🌐';
+  DateTime? _dateOfBirth;
+  bool _saving = false;
 
   @override
-  void dispose() {
-    firstName.dispose();
-    lastName.dispose();
-    email.dispose();
-    phone.dispose();
-    birthday.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _applyAccount();
+  }
+
+  void _applyAccount() {
+    final account = CustomerAuthStore.instance.customer;
+    if (account == null) return;
+    final parts = account.name.trim().split(RegExp(r'\s+'));
+    firstName.text = parts.isEmpty ? '' : parts.first;
+    lastName.text = parts.length <= 1 ? '' : parts.sublist(1).join(' ');
+    email.text = account.email;
+    phone.text = account.phone;
+    _dateOfBirth = account.dateOfBirth;
+    birthday.text = _formatDate(account.dateOfBirth);
+    final country = CustomerCountryCatalog.byIsoCode(account.countryCode);
+    if (country != null) {
+      _phoneFlag = country.flagEmoji;
+      CustomerCountryStore.current.value = country;
+    }
+    final gender = _genderLabel(account.gender);
+    if (CustomerPersonalInfoStore.genderOptions.contains(gender)) {
+      CustomerPersonalInfoStore.gender.value = gender;
+    }
+  }
+
+  String _formatDate(DateTime? value) {
+    if (value == null) return '';
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$month-$day';
+  }
+
+  String _genderLabel(String? value) {
+    switch (value) {
+      case 'male':
+        return 'Male';
+      case 'female':
+        return 'Female';
+      default:
+        return 'Prefer not to say';
+    }
+  }
+
+  String _genderApiValue(String value) {
+    switch (value) {
+      case 'Male':
+        return 'male';
+      case 'Female':
+        return 'female';
+      default:
+        return 'prefer_not_to_say';
+    }
   }
 
   Future<void> _choosePhoneCountry() async {
@@ -70,9 +121,24 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         setState(() {
           _phoneCode = '+${country.phoneCode}';
           _phoneFlag = country.flagEmoji;
+          phone.clear();
         });
       },
     );
+  }
+
+  Future<void> _chooseBirthday() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(1995, 1, 1),
+      firstDate: DateTime(1900, 1, 1),
+      lastDate: DateTime.now(),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _dateOfBirth = selected;
+      birthday.text = _formatDate(selected);
+    });
   }
 
   Future<void> _chooseGender() async {
@@ -85,7 +151,6 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         final current = CustomerPersonalInfoStore.gender.value;
         final systemBottom = MediaQuery.viewPaddingOf(sheetContext).bottom;
         final bottomPadding = systemBottom > 20 ? systemBottom + 12 : 24.0;
-
         return Container(
           decoration: const BoxDecoration(
             color: AppColors.cream,
@@ -116,15 +181,6 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Choose the option you want saved to your Getin profile.',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
                 const SizedBox(height: 18),
                 ...CustomerPersonalInfoStore.genderOptions.map(
                   (option) => _ChoiceTile(
@@ -139,16 +195,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         );
       },
     );
-
-    if (selected == null) {
-      return;
-    }
-
+    if (selected == null) return;
     await CustomerPersonalInfoStore.setGender(selected);
-    if (!mounted) {
-      return;
-    }
-    _snack(context, 'Gender saved for this local demo.');
   }
 
   Future<void> _chooseCountry() async {
@@ -162,134 +210,97 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         currentCountry: CustomerCountryStore.current.value,
       ),
     );
-
-    if (selected == null ||
-        selected.normalizedIsoCode ==
-            CustomerCountryStore.current.value.normalizedIsoCode) {
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    final cart = CartController.instance;
-    final hasCart = cart.isNotEmpty;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: Text(
-          'Change country to ${selected.name}?',
-          style: const TextStyle(
-            color: AppColors.green,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Changing country may affect:',
-              style: TextStyle(
-                color: AppColors.green,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const _CountryImpactRow(
-              icon: Icons.payments_outlined,
-              text: 'Currency and pricing',
-            ),
-            const _CountryImpactRow(
-              icon: Icons.storefront_outlined,
-              text: 'Nearby branches and product availability',
-            ),
-            const _CountryImpactRow(
-              icon: Icons.delivery_dining_outlined,
-              text: 'Delivery availability and fees',
-            ),
-            const _CountryImpactRow(
-              icon: Icons.shopping_bag_outlined,
-              text: 'Existing cart eligibility',
-            ),
-            if (hasCart) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.cream,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Text(
-                  'You currently have ${cart.itemCount} item${cart.itemCount == 1 ? '' : 's'} in your cart. '
-                  'The demo will keep the cart and will not silently delete anything. '
-                  'Before a real order, Laravel should revalidate every item for the new country and branch.',
-                  style: const TextStyle(
-                    color: AppColors.green,
-                    fontSize: 11.5,
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.green,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(hasCart ? 'Keep Cart & Change' : 'Change Country'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-
+    if (selected == null || !mounted) return;
     await CustomerCountryStore.setCountry(selected);
-    if (!mounted) {
+    if (mounted) setState(() => _phoneFlag = selected.flagEmoji);
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    final first = firstName.text.trim();
+    final last = lastName.text.trim();
+    final normalizedEmail = email.text.trim().toLowerCase();
+    final localPhone = phone.text.trim();
+    final normalizedPhone = _phoneCode.isEmpty
+        ? localPhone
+        : '$_phoneCode $localPhone'.trim();
+    if (first.isEmpty || normalizedEmail.isEmpty || normalizedPhone.isEmpty) {
+      _snack(context, 'Name, email and phone number are required.');
       return;
     }
-    _snack(
-      context,
-      '${selected.flagEmoji} ${selected.name} saved as your customer country.',
-    );
+    final auth = CustomerAuthStore.instance;
+    final previousPhone = auth.customer?.phone.trim();
+    setState(() => _saving = true);
+    try {
+      final account = await auth.updateProfile(<String, dynamic>{
+        'name': [first, if (last.isNotEmpty) last].join(' '),
+        'email': normalizedEmail,
+        'phone': normalizedPhone,
+        'gender': _genderApiValue(CustomerPersonalInfoStore.gender.value),
+        'date_of_birth': _dateOfBirth == null ? null : _formatDate(_dateOfBirth),
+        'country_code': CustomerCountryStore.current.value.normalizedIsoCode,
+      });
+      await CustomerPersonalInfoStore.setGender(_genderLabel(account.gender));
+      final country = CustomerCountryCatalog.byIsoCode(account.countryCode);
+      if (country != null) await CustomerCountryStore.setCountry(country);
+      if (!mounted) return;
+      _applyAccount();
+      _snack(context, 'Profile updated.');
+      final phoneChanged = previousPhone != null &&
+          previousPhone.isNotEmpty &&
+          previousPhone != account.phone.trim();
+      if (auth.usesApi && phoneChanged && !account.phoneVerified) {
+        try {
+          await auth.sendOtp();
+          if (!mounted) return;
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => OtpScreen(
+                phoneNumber: account.phone,
+                returnAfterVerification: true,
+              ),
+            ),
+          );
+        } catch (error) {
+          if (mounted) _snack(context, auth.userMessage(error));
+        }
+      }
+    } catch (error) {
+      if (mounted) _snack(context, auth.userMessage(error));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    firstName.dispose();
+    lastName.dispose();
+    email.dispose();
+    phone.dispose();
+    birthday.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final account = CustomerAuthStore.instance.customer;
     return _PageScaffold(
       title: 'Personal Information',
       body: Column(
         children: [
           const _ProfileAvatarEditor(),
           const SizedBox(height: 18),
-          _LabeledField(
-            label: 'First name',
-            controller: firstName,
-          ),
-          _LabeledField(
-            label: 'Last name',
-            controller: lastName,
-          ),
+          _LabeledField(label: 'First name', controller: firstName),
+          _LabeledField(label: 'Last name', controller: lastName),
           _VerifiedField(
-            label: 'Email',
+            label: account?.emailVerified == true ? 'Email · Verified' : 'Email',
             controller: email,
           ),
           _VerifiedPhoneField(
-            label: 'Phone number',
+            label: account?.phoneVerified == true
+                ? 'Phone number · Verified'
+                : 'Phone number',
             controller: phone,
             flag: _phoneFlag,
             code: _phoneCode,
@@ -299,6 +310,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
             label: 'Date of birth',
             controller: birthday,
             readOnly: true,
+            onTap: _chooseBirthday,
           ),
           ValueListenableBuilder<String>(
             valueListenable: CustomerPersonalInfoStore.gender,
@@ -318,17 +330,10 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
               onTap: _chooseCountry,
             ),
           ),
-          const _InfoNote(
-            text:
-                'Your customer country is separate from device GPS location. In production it will drive currency, branches, product availability and delivery configuration returned by Laravel.',
-          ),
           const SizedBox(height: 18),
           _PrimaryButton(
-            label: 'Save Changes',
-            onTap: () => _snack(
-              context,
-              'Gender and country are saved locally. Other profile fields will connect to the account API later.',
-            ),
+            label: _saving ? 'Saving…' : 'Save Changes',
+            onTap: _saving ? () {} : _save,
           ),
         ],
       ),
@@ -564,40 +569,6 @@ class _ChoiceTile extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CountryImpactRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _CountryImpactRow({
-    required this.icon,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: AppColors.green),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1676,11 +1647,13 @@ Future<void> showLogoutSheet(BuildContext context) {
                 const SizedBox(width: 9),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(sheetContext);
-                      _snack(
-                        context,
-                        'Logout will connect to the auth/session layer.',
+                      await CustomerAuthStore.instance.logoutCurrent();
+                      if (!context.mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const SignInScreen()),
+                        (_) => false,
                       );
                     },
                     style: FilledButton.styleFrom(
@@ -1760,11 +1733,13 @@ class _LabeledField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final bool readOnly;
+  final VoidCallback? onTap;
 
   const _LabeledField({
     required this.label,
     required this.controller,
     this.readOnly = false,
+    this.onTap,
   });
 
   @override
@@ -1774,6 +1749,7 @@ class _LabeledField extends StatelessWidget {
       child: TextField(
         controller: controller,
         readOnly: readOnly,
+        onTap: onTap,
         decoration: _inputDecoration(label),
       ),
     );

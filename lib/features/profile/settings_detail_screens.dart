@@ -2,11 +2,13 @@ import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/customer/customer_country.dart';
 import '../../core/settings/customer_settings_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
 import '../chat/customer_support_chat_screen.dart';
+import '../auth/otp_screen.dart';
 import '../auth/sign_in_screen.dart';
 
 class PhoneNumberSettingsScreen extends StatefulWidget {
@@ -67,22 +69,42 @@ class _PhoneNumberSettingsScreenState extends State<PhoneNumberSettingsScreen> {
     final local = _controller.text.trim();
     final value = '$_phoneCode $local';
     if (local.replaceAll(RegExp(r'[^0-9]'), '').length < 7) {
-      _showSnack(context, 'Enter a valid demo phone number.');
+      _showSnack(context, 'Enter a valid phone number.');
       return;
     }
-    final confirmed = await _showDemoVerification(
-      context,
-      title: 'Verify phone number',
-      destination: value,
-    );
-    if (!confirmed || !mounted) {
-      return;
+    final store = CustomerSettingsStore.instance;
+    final auth = CustomerAuthStore.instance;
+    try {
+      if (!store.usesApi) {
+        final confirmed = await _showDemoVerification(
+          context,
+          title: 'Verify phone number',
+          destination: value,
+        );
+        if (!confirmed || !mounted) return;
+        await store.setPhone(value);
+        if (mounted) _showSnack(context, 'Phone number saved for this demo.');
+        return;
+      }
+      await store.setPhone(value);
+      if (!mounted) return;
+      final account = auth.customer;
+      if (account != null && !account.phoneVerified) {
+        await auth.sendOtp();
+        if (!mounted) return;
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => OtpScreen(
+              phoneNumber: account.phone,
+              returnAfterVerification: true,
+            ),
+          ),
+        );
+      }
+      if (mounted) _showSnack(context, 'Phone number updated.');
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
     }
-    await CustomerSettingsStore.instance.setPhone(value);
-    if (!mounted) {
-      return;
-    }
-    _showSnack(context, 'Phone number verified and saved for this demo.');
   }
 
   @override
@@ -94,7 +116,7 @@ class _PhoneNumberSettingsScreenState extends State<PhoneNumberSettingsScreen> {
           icon: Icons.verified_user_outlined,
           title: 'Verified contact',
           text:
-              'The production flow will verify a new number using OTP before replacing the current number.',
+              'Changing your phone updates the GETIN account and requires phone OTP verification.',
         ),
         const SizedBox(height: 14),
         TextField(
@@ -137,7 +159,7 @@ class _PhoneNumberSettingsScreenState extends State<PhoneNumberSettingsScreen> {
         const SizedBox(height: 16),
         _PrimaryButton(
           icon: Icons.sms_outlined,
-          label: 'Verify & Save Number',
+          label: 'Save & Verify Number',
           onPressed: _save,
         ),
       ],
@@ -172,22 +194,25 @@ class _EmailSettingsScreenState extends State<EmailSettingsScreen> {
   Future<void> _save() async {
     final value = _controller.text.trim();
     if (!value.contains('@') || !value.contains('.')) {
-      _showSnack(context, 'Enter a valid demo email address.');
+      _showSnack(context, 'Enter a valid email address.');
       return;
     }
-    final confirmed = await _showDemoVerification(
-      context,
-      title: 'Verify email address',
-      destination: value,
-    );
-    if (!confirmed || !mounted) {
-      return;
+    final store = CustomerSettingsStore.instance;
+    final auth = CustomerAuthStore.instance;
+    try {
+      if (!store.usesApi) {
+        final confirmed = await _showDemoVerification(
+          context,
+          title: 'Confirm email address',
+          destination: value,
+        );
+        if (!confirmed || !mounted) return;
+      }
+      await store.setEmail(value);
+      if (mounted) _showSnack(context, 'Email address updated.');
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
     }
-    await CustomerSettingsStore.instance.setEmail(value);
-    if (!mounted) {
-      return;
-    }
-    _showSnack(context, 'Email verified and saved for this demo.');
   }
 
   @override
@@ -199,7 +224,7 @@ class _EmailSettingsScreenState extends State<EmailSettingsScreen> {
           icon: Icons.mark_email_read_outlined,
           title: 'Verified contact',
           text:
-              'The production flow will require email verification before the account email changes.',
+              'Your email is stored on your GETIN account. Email verification is shown from the server account state.',
         ),
         const SizedBox(height: 14),
         TextField(
@@ -213,7 +238,7 @@ class _EmailSettingsScreenState extends State<EmailSettingsScreen> {
         const SizedBox(height: 16),
         _PrimaryButton(
           icon: Icons.mark_email_read_outlined,
-          label: 'Verify & Save Email',
+          label: 'Save Email',
           onPressed: _save,
         ),
       ],
@@ -261,11 +286,12 @@ class SettingsNotificationsScreen extends StatelessWidget {
               store: store,
             ),
             const SizedBox(height: 14),
-            const _InfoCard(
+            _InfoCard(
               icon: Icons.info_outline_rounded,
-              title: 'Demo preference storage',
-              text:
-                  'These switches persist locally. Push-notification registration and mandatory service notifications will connect to the backend/provider later.',
+              title: store.usesApi ? 'Account notification preferences' : 'Demo preference storage',
+              text: store.usesApi
+                  ? 'Notification preferences are synchronized with your GETIN account. Push-token delivery is enabled in the notifications integration phase.'
+                  : 'These switches persist locally in demo mode.',
             ),
           ],
         );
@@ -293,7 +319,7 @@ class SettingsLanguageScreen extends StatelessWidget {
             ('🇮🇹', 'Italiano', 'Italian'),
             ('🇹🇷', 'Türkçe', 'Turkish'),
             ('🇨🇳', '简体中文', 'Simplified Chinese'),
-          ]) ...[
+          ].where((option) => store.availableLanguages.contains(option.$2))) ...[
             _RadioCard(
               label: '${option.$1}  ${option.$2}',
               subtitle: option.$3,
@@ -303,11 +329,12 @@ class SettingsLanguageScreen extends StatelessWidget {
             const SizedBox(height: 9),
           ],
           const SizedBox(height: 5),
-          const _InfoCard(
+          _InfoCard(
             icon: Icons.translate_rounded,
-            title: 'Saved locally for the demo',
-            text:
-                'The preference is functional and persistent. Full application-wide localization will be connected when the translation layer is added.',
+            title: store.usesApi ? 'Account preference' : 'Saved locally for the demo',
+            text: store.usesApi
+                ? 'English and Arabic are synced with your GETIN account. Full application-wide translation is completed in the localization phase.'
+                : 'The preference is functional and persistent. Full application-wide localization will be connected when the translation layer is added.',
           ),
         ],
       ),
@@ -497,59 +524,6 @@ class SettingsAppearanceScreen extends StatelessWidget {
 class SettingsSecurityScreen extends StatelessWidget {
   const SettingsSecurityScreen({super.key});
 
-  Future<void> _changePassword(BuildContext context) async {
-    final newPassword = TextEditingController();
-    final confirmPassword = TextEditingController();
-    final saved = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Change password · demo'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: newPassword,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'New password'),
-                ),
-                TextField(
-                  controller: confirmPassword,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirm password'),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final valid = newPassword.text.length >= 8 &&
-                      newPassword.text == confirmPassword.text;
-                  if (!valid) {
-                    return;
-                  }
-                  Navigator.pop(dialogContext, true);
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    newPassword.dispose();
-    confirmPassword.dispose();
-    if (!saved) {
-      return;
-    }
-    await CustomerSettingsStore.instance.markPasswordChanged();
-    if (context.mounted) {
-      _showSnack(context, 'Password change recorded for this local demo.');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -559,15 +533,6 @@ class SettingsSecurityScreen extends StatelessWidget {
       builder: (context, _) => _SettingsPage(
         title: 'Security',
         children: [
-          _ActionCard(
-            icon: Icons.password_rounded,
-            title: 'Change Password',
-            subtitle: store.lastPasswordChangedAt == null
-                ? 'No demo change recorded'
-                : 'Changed in this demo session',
-            onTap: () => _changePassword(context),
-          ),
-          const SizedBox(height: 8),
           _ActionCard(
             icon: Icons.phone_iphone_rounded,
             title: 'Phone Number',
@@ -581,48 +546,127 @@ class SettingsSecurityScreen extends StatelessWidget {
             subtitle: store.email,
             onTap: () => _push(context, const EmailSettingsScreen()),
           ),
-          const SizedBox(height: 8),
-          _SwitchCard(
-            icon: Icons.fingerprint_rounded,
-            title: 'Biometric Login',
-            subtitle: 'Local demo preference for Face ID / fingerprint',
-            value: store.biometricLogin,
-            onChanged: store.setBiometricLogin,
-          ),
           const SizedBox(height: 18),
           const _SectionTitle('Sessions & Devices'),
           const SizedBox(height: 9),
-          const _SessionCard(
-            icon: Icons.smartphone_rounded,
-            title: 'Android Device',
-            subtitle: 'Current demo session',
-            current: true,
-          ),
-          if (store.otherDemoSessionActive) ...[
+          const _CustomerSessionsPanel(),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomerSessionsPanel extends StatefulWidget {
+  const _CustomerSessionsPanel();
+
+  @override
+  State<_CustomerSessionsPanel> createState() => _CustomerSessionsPanelState();
+}
+
+class _CustomerSessionsPanelState extends State<_CustomerSessionsPanel> {
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = CustomerAuthStore.instance;
+    try {
+      await auth.refreshSessions();
+      if (mounted) setState(() => _loading = false);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = auth.userMessage(error);
+        });
+      }
+    }
+  }
+
+  Future<void> _revoke(int id) async {
+    final auth = CustomerAuthStore.instance;
+    try {
+      await auth.revokeSession(id);
+      if (mounted) _showSnack(context, 'Session signed out.');
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
+    }
+  }
+
+  Future<void> _signOutAll() async {
+    final auth = CustomerAuthStore.instance;
+    try {
+      await auth.logoutAll();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = CustomerAuthStore.instance;
+    if (_loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(18),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    if (_error != null) {
+      return _InfoCard(
+        icon: Icons.sync_problem_rounded,
+        title: 'Could not load sessions',
+        text: _error!,
+      );
+    }
+    if (auth.sessions.isEmpty) {
+      return const _InfoCard(
+        icon: Icons.verified_user_outlined,
+        title: 'No active sessions',
+        text: 'No customer sessions were returned by your account.',
+      );
+    }
+    return AnimatedBuilder(
+      animation: auth,
+      builder: (context, _) => Column(
+        children: [
+          for (final session in auth.sessions) ...[
+            _SessionCard(
+              icon: session.device?.platform == 'ios'
+                  ? Icons.phone_iphone_rounded
+                  : Icons.smartphone_rounded,
+              title: session.device?.deviceName?.trim().isNotEmpty == true
+                  ? session.device!.deviceName!.trim()
+                  : session.name,
+              subtitle: [
+                if (session.device?.platform.isNotEmpty == true)
+                  session.device!.platform.toUpperCase(),
+                if (session.device?.appVersion?.isNotEmpty == true)
+                  'App ${session.device!.appVersion}',
+                if (session.lastActiveAt != null)
+                  'Last active ${session.lastActiveAt!.toLocal()}',
+              ].join(' · '),
+              current: session.isCurrent,
+              onRevoke: session.isCurrent ? null : () => _revoke(session.id),
+            ),
             const SizedBox(height: 8),
-            const _SessionCard(
-              icon: Icons.laptop_mac_rounded,
-              title: 'Chrome on Mac',
-              subtitle: 'Demo session · last active 2 hours ago',
-            ),
-            const SizedBox(height: 12),
-            _DangerButton(
-              label: 'Sign Out Other Devices',
-              onPressed: () async {
-                await store.signOutOtherDemoSessions();
-                if (context.mounted) {
-                  _showSnack(context, 'Other demo sessions signed out.');
-                }
-              },
-            ),
-          ] else ...[
-            const SizedBox(height: 8),
-            const _InfoCard(
-              icon: Icons.verified_user_outlined,
-              title: 'No other demo sessions',
-              text: 'Only the current device remains active.',
-            ),
           ],
+          const SizedBox(height: 4),
+          _DangerButton(
+            label: 'Sign Out All Devices',
+            onPressed: _signOutAll,
+          ),
         ],
       ),
     );
@@ -1753,7 +1797,7 @@ Future<void> showSettingsLogoutSheet(BuildContext context) async {
               ),
               const SizedBox(height: 6),
               const Text(
-                'This local demo returns to Sign In and keeps your saved demo data.',
+                'This will revoke the current GETIN session and remove the secure access token from this device.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),
@@ -1787,6 +1831,9 @@ Future<void> showSettingsLogoutSheet(BuildContext context) async {
   if (!confirmed || !context.mounted) {
     return;
   }
+  final auth = CustomerAuthStore.instance;
+  await auth.logoutCurrent();
+  if (!context.mounted) return;
   Navigator.of(context).pushAndRemoveUntil(
     MaterialPageRoute(builder: (_) => const SignInScreen()),
     (_) => false,
@@ -2168,12 +2215,14 @@ class _SessionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool current;
+  final VoidCallback? onRevoke;
 
   const _SessionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     this.current = false,
+    this.onRevoke,
   });
 
   @override
@@ -2222,6 +2271,15 @@ class _SessionCard extends StatelessWidget {
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
                 ),
+              ),
+            ),
+          if (!current && onRevoke != null)
+            IconButton(
+              tooltip: 'Sign out this device',
+              onPressed: onRevoke,
+              icon: const Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFB94A48),
               ),
             ),
         ],

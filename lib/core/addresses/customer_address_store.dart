@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/customer_auth_store.dart';
+import 'customer_address_repository.dart';
+
 @immutable
 class CustomerAddress {
   final String id;
@@ -113,6 +116,9 @@ class CustomerAddressStore extends ChangeNotifier {
 
   final List<CustomerAddress> _addresses = <CustomerAddress>[];
   String? _checkoutAddressId;
+  CustomerAddressRepository? _repository;
+
+  bool get usesApi => _repository?.usesApi ?? false;
 
   List<CustomerAddress> get addresses => List.unmodifiable(_addresses);
 
@@ -136,8 +142,23 @@ class CustomerAddressStore extends ChangeNotifier {
     return defaultAddress;
   }
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({CustomerAddressRepository? repository}) async {
+    instance._repository = repository;
     await instance._load();
+  }
+
+  Future<void> refreshFromApi() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi ||
+        !CustomerAuthStore.instance.isAuthenticated) {
+      return;
+    }
+    final remote = await repository.list();
+    _addresses
+      ..clear()
+      ..addAll(remote);
+    _checkoutAddressId = defaultAddress?.id;
+    await _persist();
   }
 
   Future<void> _load() async {
@@ -147,7 +168,7 @@ class CustomerAddressStore extends ChangeNotifier {
       ..clear()
       ..addAll(_decodeAddresses(raw));
 
-    if (_addresses.isEmpty) {
+    if (_addresses.isEmpty && !usesApi) {
       _addresses.addAll(_demoAddresses());
       await _saveAddresses();
     }
@@ -214,11 +235,21 @@ class CustomerAddressStore extends ChangeNotifier {
       ];
 
   Future<void> addAddress(CustomerAddress address) async {
-    final shouldBeDefault = _addresses.isEmpty || address.isDefault;
-    if (shouldBeDefault) {
-      _clearDefaultFlags();
+    final repository = _repository;
+    if (repository != null && repository.usesApi) {
+      final account = CustomerAuthStore.instance.customer;
+      if (account == null) return;
+      final created = await repository.create(address, account: account);
+      if (created.isDefault) _clearDefaultFlags();
+      _addresses.add(created);
+      _checkoutAddressId ??= created.id;
+      if (created.isDefault) _checkoutAddressId = created.id;
+      await _persist();
+      return;
     }
 
+    final shouldBeDefault = _addresses.isEmpty || address.isDefault;
+    if (shouldBeDefault) _clearDefaultFlags();
     final normalized = address.copyWith(
       id: address.id.isEmpty
           ? 'address-${DateTime.now().microsecondsSinceEpoch}'
@@ -226,54 +257,56 @@ class CustomerAddressStore extends ChangeNotifier {
       isDefault: shouldBeDefault,
     );
     _addresses.add(normalized);
-
     if (_checkoutAddressId == null || normalized.isDefault) {
       _checkoutAddressId = normalized.id;
     }
-
     await _persist();
   }
 
   Future<void> updateAddress(CustomerAddress updated) async {
     final index = _addresses.indexWhere((item) => item.id == updated.id);
-    if (index < 0) {
+    if (index < 0) return;
+    final repository = _repository;
+    if (repository != null && repository.usesApi) {
+      final account = CustomerAuthStore.instance.customer;
+      if (account == null) return;
+      final remote = await repository.update(updated, account: account);
+      if (remote.isDefault) _clearDefaultFlags();
+      _addresses[index] = remote;
+      await _persist();
       return;
     }
-
-    if (updated.isDefault) {
-      _clearDefaultFlags();
-    }
-
+    if (updated.isDefault) _clearDefaultFlags();
     _addresses[index] = updated;
     if (!_addresses.any((item) => item.isDefault) && _addresses.isNotEmpty) {
       _addresses[0] = _addresses[0].copyWith(isDefault: true);
     }
-
     await _persist();
   }
 
   Future<void> deleteAddress(String id) async {
+    final repository = _repository;
+    if (repository != null && repository.usesApi) {
+      await repository.delete(id);
+    }
     final removed = _addresses.where((item) => item.id == id).toList();
     _addresses.removeWhere((item) => item.id == id);
-
-    final removedWasDefault = removed.any((item) => item.isDefault);
-    if (removedWasDefault && _addresses.isNotEmpty) {
-      _addresses[0] = _addresses[0].copyWith(isDefault: true);
+    if (repository == null || !repository.usesApi) {
+      if (removed.any((item) => item.isDefault) && _addresses.isNotEmpty) {
+        _addresses[0] = _addresses[0].copyWith(isDefault: true);
+      }
     }
-
-    if (_checkoutAddressId == id) {
-      _checkoutAddressId = defaultAddress?.id;
-    }
-
+    if (_checkoutAddressId == id) _checkoutAddressId = defaultAddress?.id;
     await _persist();
   }
 
   Future<void> setDefault(String id) async {
     final index = _addresses.indexWhere((item) => item.id == id);
-    if (index < 0) {
-      return;
+    if (index < 0) return;
+    final repository = _repository;
+    if (repository != null && repository.usesApi) {
+      await repository.setDefault(id);
     }
-
     for (var i = 0; i < _addresses.length; i++) {
       _addresses[i] = _addresses[i].copyWith(isDefault: i == index);
     }
@@ -282,9 +315,7 @@ class CustomerAddressStore extends ChangeNotifier {
   }
 
   Future<void> selectForCheckout(String id) async {
-    if (!_addresses.any((item) => item.id == id)) {
-      return;
-    }
+    if (!_addresses.any((item) => item.id == id)) return;
     _checkoutAddressId = id;
     await _persist();
   }
