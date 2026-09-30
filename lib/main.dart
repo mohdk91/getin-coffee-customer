@@ -43,7 +43,7 @@ Future<void> main() async {
   await CustomerFavoritesStore.initialize(
     repository: CustomerFavoritesRepository(CustomerAuthStore.instance.context),
   );
-  await CustomerGiftCardStore.initialize();
+  await CustomerGiftCardStore.initialize(CustomerAuthStore.instance.context);
   await CustomerMembershipStore.initialize(CustomerAuthStore.instance.context);
   await CustomerPaymentMethodStore.initialize();
   await CustomerRewardsStore.initialize(CustomerAuthStore.instance.context);
