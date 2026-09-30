@@ -120,15 +120,30 @@ class CustomerReferralStore extends ChangeNotifier {
   static const List<CustomerReferralActivity> _demoHistory =
       <CustomerReferralActivity>[
     CustomerReferralActivity(
-        id: 'ref-demo-1',
-        friendName: 'Sara H.',
-        status: CustomerReferralStatus.rewardAvailable,
-        dateLabel: '18 Sep',
-        rewardEarned: 50),
+      id: 'ref-demo-1',
+      friendName: 'Sara H.',
+      status: CustomerReferralStatus.rewardAvailable,
+      dateLabel: '18 Sep',
+      rewardEarned: 50,
+    ),
     CustomerReferralActivity(
-        id: 'ref-demo-2',
-        friendName: 'Omar A.',
-        status: CustomerReferralStatus.registered,
-        dateLabel: '22 Sep'),
+      id: 'ref-demo-2',
+      friendName: 'Omar A.',
+      status: CustomerReferralStatus.registered,
+      dateLabel: '22 Sep',
+    ),
+    CustomerReferralActivity(
+      id: 'ref-demo-3',
+      friendName: 'Karim M.',
+      status: CustomerReferralStatus.invited,
+      dateLabel: '23 Sep',
+    ),
+    CustomerReferralActivity(
+      id: 'ref-demo-4',
+      friendName: 'Laila Y.',
+      status: CustomerReferralStatus.rewardAvailable,
+      dateLabel: '12 Sep',
+      rewardEarned: 50,
+    ),
   ];
 }
