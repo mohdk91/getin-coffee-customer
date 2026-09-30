@@ -8,6 +8,7 @@ class Branch {
   final String? phone;
   final String? address;
   final String? city;
+  final String? countryCode;
   final String? imageUrl;
   final bool? isOpen;
   final String? statusLabel;
@@ -22,6 +23,7 @@ class Branch {
     this.phone,
     this.address,
     this.city,
+    this.countryCode,
     this.imageUrl,
     this.isOpen,
     this.statusLabel,

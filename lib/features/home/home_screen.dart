@@ -216,7 +216,12 @@ class HomeScreen extends StatelessWidget {
                       InkWell(
                         onTap: openMenu,
                         borderRadius: BorderRadius.circular(18),
-                        child: HeroCarousel(onOrderNow: openMenu),
+                        child: HeroCarousel(
+                          branchId: branch.id,
+                          marketCode: branch.countryCode,
+                          fulfillment: serviceType,
+                          onOrderNow: openMenu,
+                        ),
                       ),
                       const SizedBox(
                         height: 18,
