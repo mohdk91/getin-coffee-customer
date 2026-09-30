@@ -839,20 +839,36 @@ class _ReferenceProductCard extends StatelessWidget {
 class _CatalogImage extends StatelessWidget {
   final String path;
   final BoxFit fit;
+  final double? width;
+  final double? height;
   final ImageErrorWidgetBuilder? errorBuilder;
 
   const _CatalogImage({
     required this.path,
     required this.fit,
+    this.width,
+    this.height,
     this.errorBuilder,
   });
 
   @override
   Widget build(BuildContext context) {
     if (path.startsWith('http://') || path.startsWith('https://')) {
-      return Image.network(path, fit: fit, errorBuilder: errorBuilder);
+      return Image.network(
+        path,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: errorBuilder,
+      );
     }
-    return Image.asset(path, fit: fit, errorBuilder: errorBuilder);
+    return Image.asset(
+      path,
+      width: width,
+      height: height,
+      fit: fit,
+      errorBuilder: errorBuilder,
+    );
   }
 }
 
