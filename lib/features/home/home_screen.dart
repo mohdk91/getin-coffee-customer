@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/content/mobile_content_navigation.dart';
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/rewards/customer_rewards_store.dart';
@@ -46,6 +49,18 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     void openMenu() {
       AppNavigationController.instance.openMenu();
+    }
+
+    void openContentDestination(destination) {
+      unawaited(
+        MobileContentNavigation.open(
+          context,
+          destination,
+          branch: branch,
+          serviceType: serviceType,
+          fallback: openMenu,
+        ),
+      );
     }
 
     final branchService = BranchService();
@@ -222,12 +237,13 @@ class HomeScreen extends StatelessWidget {
                           marketCode: branch.countryCode,
                           fulfillment: serviceType,
                           onOrderNow: openMenu,
+                          onDestination: openContentDestination,
                         ),
                       ),
                       const SizedBox(
                         height: 18,
                       ),
-                      const SecondaryBannerCard(),
+                      SecondaryBannerCard(onDestination: openContentDestination),
                       const SizedBox(
                         height: 18,
                       ),
