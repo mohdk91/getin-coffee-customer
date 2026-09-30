@@ -206,6 +206,7 @@ Branch branchFromApi(Map<String, dynamic> json) {
     phone: contact['phone']?.toString(),
     address: location['address']?.toString(),
     city: location['city']?.toString(),
+    countryCode: location['country_code']?.toString(),
     imageUrl: json['image_url']?.toString(),
     isOpen: status['is_open'] == true,
     statusLabel: status['label']?.toString(),

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/content/mobile_content_navigation.dart';
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/rewards/customer_rewards_store.dart';
@@ -17,10 +20,11 @@ import '../rewards/rewards_screen.dart';
 import 'widgets/hero_carousel.dart';
 import 'widgets/home_header.dart';
 import 'widgets/menu_categories_section.dart';
+import 'widgets/managed_product_sections.dart';
 import 'widgets/nearest_branches_section.dart';
 import 'widgets/play_win_card.dart';
-import 'widgets/product_sections.dart';
 import 'widgets/qr_map_row.dart';
+import 'widgets/secondary_banner_card.dart';
 import 'widgets/rewards_progress_card.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -45,6 +49,18 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     void openMenu() {
       AppNavigationController.instance.openMenu();
+    }
+
+    void openContentDestination(destination) {
+      unawaited(
+        MobileContentNavigation.open(
+          context,
+          destination,
+          branch: branch,
+          serviceType: serviceType,
+          fallback: openMenu,
+        ),
+      );
     }
 
     final branchService = BranchService();
@@ -216,8 +232,18 @@ class HomeScreen extends StatelessWidget {
                       InkWell(
                         onTap: openMenu,
                         borderRadius: BorderRadius.circular(18),
-                        child: HeroCarousel(onOrderNow: openMenu),
+                        child: HeroCarousel(
+                          branchId: branch.id,
+                          marketCode: branch.countryCode,
+                          fulfillment: serviceType,
+                          onOrderNow: openMenu,
+                          onDestination: openContentDestination,
+                        ),
                       ),
+                      const SizedBox(
+                        height: 18,
+                      ),
+                      SecondaryBannerCard(onDestination: openContentDestination),
                       const SizedBox(
                         height: 18,
                       ),
@@ -229,7 +255,8 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(
                         height: 18,
                       ),
-                      ProductSections(
+                      ManagedProductSections(
+                        branchId: branch.id,
                         branchName: branch.name,
                         serviceType: serviceType,
                       ),
