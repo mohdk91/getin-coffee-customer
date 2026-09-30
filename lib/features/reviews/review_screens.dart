@@ -499,7 +499,9 @@ class _ReviewComposerScreenState extends State<ReviewComposerScreen> {
   }
 
   Future<void> _submit() async {
-    if (_submitting) return;
+    if (_submitting) {
+      return;
+    }
     if (_rating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Choose a star rating first.')),
@@ -541,7 +543,9 @@ class _ReviewComposerScreenState extends State<ReviewComposerScreen> {
 
     setState(() => _submitting = true);
     await Future<void>.delayed(const Duration(milliseconds: 180));
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     final typedComment = _commentController.text.trim();
     final quickComment = _quickTags.join(' · ');
@@ -549,6 +553,34 @@ class _ReviewComposerScreenState extends State<ReviewComposerScreen> {
       if (quickComment.isNotEmpty) quickComment,
       if (typedComment.isNotEmpty) typedComment,
     ].join(' — ');
+
+    if (store.usesApi) {
+      final submitted = await store.submitLiveReview(
+        orderId: widget.orderId,
+        rating: _rating,
+        comment: combinedComment,
+        driverName: widget.driverName,
+        employeeName: widget.employeeName,
+        branchName: widget.branchName,
+        productName: widget.productName,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() => _submitting = false);
+      if (!submitted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'This review type is not available on the production API yet.',
+            ),
+          ),
+        );
+        return;
+      }
+      Navigator.of(context).pop();
+      return;
+    }
 
     if (widget.isDriver) {
       store.submitDriverReview(
@@ -582,7 +614,9 @@ class _ReviewComposerScreenState extends State<ReviewComposerScreen> {
       );
     }
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() => _submitting = false);
     Navigator.of(context).pop();
   }

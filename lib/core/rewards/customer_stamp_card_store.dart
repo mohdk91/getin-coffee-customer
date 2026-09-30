@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/customer_repository.dart';
+import '../engagement/customer_engagement_api_repository.dart';
+
 class StampEarnResult {
   final int stampsAdded;
   final int cardsCompleted;
   final int currentStamps;
-
   const StampEarnResult({
     required this.stampsAdded,
     required this.cardsCompleted,
@@ -17,7 +19,6 @@ class StampEarnResult {
 
 class CustomerStampCardStore extends ChangeNotifier {
   CustomerStampCardStore._();
-
   static final CustomerStampCardStore instance = CustomerStampCardStore._();
 
   static const int stampsPerFreeDrink = 7;
@@ -26,18 +27,31 @@ class CustomerStampCardStore extends ChangeNotifier {
   static const String _totalKey = 'getin_demo_stamp_total_v1';
 
   SharedPreferences? _preferences;
+  CustomerEngagementApiRepository? _repository;
+  int _requiredStamps = stampsPerFreeDrink;
   int _currentStamps = 4;
   int _completedCards = 0;
   int _totalStamps = 4;
 
+  bool get usesApi => _repository?.usesApi ?? false;
+  int get requiredStamps => _requiredStamps;
   int get currentStamps => _currentStamps;
   int get completedCards => _completedCards;
   int get totalStamps => _totalStamps;
-  int get remaining => stampsPerFreeDrink - _currentStamps;
-  double get progress => _currentStamps / stampsPerFreeDrink;
+  int get remaining =>
+      (_requiredStamps - _currentStamps).clamp(0, _requiredStamps).toInt();
+  double get progress =>
+      _requiredStamps <= 0 ? 0 : _currentStamps / _requiredStamps;
 
-  static Future<void> initialize() async {
+  static Future<void> initialize([CustomerRepositoryContext? context]) async {
     final store = instance;
+    if (context != null) {
+      store._repository = CustomerEngagementApiRepository(context);
+    }
+    if (store.usesApi) {
+      await store.refresh();
+      return;
+    }
     store._preferences = await SharedPreferences.getInstance();
     store._currentStamps =
         store._preferences?.getInt(_currentKey)?.clamp(0, 6).toInt() ?? 4;
@@ -45,43 +59,69 @@ class CustomerStampCardStore extends ChangeNotifier {
     store._totalStamps = store._preferences?.getInt(_totalKey) ?? 4;
   }
 
-  StampEarnResult addEligibleDrinks(int quantity) {
-    if (quantity <= 0) {
-      return StampEarnResult(
-        stampsAdded: 0,
-        cardsCompleted: 0,
-        currentStamps: _currentStamps,
-      );
+  Future<void> refresh() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) {
+      return;
     }
+    final items = await repository.stampCards();
+    if (items.isEmpty) {
+      _currentStamps = 0;
+      _completedCards = 0;
+      _totalStamps = 0;
+      notifyListeners();
+      return;
+    }
+    final first = items.first;
+    final campaign = first['campaign'];
+    final card = first['card'];
+    if (campaign is Map) {
+      _requiredStamps =
+          (campaign['required_stamps'] as num?)?.toInt() ?? stampsPerFreeDrink;
+    }
+    if (card is Map) {
+      _currentStamps = (card['stamps'] as num?)?.toInt() ?? 0;
+      _completedCards = (card['completion_count'] as num?)?.toInt() ?? 0;
+      _totalStamps = _completedCards * _requiredStamps + _currentStamps;
+    }
+    notifyListeners();
+  }
 
+  StampEarnResult addEligibleDrinks(int quantity) {
+    if (usesApi || quantity <= 0) {
+      return StampEarnResult(
+          stampsAdded: 0, cardsCompleted: 0, currentStamps: _currentStamps);
+    }
     final combined = _currentStamps + quantity;
-    final completedNow = combined ~/ stampsPerFreeDrink;
-    _currentStamps = combined % stampsPerFreeDrink;
+    final completedNow = combined ~/ _requiredStamps;
+    _currentStamps = combined % _requiredStamps;
     _completedCards += completedNow;
     _totalStamps += quantity;
-
     notifyListeners();
     unawaited(_persist());
-
     return StampEarnResult(
-      stampsAdded: quantity,
-      cardsCompleted: completedNow,
-      currentStamps: _currentStamps,
-    );
+        stampsAdded: quantity,
+        cardsCompleted: completedNow,
+        currentStamps: _currentStamps);
   }
 
   @visibleForTesting
   void resetToDemoDefaults({bool persist = false}) {
+    _requiredStamps = stampsPerFreeDrink;
     _currentStamps = 4;
     _completedCards = 0;
     _totalStamps = 4;
     notifyListeners();
-    if (persist) unawaited(_persist());
+    if (persist) {
+      unawaited(_persist());
+    }
   }
 
   Future<void> _persist() async {
     final preferences = _preferences;
-    if (preferences == null) return;
+    if (preferences == null) {
+      return;
+    }
     await preferences.setInt(_currentKey, _currentStamps);
     await preferences.setInt(_completedKey, _completedCards);
     await preferences.setInt(_totalKey, _totalStamps);

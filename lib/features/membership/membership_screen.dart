@@ -1065,11 +1065,24 @@ class _StickyMembershipAction extends StatelessWidget {
             width: double.infinity,
             height: 50,
             child: FilledButton(
-              onPressed: () {
-                if (!active) {
-                  CustomerMembershipStore.instance.activate(
-                    billingCycle: billingCycle,
+              onPressed: () async {
+                final store = CustomerMembershipStore.instance;
+                if (store.usesApi) {
+                  await store.refresh();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        store.tierName == null
+                            ? 'Your GETIN membership tier is based on your loyalty activity.'
+                            : 'Current GETIN tier: ${store.tierName}.',
+                      ),
+                    ),
                   );
+                  return;
+                }
+                if (!active) {
+                  store.activate(billingCycle: billingCycle);
                 }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/customer_repository.dart';
+import '../engagement/customer_engagement_api_repository.dart';
+
 @immutable
 class CustomerProductReview {
   final String id;
@@ -148,24 +151,120 @@ class CustomerReviewStore extends ChangeNotifier {
       'getin_demo_submitted_service_reviews_v1';
 
   SharedPreferences? _preferences;
+  CustomerEngagementApiRepository? _repository;
   bool _initialized = false;
+
+  bool get usesApi => _repository?.usesApi ?? false;
 
   final List<CustomerProductReview> _submittedProductReviews = [];
   final List<CustomerDriverReview> _submittedDriverReviews = [];
   final List<CustomerServiceReview> _submittedServiceReviews = [];
 
-  static Future<void> initialize() => instance._initialize();
+  static Future<void> initialize([CustomerRepositoryContext? context]) =>
+      instance._initialize(context);
 
-  Future<void> _initialize() async {
-    if (_initialized) return;
-    _preferences = await SharedPreferences.getInstance();
+  Future<void> _initialize([CustomerRepositoryContext? context]) async {
+    if (_initialized) {
+      return;
+    }
+    if (context != null) {
+      _repository = CustomerEngagementApiRepository(context);
+    }
     _initialized = true;
+    if (usesApi) {
+      await _refreshApi();
+      return;
+    }
+    _preferences = await SharedPreferences.getInstance();
     _load();
+  }
+
+  Future<void> _refreshApi() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) {
+      return;
+    }
+    final items = await repository.reviews();
+    _submittedDriverReviews.clear();
+    _submittedServiceReviews.clear();
+    for (final item in items) {
+      final type = item['type']?.toString();
+      final order = item['order'];
+      final orderId = order is Map ? order['id']?.toString() ?? '' : '';
+      final createdAt =
+          DateTime.tryParse(item['submitted_at']?.toString() ?? '') ??
+              DateTime.now();
+      if (type == 'delivery') {
+        final driver = item['driver'];
+        _submittedDriverReviews.add(CustomerDriverReview(
+          id: item['id']?.toString() ?? '',
+          orderId: orderId,
+          driverName:
+              driver is Map ? driver['name']?.toString() ?? 'Driver' : 'Driver',
+          rating: (item['rating'] as num?)?.toInt() ?? 0,
+          comment: item['comment']?.toString() ?? '',
+          createdAt: createdAt,
+        ));
+      } else if (type == 'employee') {
+        final employee = item['employee'];
+        final ratings = item['ratings'];
+        _submittedServiceReviews.add(CustomerServiceReview(
+          id: item['id']?.toString() ?? '',
+          orderId: orderId,
+          kind: 'employee',
+          subjectName: employee is Map
+              ? employee['name']?.toString() ?? 'Employee'
+              : 'Employee',
+          rating:
+              ratings is Map ? (ratings['overall'] as num?)?.toInt() ?? 0 : 0,
+          comment: item['comment']?.toString() ?? '',
+          createdAt: createdAt,
+        ));
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<bool> submitLiveReview({
+    required String orderId,
+    required int rating,
+    required String comment,
+    String? driverName,
+    String? employeeName,
+    String? branchName,
+    String? productName,
+  }) async {
+    if (!usesApi) {
+      return false;
+    }
+    final numericOrderId = int.tryParse(orderId);
+    if (numericOrderId == null) {
+      return false;
+    }
+    if (driverName != null) {
+      await _repository!.submitDeliveryReview(
+        orderId: numericOrderId,
+        rating: rating,
+        comment: comment,
+      );
+    } else if (employeeName != null) {
+      await _repository!.submitEmployeeReview(
+        orderId: numericOrderId,
+        rating: rating,
+        comment: comment,
+      );
+    } else {
+      return false;
+    }
+    await _refreshApi();
+    return true;
   }
 
   void _load() {
     final preferences = _preferences;
-    if (preferences == null) return;
+    if (preferences == null) {
+      return;
+    }
 
     _submittedProductReviews
       ..clear()
@@ -186,7 +285,7 @@ class CustomerReviewStore extends ChangeNotifier {
       ..._submittedProductReviews.where(
         (review) => review.productName == productName,
       ),
-      ..._seededReviewsFor(productName),
+      if (!usesApi) ..._seededReviewsFor(productName),
     ];
   }
 
@@ -197,7 +296,9 @@ class CustomerReviewStore extends ChangeNotifier {
 
   double averageRating(String productName) {
     final reviews = reviewsFor(productName);
-    if (reviews.isEmpty) return 0;
+    if (reviews.isEmpty) {
+      return 0;
+    }
     final total = reviews.fold<int>(0, (sum, review) => sum + review.rating);
     return total / reviews.length;
   }
@@ -240,7 +341,9 @@ class CustomerReviewStore extends ChangeNotifier {
 
   CustomerDriverReview? driverReviewFor(String orderId) {
     for (final review in _submittedDriverReviews) {
-      if (review.orderId == orderId) return review;
+      if (review.orderId == orderId) {
+        return review;
+      }
     }
     return null;
   }
@@ -259,7 +362,9 @@ class CustomerReviewStore extends ChangeNotifier {
     required String kind,
   }) {
     for (final review in _submittedServiceReviews) {
-      if (review.orderId == orderId && review.kind == kind) return review;
+      if (review.orderId == orderId && review.kind == kind) {
+        return review;
+      }
     }
     return null;
   }
@@ -303,7 +408,9 @@ class CustomerReviewStore extends ChangeNotifier {
     if (rating < 1 || rating > 5) {
       throw ArgumentError.value(rating, 'rating', 'Rating must be 1–5.');
     }
-    if (hasDriverReview(orderId)) return;
+    if (hasDriverReview(orderId)) {
+      return;
+    }
 
     _submittedDriverReviews.insert(
       0,
@@ -330,7 +437,9 @@ class CustomerReviewStore extends ChangeNotifier {
     if (rating < 1 || rating > 5) {
       throw ArgumentError.value(rating, 'rating', 'Rating must be 1–5.');
     }
-    if (hasServiceReview(orderId: orderId, kind: kind)) return;
+    if (hasServiceReview(orderId: orderId, kind: kind)) {
+      return;
+    }
 
     _submittedServiceReviews.insert(
       0,
@@ -359,7 +468,9 @@ class CustomerReviewStore extends ChangeNotifier {
 
   Future<void> _persist() async {
     final preferences = _preferences;
-    if (preferences == null) return;
+    if (preferences == null) {
+      return;
+    }
 
     await preferences.setString(
       _productStorageKey,
@@ -382,10 +493,14 @@ class CustomerReviewStore extends ChangeNotifier {
   }
 
   List<CustomerProductReview> _decodeProductReviews(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return <CustomerProductReview>[];
+    if (raw == null || raw.trim().isEmpty) {
+      return <CustomerProductReview>[];
+    }
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! List) return <CustomerProductReview>[];
+      if (decoded is! List) {
+        return <CustomerProductReview>[];
+      }
       return decoded
           .whereType<Map>()
           .map(
@@ -407,10 +522,14 @@ class CustomerReviewStore extends ChangeNotifier {
   }
 
   List<CustomerDriverReview> _decodeDriverReviews(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return <CustomerDriverReview>[];
+    if (raw == null || raw.trim().isEmpty) {
+      return <CustomerDriverReview>[];
+    }
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! List) return <CustomerDriverReview>[];
+      if (decoded is! List) {
+        return <CustomerDriverReview>[];
+      }
       return decoded
           .whereType<Map>()
           .map(
@@ -432,10 +551,14 @@ class CustomerReviewStore extends ChangeNotifier {
   }
 
   List<CustomerServiceReview> _decodeServiceReviews(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return <CustomerServiceReview>[];
+    if (raw == null || raw.trim().isEmpty) {
+      return <CustomerServiceReview>[];
+    }
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! List) return <CustomerServiceReview>[];
+      if (decoded is! List) {
+        return <CustomerServiceReview>[];
+      }
       return decoded
           .whereType<Map>()
           .map(

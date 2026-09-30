@@ -15,8 +15,10 @@ import 'core/favorites/customer_favorites_store.dart';
 import 'core/favorites/customer_favorites_repository.dart';
 import 'core/gift_cards/customer_gift_card_store.dart';
 import 'core/membership/customer_membership_store.dart';
+import 'core/notifications/customer_notifications_store.dart';
 import 'core/payments/customer_payment_method_store.dart';
 import 'core/reviews/customer_review_store.dart';
+import 'core/referrals/customer_referral_store.dart';
 import 'core/rewards/customer_rewards_store.dart';
 import 'core/rewards/customer_play_store.dart';
 import 'core/rewards/customer_stamp_card_store.dart';
@@ -33,7 +35,7 @@ Future<void> main() async {
   await CustomerCatalogStore.initialize(CustomerAuthStore.instance.context);
   await MobileAppContentStore.initialize(CustomerAuthStore.instance.context);
   await CustomerCountryStore.initialize();
-  await CustomerChatStore.initialize();
+  await CustomerChatStore.initialize(CustomerAuthStore.instance.context);
   await CustomerAddressStore.initialize(
     repository: CustomerAddressRepository(CustomerAuthStore.instance.context),
   );
@@ -42,19 +44,22 @@ Future<void> main() async {
   await CustomerFavoritesStore.initialize(
     repository: CustomerFavoritesRepository(CustomerAuthStore.instance.context),
   );
-  await CustomerGiftCardStore.initialize();
-  await CustomerMembershipStore.initialize();
+  await CustomerGiftCardStore.initialize(CustomerAuthStore.instance.context);
+  await CustomerMembershipStore.initialize(CustomerAuthStore.instance.context);
   await CustomerPaymentMethodStore.initialize();
-  await CustomerRewardsStore.initialize();
-  await CustomerPlayStore.initialize();
-  await CustomerStampCardStore.initialize();
+  await CustomerNotificationsStore.initialize(
+      CustomerAuthStore.instance.context);
+  await CustomerRewardsStore.initialize(CustomerAuthStore.instance.context);
+  await CustomerPlayStore.initialize(CustomerAuthStore.instance.context);
+  await CustomerStampCardStore.initialize(CustomerAuthStore.instance.context);
   await CustomerSettingsStore.initialize(
     repository:
         CustomerPreferencesRepository(CustomerAuthStore.instance.context),
   );
   await CustomerAccountSync.refreshAfterAuthentication();
   await CustomerVoucherStore.initialize();
-  await CustomerReviewStore.initialize();
+  await CustomerReferralStore.initialize(CustomerAuthStore.instance.context);
+  await CustomerReviewStore.initialize(CustomerAuthStore.instance.context);
   await CustomerOrdersController.initialize();
   await CartController.initialize();
   runApp(GetinCoffeeApp(config: config));
