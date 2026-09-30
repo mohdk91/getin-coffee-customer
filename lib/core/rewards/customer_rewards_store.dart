@@ -248,6 +248,7 @@ class CustomerRewardsStore extends ChangeNotifier {
     }
     if (store.usesApi) {
       await store._refreshLoyaltyApi();
+      await store._refreshRewardsApi();
       return;
     }
     store._preferences = await SharedPreferences.getInstance();
@@ -275,6 +276,44 @@ class CustomerRewardsStore extends ChangeNotifier {
         starsDelta: (item['points'] as num?)?.toInt() ?? 0,
         occurredAt: createdAt,
         subtitle: item['reference']?.toString(),
+      );
+    }).toList(growable: false);
+    notifyListeners();
+  }
+
+  Future<void> _refreshRewardsApi() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) return;
+    final items = await repository.rewards();
+    catalog = items.map((item) {
+      final type = item['reward_type']?.toString().toLowerCase() ?? '';
+      return RewardDefinition(
+        id: item['id']?.toString() ?? '',
+        title: item['name']?.toString() ?? 'GETIN Reward',
+        description: item['description']?.toString() ?? '',
+        starsRequired: (item['points_cost'] as num?)?.toInt() ?? 0,
+        benefitType: type.contains('size')
+            ? RewardBenefitType.freeSizeUpgrade
+            : RewardBenefitType.freeDrink,
+        usageText: item['description']?.toString() ??
+            'Available through GETIN Rewards.',
+        maximumSaving: double.tryParse(item['value']?.toString() ?? '') ?? 0,
+      );
+    }).toList(growable: false);
+    final redemptions = await repository.rewardRedemptions();
+    _redeemedRewards = redemptions.map((item) {
+      final statusText = item['status']?.toString().toLowerCase() ?? '';
+      final status =
+          statusText.contains('used') || statusText.contains('fulfill')
+              ? RewardRedemptionStatus.used
+              : RewardRedemptionStatus.available;
+      return RedeemedReward(
+        id: item['id']?.toString() ?? '',
+        definitionId: item['reward_id']?.toString() ?? '',
+        code: 'REWARD-${item['id'] ?? ''}',
+        redeemedAt: DateTime.tryParse(item['redeemed_at']?.toString() ?? '') ??
+            DateTime.now(),
+        status: status,
       );
     }).toList(growable: false);
     notifyListeners();
