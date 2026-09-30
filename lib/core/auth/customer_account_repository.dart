@@ -114,6 +114,50 @@ class CustomerAccountRepository {
     );
   }
 
+
+  Future<Map<String, dynamic>> sendOtp({bool resend = false}) async {
+    if (!usesApi) {
+      return <String, dynamic>{
+        'channel': 'phone',
+        'purpose': 'phone_verification',
+        'destination': '***0000',
+        'expires_in_seconds': 300,
+        'resend_after_seconds': 0,
+      };
+    }
+    final payload = await context.apiClient.postJson(
+      resend ? '/v1/customer/otp/resend' : '/v1/customer/otp/send',
+      authenticated: true,
+      body: const <String, dynamic>{'purpose': 'phone_verification'},
+    );
+    return _dataObject(payload);
+  }
+
+  Future<CustomerAccount> verifyOtp(String code) async {
+    if (!usesApi) {
+      final current = _demoCustomer;
+      if (current == null) {
+        throw const ApiException('No demo customer is signed in.');
+      }
+      if (code.trim().length != 6) {
+        throw const ApiException('Enter the complete 6-digit code.');
+      }
+      _demoCustomer = current.copyWith(phoneVerified: true);
+      return _demoCustomer!;
+    }
+    final payload = await context.apiClient.postJson(
+      '/v1/customer/otp/verify',
+      authenticated: true,
+      body: <String, dynamic>{
+        'code': code.trim(),
+        'purpose': 'phone_verification',
+      },
+    );
+    final data = _dataObject(payload);
+    final customer = _mapObject(data['customer'], field: 'customer');
+    return CustomerAccount.fromJson(customer);
+  }
+
   Map<String, dynamic> _dataObject(Map<String, dynamic> payload) {
     return _mapObject(payload['data'], field: 'data');
   }

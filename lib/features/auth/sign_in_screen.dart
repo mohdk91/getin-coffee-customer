@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/auth/customer_auth_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/getin_logo.dart';
-import '../location/location_permission_screen.dart';
+import 'customer_auth_flow.dart';
 import 'phone_login_screen.dart';
 import 'sign_up_screen.dart';
 
@@ -62,11 +62,7 @@ class _SignInScreenState extends State<SignInScreen> {
         password: password,
       );
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LocationPermissionScreen()),
-        (_) => false,
-      );
+      await continueAfterCustomerAuthentication(context);
     } catch (error) {
       if (mounted) _showError(CustomerAuthStore.instance.userMessage(error));
     } finally {

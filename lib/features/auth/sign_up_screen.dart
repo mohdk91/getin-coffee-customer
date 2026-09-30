@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/auth/customer_auth_store.dart';
 import '../../core/settings/customer_settings_store.dart';
 import '../../core/theme/app_colors.dart';
-import '../location/location_permission_screen.dart';
+import 'customer_auth_flow.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -113,11 +113,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         referralCode: _referral.text,
       );
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LocationPermissionScreen()),
-        (_) => false,
-      );
+      await continueAfterCustomerAuthentication(context);
     } catch (error) {
       if (mounted) _error(CustomerAuthStore.instance.userMessage(error));
     } finally {

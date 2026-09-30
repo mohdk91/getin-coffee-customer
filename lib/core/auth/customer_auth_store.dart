@@ -99,6 +99,20 @@ class CustomerAuthStore extends ChangeNotifier {
     });
   }
 
+
+  Future<Map<String, dynamic>> sendOtp({bool resend = false}) async {
+    return _runBusy(() => repository.sendOtp(resend: resend));
+  }
+
+  Future<CustomerAccount> verifyOtp(String code) async {
+    return _runBusy(() async {
+      final account = await repository.verifyOtp(code);
+      _customer = account;
+      notifyListeners();
+      return account;
+    });
+  }
+
   Future<T> _runBusy<T>(Future<T> Function() action) async {
     if (_busy) {
       throw const ApiException('Please wait for the current request to finish.');
