@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/customer_auth_store.dart';
+import 'customer_preferences_repository.dart';
+
 @immutable
 class CustomerSupportRequest {
   final String id;
@@ -113,6 +116,11 @@ class CustomerSettingsStore extends ChangeNotifier {
   DateTime? _deleteRequestedAt;
   final List<CustomerSupportRequest> _supportRequests =
       <CustomerSupportRequest>[];
+  CustomerPreferencesRepository? _preferencesRepository;
+  bool _inAppNotificationsEnabled = true;
+
+  bool get usesApi => _preferencesRepository?.usesApi ?? false;
+  bool get inAppNotificationsEnabled => _inAppNotificationsEnabled;
 
   String get phone => _phone;
   String get email => _email;
@@ -134,8 +142,38 @@ class CustomerSettingsStore extends ChangeNotifier {
   int get enabledNotificationCount =>
       _notifications.values.where((enabled) => enabled).length;
 
-  static Future<void> initialize() async {
+  static Future<void> initialize({
+    CustomerPreferencesRepository? repository,
+  }) async {
+    instance._preferencesRepository = repository;
     await instance._load();
+    if (repository?.usesApi == true &&
+        CustomerAuthStore.instance.isAuthenticated) {
+      await instance.refreshFromApi();
+    }
+  }
+
+  Future<void> refreshFromApi() async {
+    final repository = _preferencesRepository;
+    if (repository == null || !repository.usesApi ||
+        !CustomerAuthStore.instance.isAuthenticated) {
+      return;
+    }
+    final preferences = await repository.fetch();
+    _language = preferences.language == 'ar' ? 'العربية' : 'English';
+    _inAppNotificationsEnabled = preferences.inAppNotificationsEnabled;
+    for (final key in notificationKeys) {
+      _notifications[key] = preferences.pushNotificationsEnabled;
+    }
+    for (final key in const <String>[
+      'Offers & promotions',
+      'New products',
+      'Member-only offers',
+    ]) {
+      _notifications[key] = preferences.marketingNotificationsEnabled;
+    }
+    await _saveCorePreferences();
+    notifyListeners();
   }
 
   Future<void> _load() async {
@@ -214,13 +252,23 @@ class CustomerSettingsStore extends ChangeNotifier {
     '简体中文',
   };
 
+  Set<String> get availableLanguages => usesApi
+      ? const <String>{'English', 'العربية'}
+      : supportedLanguages;
+
   Future<void> setLanguage(String value) async {
-    if (!supportedLanguages.contains(value)) {
-      return;
+    if (!availableLanguages.contains(value)) return;
+    final repository = _preferencesRepository;
+    if (repository != null && repository.usesApi) {
+      final result = await repository.update(<String, dynamic>{
+        'language': value == 'العربية' ? 'ar' : 'en',
+      });
+      _language = result.language == 'ar' ? 'العربية' : 'English';
+    } else {
+      _language = value;
     }
-    _language = value;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_languageKey, value);
+    await prefs.setString(_languageKey, _language);
     notifyListeners();
   }
 
@@ -236,10 +284,21 @@ class CustomerSettingsStore extends ChangeNotifier {
   }
 
   Future<void> setNotification(String key, bool value) async {
-    if (!notificationKeys.contains(key)) {
-      return;
-    }
+    if (!notificationKeys.contains(key)) return;
     _notifications[key] = value;
+    final repository = _preferencesRepository;
+    if (repository != null && repository.usesApi) {
+      final isMarketing = const <String>{
+        'Offers & promotions',
+        'New products',
+        'Member-only offers',
+      }.contains(key);
+      await repository.update(<String, dynamic>{
+        isMarketing
+            ? 'marketing_notifications_enabled'
+            : 'push_notifications_enabled': value,
+      });
+    }
     await _saveNotifications();
     notifyListeners();
   }
@@ -337,6 +396,12 @@ class CustomerSettingsStore extends ChangeNotifier {
     await _saveSupportRequests();
     notifyListeners();
     return request;
+  }
+
+  Future<void> _saveCorePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_languageKey, _language);
+    await _saveNotifications();
   }
 
   Future<void> _saveNotifications() async {

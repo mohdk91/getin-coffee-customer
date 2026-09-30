@@ -293,7 +293,7 @@ class SettingsLanguageScreen extends StatelessWidget {
             ('🇮🇹', 'Italiano', 'Italian'),
             ('🇹🇷', 'Türkçe', 'Turkish'),
             ('🇨🇳', '简体中文', 'Simplified Chinese'),
-          ]) ...[
+          ].where((option) => store.availableLanguages.contains(option.$2))) ...[
             _RadioCard(
               label: '${option.$1}  ${option.$2}',
               subtitle: option.$3,
@@ -303,11 +303,12 @@ class SettingsLanguageScreen extends StatelessWidget {
             const SizedBox(height: 9),
           ],
           const SizedBox(height: 5),
-          const _InfoCard(
+          _InfoCard(
             icon: Icons.translate_rounded,
-            title: 'Saved locally for the demo',
-            text:
-                'The preference is functional and persistent. Full application-wide localization will be connected when the translation layer is added.',
+            title: store.usesApi ? 'Account preference' : 'Saved locally for the demo',
+            text: store.usesApi
+                ? 'English and Arabic are synced with your GETIN account. Full application-wide translation is completed in the localization phase.'
+                : 'The preference is functional and persistent. Full application-wide localization will be connected when the translation layer is added.',
           ),
         ],
       ),
