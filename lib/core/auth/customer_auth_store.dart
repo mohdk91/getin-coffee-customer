@@ -163,6 +163,32 @@ class CustomerAuthStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> logoutCurrent() async {
+    final repository = _sessionRepository;
+    if (repository != null && repository.usesApi) {
+      try {
+        await repository.revokeCurrent();
+      } catch (_) {
+        // Local sign-out must still remove the bearer token if the network is down.
+      }
+    }
+    await context.secureStore.delete(SecureStoreKeys.accessToken);
+    _customer = null;
+    _sessions = const <CustomerSessionInfo>[];
+    notifyListeners();
+  }
+
+  Future<void> logoutAll() async {
+    final repository = _sessionRepository;
+    if (repository != null && repository.usesApi) {
+      await repository.revokeAll();
+    }
+    await context.secureStore.delete(SecureStoreKeys.accessToken);
+    _customer = null;
+    _sessions = const <CustomerSessionInfo>[];
+    notifyListeners();
+  }
+
   Future<T> _runBusy<T>(Future<T> Function() action) async {
     if (_busy) {
       throw const ApiException('Please wait for the current request to finish.');

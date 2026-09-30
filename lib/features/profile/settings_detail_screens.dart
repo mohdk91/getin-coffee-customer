@@ -643,6 +643,20 @@ class _CustomerSessionsPanelState extends State<_CustomerSessionsPanel> {
     }
   }
 
+  Future<void> _signOutAll() async {
+    final auth = CustomerAuthStore.instance;
+    try {
+      await auth.logoutAll();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SignInScreen()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = CustomerAuthStore.instance;
@@ -693,6 +707,11 @@ class _CustomerSessionsPanelState extends State<_CustomerSessionsPanel> {
             ),
             const SizedBox(height: 8),
           ],
+          const SizedBox(height: 4),
+          _DangerButton(
+            label: 'Sign Out All Devices',
+            onPressed: _signOutAll,
+          ),
         ],
       ),
     );
@@ -1823,7 +1842,7 @@ Future<void> showSettingsLogoutSheet(BuildContext context) async {
               ),
               const SizedBox(height: 6),
               const Text(
-                'This local demo returns to Sign In and keeps your saved demo data.',
+                'This will revoke the current GETIN session and remove the secure access token from this device.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),
@@ -1857,6 +1876,9 @@ Future<void> showSettingsLogoutSheet(BuildContext context) async {
   if (!confirmed || !context.mounted) {
     return;
   }
+  final auth = CustomerAuthStore.instance;
+  await auth.logoutCurrent();
+  if (!context.mounted) return;
   Navigator.of(context).pushAndRemoveUntil(
     MaterialPageRoute(builder: (_) => const SignInScreen()),
     (_) => false,

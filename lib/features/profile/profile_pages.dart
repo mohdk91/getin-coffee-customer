@@ -18,6 +18,7 @@ import '../product/product_detail_screen.dart';
 import '../payments/payment_methods_screen.dart';
 import '../gift_cards/gift_cards_screen.dart' as gift_cards_ui;
 import '../auth/otp_screen.dart';
+import '../auth/sign_in_screen.dart';
 import 'profile_photo_actions.dart';
 import 'settings_detail_screens.dart';
 
@@ -1646,11 +1647,13 @@ Future<void> showLogoutSheet(BuildContext context) {
                 const SizedBox(width: 9),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(sheetContext);
-                      _snack(
-                        context,
-                        'Logout will connect to the auth/session layer.',
+                      await CustomerAuthStore.instance.logoutCurrent();
+                      if (!context.mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const SignInScreen()),
+                        (_) => false,
                       );
                     },
                     style: FilledButton.styleFrom(
