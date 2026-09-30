@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app.dart';
+import 'core/config/app_config.dart';
 import 'core/chat/customer_chat_store.dart';
 import 'core/addresses/customer_address_store.dart';
 import 'core/customer/customer_country.dart';
@@ -37,5 +38,5 @@ Future<void> main() async {
   await CustomerReviewStore.initialize();
   await CustomerOrdersController.initialize();
   await CartController.initialize();
-  runApp(const GetinCoffeeApp());
+  runApp(GetinCoffeeApp(config: AppConfig.fromEnvironment()));
 }
