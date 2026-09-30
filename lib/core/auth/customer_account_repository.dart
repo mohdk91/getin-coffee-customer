@@ -60,6 +60,60 @@ class CustomerAccountRepository {
     );
   }
 
+
+  Future<CustomerAuthResult> register({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+    required String passwordConfirmation,
+    String language = 'en',
+    String? referralCode,
+  }) async {
+    if (!usesApi) {
+      final customer = CustomerAccount(
+        id: 1,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        language: language,
+        status: 'active',
+        emailVerified: false,
+        phoneVerified: false,
+      );
+      _demoCustomer = customer;
+      return CustomerAuthResult(customer: customer, token: 'demo-token');
+    }
+
+    final body = <String, dynamic>{
+      'name': name.trim(),
+      'email': email.trim().toLowerCase(),
+      'phone': phone.trim(),
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+      'language': language,
+    };
+    final referral = referralCode?.trim();
+    if (referral != null && referral.isNotEmpty) {
+      body['referral_code'] = referral.toUpperCase();
+    }
+
+    final payload = await context.apiClient.postJson(
+      '/v1/customer/register',
+      body: body,
+    );
+    final data = _dataObject(payload);
+    final customer = _mapObject(data['customer'], field: 'customer');
+    final token = data['token']?.toString().trim() ?? '';
+    if (token.isEmpty) {
+      throw const ApiException('The GETIN API did not return an access token.');
+    }
+    return CustomerAuthResult(
+      customer: CustomerAccount.fromJson(customer),
+      token: token,
+    );
+  }
+
   Map<String, dynamic> _dataObject(Map<String, dynamic> payload) {
     return _mapObject(payload['data'], field: 'data');
   }

@@ -50,6 +50,7 @@ class _Transport implements ApiTransport {
 }
 
 void main() {
+
   test('Task 17 login uses the Laravel customer login endpoint', () async {
     final transport = _Transport();
     const config = AppConfig(
@@ -73,6 +74,34 @@ void main() {
     expect(transport.method, 'POST');
     expect(transport.uri?.path, '/api/v1/customer/login');
     expect(result.customer.id, 7);
+    expect(result.token, 'token-123');
+  });
+
+
+  test('Task 18 registration maps Laravel customer auth response', () async {
+    final transport = _Transport();
+    const config = AppConfig(
+      environment: AppEnvironment.development,
+      apiBaseUrl: 'https://api.example.com/api',
+    );
+    final context = CustomerRepositoryContext(
+      config: config,
+      secureStore: MemorySecureStore(),
+      apiClient: ApiClient(config, transport: transport),
+    );
+    final repository = CustomerAccountRepository(context);
+
+    final result = await repository.register(
+      name: 'New Customer',
+      email: 'new@example.com',
+      phone: '+201000000001',
+      password: 'Password123',
+      passwordConfirmation: 'Password123',
+      referralCode: 'friend10',
+    );
+
+    expect(transport.method, 'POST');
+    expect(transport.uri?.path, '/api/v1/customer/register');
     expect(result.token, 'token-123');
   });
 }

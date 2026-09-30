@@ -69,6 +69,36 @@ class CustomerAuthStore extends ChangeNotifier {
     });
   }
 
+
+  Future<CustomerAccount> register({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+    required String passwordConfirmation,
+    String language = 'en',
+    String? referralCode,
+  }) async {
+    return _runBusy(() async {
+      final result = await repository.register(
+        name: name,
+        email: email,
+        phone: phone,
+        password: password,
+        passwordConfirmation: passwordConfirmation,
+        language: language,
+        referralCode: referralCode,
+      );
+      await context.secureStore.write(
+        SecureStoreKeys.accessToken,
+        result.token,
+      );
+      _customer = result.customer;
+      notifyListeners();
+      return result.customer;
+    });
+  }
+
   Future<T> _runBusy<T>(Future<T> Function() action) async {
     if (_busy) {
       throw const ApiException('Please wait for the current request to finish.');
