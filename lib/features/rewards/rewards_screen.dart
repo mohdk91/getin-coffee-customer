@@ -456,7 +456,7 @@ class _StampCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final remaining = CustomerStampCardStore.stampsPerFreeDrink - current;
+    final remaining = CustomerStampCardStore.instance.requiredStamps - current;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -513,15 +513,15 @@ class _StampCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: List.generate(
-              CustomerStampCardStore.stampsPerFreeDrink,
+              CustomerStampCardStore.instance.requiredStamps,
               (index) => Expanded(
                 child: Container(
                   height: 38,
                   margin: EdgeInsets.only(
-                    right:
-                        index == CustomerStampCardStore.stampsPerFreeDrink - 1
-                            ? 0
-                            : 5,
+                    right: index ==
+                            CustomerStampCardStore.instance.requiredStamps - 1
+                        ? 0
+                        : 5,
                   ),
                   decoration: BoxDecoration(
                     color: index < current ? AppColors.green : AppColors.cream,
