@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app.dart';
 import 'core/config/app_config.dart';
+import 'core/auth/customer_auth_store.dart';
 import 'core/chat/customer_chat_store.dart';
 import 'core/addresses/customer_address_store.dart';
 import 'core/customer/customer_country.dart';
@@ -21,6 +22,8 @@ import 'features/orders/orders_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final config = AppConfig.fromEnvironment();
+  await CustomerAuthStore.initialize(config);
   await CustomerCountryStore.initialize();
   await CustomerChatStore.initialize();
   await CustomerAddressStore.initialize();
@@ -38,5 +41,5 @@ Future<void> main() async {
   await CustomerReviewStore.initialize();
   await CustomerOrdersController.initialize();
   await CartController.initialize();
-  runApp(GetinCoffeeApp(config: AppConfig.fromEnvironment()));
+  runApp(GetinCoffeeApp(config: config));
 }

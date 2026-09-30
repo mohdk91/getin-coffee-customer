@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/getin_logo.dart';
 import '../location/location_permission_screen.dart';
@@ -13,14 +15,19 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  final _identifier = TextEditingController();
+  final _password = TextEditingController();
   bool _hidden = true;
   bool _authenticating = false;
 
-  InputDecoration _field(
-    String hint,
-    IconData icon, {
-    Widget? suffix,
-  }) {
+  @override
+  void dispose() {
+    _identifier.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _field(String hint, IconData icon, {Widget? suffix}) {
     return InputDecoration(
       hintText: hint,
       prefixIcon: Icon(icon, color: AppColors.muted),
@@ -38,23 +45,38 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Future<void> _continueAfterLogin() async {
+  Future<void> _signIn() async {
     if (_authenticating) return;
+    final identifier = _identifier.text.trim();
+    final password = _password.text;
+    if (identifier.isEmpty || password.isEmpty) {
+      _showError('Enter your email/mobile number and password.');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
     setState(() => _authenticating = true);
+    try {
+      await CustomerAuthStore.instance.login(
+        identifier: identifier,
+        password: password,
+      );
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LocationPermissionScreen()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (mounted) _showError(CustomerAuthStore.instance.userMessage(error));
+    } finally {
+      if (mounted) setState(() => _authenticating = false);
+    }
+  }
 
-    // Local demo: represent the async auth boundary without pretending a real
-    // backend request has happened. Production will surface offline/auth
-    // failures here before navigation.
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
-    setState(() => _authenticating = false);
-
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const LocationPermissionScreen(),
-      ),
-      (_) => false,
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -81,23 +103,28 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 10),
               const Text(
                 'Sign in to continue your Getin Coffee experience.',
-                style: TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 15,
-                ),
+                style: TextStyle(color: AppColors.muted, fontSize: 15),
               ),
               const SizedBox(height: 38),
-              const Text('Email Address'),
+              const Text('Email or Mobile Number'),
               const SizedBox(height: 8),
               TextField(
+                controller: _identifier,
                 keyboardType: TextInputType.emailAddress,
-                decoration: _field('Enter email address', Icons.email_outlined),
+                textInputAction: TextInputAction.next,
+                decoration: _field(
+                  'Enter email or mobile number',
+                  Icons.person_outline_rounded,
+                ),
               ),
               const SizedBox(height: 18),
               const Text('Password'),
               const SizedBox(height: 8),
               TextField(
+                controller: _password,
                 obscureText: _hidden,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _signIn(),
                 decoration: _field(
                   'Enter password',
                   Icons.lock_outline_rounded,
@@ -111,49 +138,12 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ),
               ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {
-                    showDialog<void>(
-                      context: context,
-                      builder: (dialogContext) => AlertDialog(
-                        title: const Text('Reset Password'),
-                        content: const Text(
-                          'For this local demo, password reset is simulated. '
-                          'The production app will send a secure reset link or OTP.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            child: const Text('Cancel'),
-                          ),
-                          FilledButton(
-                            onPressed: () {
-                              Navigator.pop(dialogContext);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Demo password reset request created.',
-                                  ),
-                                ),
-                              );
-                            },
-                            child: const Text('Send Reset'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  child: const Text('Forgot Password?'),
-                ),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
-                  onPressed: _authenticating ? null : _continueAfterLogin,
+                  onPressed: _authenticating ? null : _signIn,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.green,
                     foregroundColor: AppColors.beige,
@@ -170,74 +160,35 @@ class _SignInScreenState extends State<SignInScreen> {
                       : const Text('Sign In'),
                 ),
               ),
-              const SizedBox(height: 24),
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('or'),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: OutlinedButton.icon(
                   onPressed: _authenticating
                       ? null
-                      : () {
-                          Navigator.push(
+                      : () => Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const PhoneLoginScreen(),
                             ),
-                          );
-                        },
+                          ),
                   icon: const Icon(Icons.phone_iphone_rounded),
-                  label: const Text('Continue with Mobile Number'),
+                  label: const Text('Sign In with Mobile Number'),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SocialAuthButton(
-                      label: 'Google',
-                      icon: const _GoogleMark(),
-                      onPressed: _authenticating ? null : _continueAfterLogin,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SocialAuthButton(
-                      label: 'Apple',
-                      icon: const Icon(
-                        Icons.apple,
-                        size: 22,
-                        color: Colors.black,
-                      ),
-                      onPressed: _authenticating ? null : _continueAfterLogin,
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 30),
               Center(
                 child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SignUpScreen(),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    'Don’t have an account?  Sign Up',
-                  ),
+                  onPressed: _authenticating
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SignUpScreen(),
+                            ),
+                          ),
+                  child: const Text('Don’t have an account?  Sign Up'),
                 ),
               ),
             ],
@@ -245,130 +196,5 @@ class _SignInScreenState extends State<SignInScreen> {
         ),
       ),
     );
-  }
-}
-
-class _SocialAuthButton extends StatelessWidget {
-  final String label;
-  final Widget icon;
-  final VoidCallback? onPressed;
-
-  const _SocialAuthButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.green,
-          side: const BorderSide(
-            color: AppColors.muted,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(999),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: Center(child: icon),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                softWrap: false,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GoogleMark extends StatelessWidget {
-  const _GoogleMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return const CustomPaint(
-      size: Size.square(22),
-      painter: _GoogleMarkPainter(),
-    );
-  }
-}
-
-class _GoogleMarkPainter extends CustomPainter {
-  const _GoogleMarkPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = size.width * 0.20;
-    final arcRect = Rect.fromLTWH(
-      stroke / 2,
-      stroke / 2,
-      size.width - stroke,
-      size.height - stroke,
-    );
-
-    void arc(
-      Color color,
-      double start,
-      double sweep,
-    ) {
-      canvas.drawArc(
-        arcRect,
-        start,
-        sweep,
-        false,
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = stroke
-          ..strokeCap = StrokeCap.square,
-      );
-    }
-
-    // Google-inspired four-color G mark drawn locally,
-    // avoiding an additional icon dependency.
-    arc(const Color(0xFF4285F4), -0.55, 1.85);
-    arc(const Color(0xFF34A853), 1.30, 1.15);
-    arc(const Color(0xFFFBBC05), 2.45, 0.95);
-    arc(const Color(0xFFEA4335), 3.40, 1.95);
-
-    canvas.drawRect(
-      Rect.fromLTWH(
-        size.width * 0.52,
-        size.height * 0.46,
-        size.width * 0.42,
-        stroke,
-      ),
-      Paint()..color = const Color(0xFF4285F4),
-    );
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant _GoogleMarkPainter oldDelegate,
-  ) {
-    return false;
   }
 }

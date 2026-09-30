@@ -1,7 +1,9 @@
 import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
+
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/theme/app_colors.dart';
-import 'otp_screen.dart';
+import '../location/location_permission_screen.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({super.key});
@@ -12,46 +14,49 @@ class PhoneLoginScreen extends StatefulWidget {
 
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
   String _code = '+20';
   String _flag = '🇪🇬';
-  bool _sendingOtp = false;
+  bool _signingIn = false;
+  bool _hidden = true;
 
   @override
   void dispose() {
     _phoneController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _sendOtp() async {
-    if (_sendingOtp) return;
-
+  Future<void> _signIn() async {
+    if (_signingIn) return;
     final phone = _phoneController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.length < 7) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid mobile number before continuing.'),
-        ),
-      );
+    if (phone.length < 7 || _passwordController.text.isEmpty) {
+      _error('Enter a valid mobile number and password.');
       return;
     }
-
+    final identifier = '$_code$phone';
     FocusScope.of(context).unfocus();
-    setState(() => _sendingOtp = true);
+    setState(() => _signingIn = true);
+    try {
+      await CustomerAuthStore.instance.login(
+        identifier: identifier,
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LocationPermissionScreen()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (mounted) _error(CustomerAuthStore.instance.userMessage(error));
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
 
-    // Local demo: simulate an async OTP request. Production will call the
-    // authentication API here and can surface offline/server failures.
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
-    setState(() => _sendingOtp = false);
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OtpScreen(
-          phoneNumber: '$_flag $_code ${_phoneController.text.trim()}',
-        ),
-      ),
-    );
+  void _error(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _selectCountry() async {
@@ -84,20 +89,11 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 380;
-    final systemBottom = MediaQuery.viewPaddingOf(context).bottom;
-
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
         child: ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            compact ? 18 : 24,
-            18,
-            compact ? 18 : 24,
-            systemBottom + 24,
-          ),
+          padding: EdgeInsets.fromLTRB(compact ? 18 : 24, 18, compact ? 18 : 24, 28),
           children: [
             Align(
               alignment: Alignment.centerLeft,
@@ -108,7 +104,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
             ),
             SizedBox(height: compact ? 18 : 30),
             Text(
-              'Continue with Mobile',
+              'Sign in with Mobile',
               style: TextStyle(
                 color: AppColors.green,
                 fontSize: compact ? 27 : 30,
@@ -117,10 +113,10 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'We’ll send a verification code to your mobile number.',
+              'Use the mobile number and password linked to your Getin account.',
               style: TextStyle(color: AppColors.muted),
             ),
-            SizedBox(height: compact ? 26 : 36),
+            const SizedBox(height: 30),
             Container(
               constraints: const BoxConstraints(minHeight: 58),
               decoration: BoxDecoration(
@@ -132,30 +128,17 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                 children: [
                   InkWell(
                     onTap: _selectCountry,
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(16),
-                    ),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: compact ? 10 : 14,
-                        vertical: 17,
-                      ),
-                      child: Text(
-                        '$_flag  $_code',
-                        style: TextStyle(fontSize: compact ? 12 : 14),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 17),
+                      child: Text('$_flag  $_code'),
                     ),
                   ),
-                  const SizedBox(
-                    height: 34,
-                    child: VerticalDivider(width: 1),
-                  ),
+                  const SizedBox(height: 34, child: VerticalDivider(width: 1)),
                   Expanded(
                     child: TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _sendOtp(),
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         hintText: 'Enter phone number',
                         border: InputBorder.none,
@@ -166,26 +149,41 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _passwordController,
+              obscureText: _hidden,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _signIn(),
+              decoration: InputDecoration(
+                hintText: 'Password',
+                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(() => _hidden = !_hidden),
+                  icon: Icon(_hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
             const SizedBox(height: 26),
             SizedBox(
               width: double.infinity,
               height: 56,
               child: FilledButton(
-                onPressed: _sendingOtp ? null : _sendOtp,
+                onPressed: _signingIn ? null : _signIn,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.green,
                   foregroundColor: AppColors.beige,
                 ),
-                child: _sendingOtp
+                child: _signingIn
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: AppColors.beige,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.beige),
                       )
-                    : const Text('Send OTP'),
+                    : const Text('Sign In'),
               ),
             ),
           ],
