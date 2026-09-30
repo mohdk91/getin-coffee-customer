@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'customer_favorites_repository.dart';
+
 class FavoriteProductEntry {
   final String id;
+  final int? serverProductId;
   final String name;
   final String description;
   final String image;
@@ -14,6 +17,7 @@ class FavoriteProductEntry {
 
   const FavoriteProductEntry({
     required this.id,
+    this.serverProductId,
     required this.name,
     required this.description,
     required this.image,
@@ -23,6 +27,7 @@ class FavoriteProductEntry {
   });
 
   factory FavoriteProductEntry.fromProduct({
+    int? serverProductId,
     required String name,
     required String description,
     required String image,
@@ -32,6 +37,7 @@ class FavoriteProductEntry {
   }) {
     return FavoriteProductEntry(
       id: CustomerFavoritesStore.productId(name),
+      serverProductId: serverProductId,
       name: name,
       description: description,
       image: image,
@@ -44,6 +50,7 @@ class FavoriteProductEntry {
   factory FavoriteProductEntry.fromJson(Map<String, dynamic> json) {
     return FavoriteProductEntry(
       id: json['id'] as String? ?? '',
+      serverProductId: (json['serverProductId'] as num?)?.toInt(),
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       image: json['image'] as String? ?? '',
@@ -55,6 +62,7 @@ class FavoriteProductEntry {
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
+        'serverProductId': serverProductId,
         'name': name,
         'description': description,
         'image': image,
@@ -72,6 +80,7 @@ class CustomerFavoritesStore extends ChangeNotifier {
 
   final List<FavoriteProductEntry> _products = <FavoriteProductEntry>[];
   bool _initialized = false;
+  CustomerFavoritesRepository? _repository;
 
   List<FavoriteProductEntry> get products => List.unmodifiable(_products);
   int get count => _products.length;
@@ -83,7 +92,10 @@ class CustomerFavoritesStore extends ChangeNotifier {
     return Uri.encodeComponent(normalized);
   }
 
-  static Future<void> initialize() => instance._initialize();
+  static Future<void> initialize({CustomerFavoritesRepository? repository}) {
+    instance._repository = repository;
+    return instance._initialize();
+  }
 
   Future<void> _initialize() async {
     if (_initialized) return;
@@ -139,6 +151,20 @@ class CustomerFavoritesStore extends ChangeNotifier {
 
     notifyListeners();
     await _persist();
+
+    final serverId = product.serverProductId;
+    final repository = _repository;
+    if (serverId != null && repository != null && repository.usesApi) {
+      try {
+        if (added) {
+          await repository.add(serverId);
+        } else {
+          await repository.remove(serverId);
+        }
+      } catch (_) {
+        // Keep optimistic local UI; next authenticated refresh reconciles state.
+      }
+    }
     return added;
   }
 
