@@ -473,16 +473,18 @@ class _SpinWinScreenState extends State<SpinWinScreen>
     if (!mounted) return;
 
     final prize = _prizes[selected];
-    if (prize.freeDrink) {
-      CustomerRewardsStore.instance.grantFreeDrinkReward(
-        source: 'getin-play-spin',
-      );
-    } else {
-      CustomerRewardsStore.instance.addBonusStars(
-        stars: prize.stars,
-        title: 'Spin & Win',
-        subtitle: 'Getin Play prize',
-      );
+    if (!play.usesApi) {
+      if (prize.freeDrink) {
+        CustomerRewardsStore.instance.grantFreeDrinkReward(
+          source: 'getin-play-spin',
+        );
+      } else {
+        CustomerRewardsStore.instance.addBonusStars(
+          stars: prize.stars,
+          title: 'Spin & Win',
+          subtitle: 'Getin Play prize',
+        );
+      }
     }
 
     await play.recordPlay(
@@ -746,11 +748,13 @@ class _StopTimerScreenState extends State<StopTimerScreen> {
       _saving = true;
     });
 
-    CustomerRewardsStore.instance.addBonusStars(
-      stars: stars,
-      title: 'Stop the Timer',
-      subtitle: 'Stopped at ${elapsed.toStringAsFixed(2)}s',
-    );
+    if (!CustomerPlayStore.instance.usesApi) {
+      CustomerRewardsStore.instance.addBonusStars(
+        stars: stars,
+        title: 'Stop the Timer',
+        subtitle: 'Stopped at ${elapsed.toStringAsFixed(2)}s',
+      );
+    }
 
     final title = difference <= 0.05
         ? 'Almost perfect!'
