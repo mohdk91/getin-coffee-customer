@@ -413,6 +413,32 @@ class CustomerRewardsStore extends ChangeNotifier {
     return redemption;
   }
 
+  Future<RewardRedeemResult> redeemLive(RewardDefinition definition) async {
+    if (!usesApi) return redeem(definition);
+    if (_stars < definition.starsRequired) {
+      return RewardRedeemResult.insufficientStars;
+    }
+    final rewardId = int.tryParse(definition.id);
+    if (rewardId == null) {
+      throw StateError('Server reward id is invalid.');
+    }
+    final item = await _repository!.redeemReward(rewardId);
+    _redeemedRewards.insert(
+      0,
+      RedeemedReward(
+        id: item['id']?.toString() ?? '',
+        definitionId: item['reward_id']?.toString() ?? definition.id,
+        code: 'REWARD-${item['id'] ?? ''}',
+        redeemedAt: DateTime.tryParse(item['redeemed_at']?.toString() ?? '') ??
+            DateTime.now(),
+        status: RewardRedemptionStatus.available,
+      ),
+    );
+    await _refreshLoyaltyApi();
+    notifyListeners();
+    return RewardRedeemResult.success;
+  }
+
   RewardRedeemResult redeem(RewardDefinition definition) {
     if (_stars < definition.starsRequired) {
       return RewardRedeemResult.insufficientStars;

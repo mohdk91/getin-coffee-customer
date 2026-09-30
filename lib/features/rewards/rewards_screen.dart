@@ -181,7 +181,8 @@ class RewardsScreen extends StatelessWidget {
                                     return;
                                   }
 
-                                  final result = _rewards.redeem(definition);
+                                  final result =
+                                      await _rewards.redeemLive(definition);
                                   if (!sheetContext.mounted) {
                                     return;
                                   }
