@@ -15,6 +15,7 @@ import 'core/favorites/customer_favorites_store.dart';
 import 'core/favorites/customer_favorites_repository.dart';
 import 'core/gift_cards/customer_gift_card_store.dart';
 import 'core/membership/customer_membership_store.dart';
+import 'core/notifications/customer_notifications_store.dart';
 import 'core/payments/customer_payment_method_store.dart';
 import 'core/reviews/customer_review_store.dart';
 import 'core/referrals/customer_referral_store.dart';
@@ -46,6 +47,8 @@ Future<void> main() async {
   await CustomerGiftCardStore.initialize(CustomerAuthStore.instance.context);
   await CustomerMembershipStore.initialize(CustomerAuthStore.instance.context);
   await CustomerPaymentMethodStore.initialize();
+  await CustomerNotificationsStore.initialize(
+      CustomerAuthStore.instance.context);
   await CustomerRewardsStore.initialize(CustomerAuthStore.instance.context);
   await CustomerPlayStore.initialize(CustomerAuthStore.instance.context);
   await CustomerStampCardStore.initialize(CustomerAuthStore.instance.context);
