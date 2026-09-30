@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/favorites/customer_favorites_store.dart';
+import '../../core/catalog/customer_catalog_store.dart';
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/rewards/reward_earning_policy.dart';
 import '../../core/products/product_type.dart';
@@ -31,125 +32,38 @@ class _MenuScreenState extends State<MenuScreen> {
   String _selectedCategory = 'All';
   String _query = '';
 
-  static const _categories = <_MenuCategory>[
-    _MenuCategory(
-      title: 'All',
-      icon: Icons.local_fire_department_rounded,
-      image: 'assets/images/getin_logo_mark.png',
-      tag: 'TOP',
-    ),
-    _MenuCategory(
-      title: 'Coffee',
-      icon: Icons.local_cafe_rounded,
-      image: 'assets/images/categories/category_coffee.png',
-      tag: 'HOT',
-    ),
-    _MenuCategory(
-      title: 'Non-Coffee',
-      icon: Icons.emoji_food_beverage_rounded,
-      image: 'assets/images/categories/category_non_coffee.png',
-      tag: 'NEW',
-    ),
-    _MenuCategory(
-      title: 'Food',
-      icon: Icons.lunch_dining_rounded,
-      image: 'assets/images/categories/category_food.png',
-    ),
-    _MenuCategory(
-      title: 'Bakery',
-      icon: Icons.bakery_dining_rounded,
-      image: 'assets/images/categories/category_bakery.png',
-    ),
-    _MenuCategory(
-      title: 'Refreshments',
-      icon: Icons.local_drink_rounded,
-      image: 'assets/images/categories/category_refreshments.png',
-      tag: 'SEASONAL',
-    ),
-    _MenuCategory(
-      title: 'Merchandise',
-      icon: Icons.shopping_bag_rounded,
-      image: 'assets/images/categories/category_merchandise.png',
-    ),
-  ];
+  List<_MenuCategory> get _categories => <_MenuCategory>[
+        const _MenuCategory(
+          title: 'All',
+          icon: Icons.local_fire_department_rounded,
+          image: 'assets/images/getin_logo_mark.png',
+          tag: 'TOP',
+        ),
+        ...CustomerCatalogStore.instance.categories.map(
+          (category) => _MenuCategory(
+            title: category.name,
+            icon: Icons.local_cafe_rounded,
+            image: category.imageUrl ?? 'assets/images/getin_logo_mark.png',
+          ),
+        ),
+      ];
 
-  static const _products = <_MenuProduct>[
-    _MenuProduct(
-      name: 'Iced Latte',
-      description: 'Double espresso, fresh milk and ice.',
-      price: 'EGP 65',
-      category: 'Coffee',
-      image: 'assets/images/products/iced_latte.png',
-      badge: 'BEST SELLER',
-      branchIds: [1, 2, 3],
-    ),
-    _MenuProduct(
-      name: 'Caramel Macchiato',
-      description: 'Espresso, milk and caramel finish.',
-      price: 'EGP 70',
-      category: 'Coffee',
-      image: 'assets/images/products/caramel_macchiato.png',
-      branchIds: [1, 2, 3],
-    ),
-    _MenuProduct(
-      name: 'Pistachio Latte',
-      description: 'Creamy pistachio latte with a nutty finish.',
-      price: 'EGP 75',
-      category: 'Non-Coffee',
-      image: 'assets/images/products/pistachio_latte.png',
-      badge: 'NEW',
-      branchIds: [1, 2],
-    ),
-    _MenuProduct(
-      name: 'Iced Americano',
-      description: 'Espresso over ice with filtered water.',
-      price: 'EGP 55',
-      category: 'Coffee',
-      image: 'assets/images/products/iced_americano.png',
-      branchIds: [1, 2, 3],
-    ),
-    _MenuProduct(
-      name: 'Turkey & Cheese Sandwich',
-      description: 'Turkey, cheese and fresh greens.',
-      price: 'EGP 95',
-      category: 'Food',
-      image: 'assets/images/products/turkey_cheese_sandwich.png',
-      branchIds: [1, 3],
-    ),
-    _MenuProduct(
-      name: 'Butter Croissant',
-      description: 'Classic buttery flaky croissant.',
-      price: 'EGP 45',
-      category: 'Bakery',
-      image: 'assets/images/products/butter_croissant.png',
-      branchIds: [1, 2, 3],
-    ),
-    _MenuProduct(
-      name: 'Blueberry Muffin',
-      description: 'Soft muffin with blueberry pieces.',
-      price: 'EGP 60',
-      category: 'Bakery',
-      image: 'assets/images/products/blueberry_muffin.png',
-      branchIds: [1, 2],
-    ),
-    _MenuProduct(
-      name: 'Berry Hibiscus Refresher',
-      description: 'Bright berry hibiscus drink served cold.',
-      price: 'EGP 65',
-      category: 'Refreshments',
-      image: 'assets/images/home/sections/berry_hibiscus.png',
-      badge: 'LIMITED',
-      branchIds: [1, 3],
-    ),
-    _MenuProduct(
-      name: 'Getin Travel Tumbler',
-      description: 'Reusable Getin tumbler for coffee on the move.',
-      price: 'EGP 350',
-      category: 'Merchandise',
-      image: 'assets/images/categories/category_merchandise.png',
-      branchIds: [1, 2],
-    ),
-  ];
+  List<_MenuProduct> get _products => CustomerCatalogStore.instance
+      .productsForBranch(widget.branch.id)
+      .map(
+        (product) => _MenuProduct(
+          id: product.id,
+          name: product.name,
+          description: product.shortDescription,
+          price: product.displayPrice,
+          category: product.categoryName ?? 'Other',
+          image: product.imageUrl ?? 'assets/images/getin_logo_mark.png',
+          branchIds: <int>[widget.branch.id],
+          badge: product.isFeatured ? 'FEATURED' : null,
+          productTypeCode: product.productType,
+        ),
+      )
+      .toList(growable: false);
 
   @override
   void dispose() {
@@ -599,8 +513,8 @@ class _CategoryRailTile extends StatelessWidget {
                 ],
                 ClipRRect(
                   borderRadius: BorderRadius.circular(11),
-                  child: Image.asset(
-                    category.image,
+                  child: _CatalogImage(
+                    path: category.image,
                     width: 34,
                     height: 34,
                     fit: BoxFit.cover,
@@ -711,6 +625,7 @@ class _ReferenceProductCard extends StatelessWidget {
   });
 
   FavoriteProductEntry get _favoriteProduct => FavoriteProductEntry.fromProduct(
+        serverProductId: product.id,
         name: product.name,
         description: product.description,
         image: product.image,
@@ -753,8 +668,8 @@ class _ReferenceProductCard extends StatelessWidget {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.asset(
-                            product.image,
+                          _CatalogImage(
+                            path: product.image,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) {
                               return Container(
@@ -921,6 +836,26 @@ class _ReferenceProductCard extends StatelessWidget {
   }
 }
 
+class _CatalogImage extends StatelessWidget {
+  final String path;
+  final BoxFit fit;
+  final ImageErrorWidgetBuilder? errorBuilder;
+
+  const _CatalogImage({
+    required this.path,
+    required this.fit,
+    this.errorBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return Image.network(path, fit: fit, errorBuilder: errorBuilder);
+    }
+    return Image.asset(path, fit: fit, errorBuilder: errorBuilder);
+  }
+}
+
 class _EmptyMenuState extends StatelessWidget {
   const _EmptyMenuState();
 
@@ -976,6 +911,7 @@ class _MenuCategory {
 }
 
 class _MenuProduct {
+  final int id;
   final String name;
   final String description;
   final String price;
@@ -983,10 +919,14 @@ class _MenuProduct {
   final String image;
   final String? badge;
   final List<int> branchIds;
+  final String? productTypeCode;
 
-  ProductType get type => GetinProductCatalog.typeFromCategory(category);
+  ProductType get type => GetinProductCatalog.typeFromCategory(
+        productTypeCode ?? category,
+      );
 
   const _MenuProduct({
+    required this.id,
     required this.name,
     required this.description,
     required this.price,
@@ -994,5 +934,6 @@ class _MenuProduct {
     required this.image,
     required this.branchIds,
     this.badge,
+    this.productTypeCode,
   });
 }
