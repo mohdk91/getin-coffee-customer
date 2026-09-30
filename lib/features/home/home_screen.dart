@@ -17,9 +17,9 @@ import '../rewards/rewards_screen.dart';
 import 'widgets/hero_carousel.dart';
 import 'widgets/home_header.dart';
 import 'widgets/menu_categories_section.dart';
+import 'widgets/managed_product_sections.dart';
 import 'widgets/nearest_branches_section.dart';
 import 'widgets/play_win_card.dart';
-import 'widgets/product_sections.dart';
 import 'widgets/qr_map_row.dart';
 import 'widgets/secondary_banner_card.dart';
 import 'widgets/rewards_progress_card.dart';
@@ -239,7 +239,8 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(
                         height: 18,
                       ),
-                      ProductSections(
+                      ManagedProductSections(
+                        branchId: branch.id,
                         branchName: branch.name,
                         serviceType: serviceType,
                       ),

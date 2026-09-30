@@ -778,7 +778,7 @@ class _MerchandiseGallery extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
             ),
-            child: Image.asset(image, fit: BoxFit.contain),
+            child: _ProductRemoteAwareImage(image: image, fit: BoxFit.contain),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -886,8 +886,8 @@ class _HeroSection extends StatelessWidget {
               alignment: Alignment.center,
               child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Image.asset(
-                  image,
+                child: _ProductRemoteAwareImage(
+                  image: image,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -2257,4 +2257,25 @@ class _PairingItem {
     required this.price,
     required this.image,
   });
+}
+
+
+class _ProductRemoteAwareImage extends StatelessWidget {
+  final String image;
+  final BoxFit fit;
+
+  const _ProductRemoteAwareImage({required this.image, required this.fit});
+
+  @override
+  Widget build(BuildContext context) {
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return Image.network(
+        image,
+        fit: fit,
+        errorBuilder: (_, __, ___) => const ColoredBox(color: AppColors.cream),
+      );
+    }
+    if (image.trim().isEmpty) return const ColoredBox(color: AppColors.cream);
+    return Image.asset(image, fit: fit);
+  }
 }
