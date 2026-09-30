@@ -138,9 +138,7 @@ class SettingsScreen extends StatelessWidget {
                     _SettingsTile(
                       icon: Icons.lock_outline_rounded,
                       label: 'Security',
-                      subtitle: store.biometricLogin
-                          ? 'Biometrics enabled · sessions'
-                          : 'Password, biometrics and sessions',
+                      subtitle: 'Phone, email and active sessions',
                       onTap: () => _push(
                         context,
                         const SettingsSecurityScreen(),
@@ -205,24 +203,6 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                _SettingsGroup(
-                  title: 'Account Actions',
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Delete Account',
-                      subtitle: store.deleteRequestedAt == null
-                          ? 'Demo confirmation flow'
-                          : 'Demo deletion request recorded',
-                      danger: true,
-                      onTap: () => _push(
-                        context,
-                        const SettingsDeleteAccountScreen(),
-                      ),
-                      last: true,
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 18),
                 SizedBox(
                   height: 54,
@@ -241,7 +221,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Task #16 uses real local/demo interactions. Backend authentication, push, localization, legal CMS and data-management APIs remain intentionally unconnected.',
+                  'Account identity, preferences, devices and sessions are connected to Laravel when API mode is enabled. Other feature integrations remain separated by roadmap phase.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.muted,
@@ -303,7 +283,6 @@ class _SettingsTile extends StatelessWidget {
   final String? subtitle;
   final VoidCallback onTap;
   final bool last;
-  final bool danger;
 
   const _SettingsTile({
     required this.icon,
@@ -311,12 +290,10 @@ class _SettingsTile extends StatelessWidget {
     required this.onTap,
     this.subtitle,
     this.last = false,
-    this.danger = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = danger ? const Color(0xFFB94A48) : AppColors.green;
     return Column(
       children: [
         ListTile(
@@ -325,15 +302,15 @@ class _SettingsTile extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: danger ? const Color(0xFFFCEDEC) : AppColors.cream,
+              color: AppColors.cream,
               borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: AppColors.green),
           ),
           title: Text(
             label,
-            style: TextStyle(
-              color: color,
+            style: const TextStyle(
+              color: AppColors.green,
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),

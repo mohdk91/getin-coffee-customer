@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import '../config/app_config.dart';
 import '../data/customer_repository.dart';
 import '../network/api_exception.dart';
@@ -53,6 +54,10 @@ class CustomerAuthStore extends ChangeNotifier {
     instance._context = context;
     instance._repository = CustomerAccountRepository(context);
     instance._sessionRepository = CustomerSessionRepository(context);
+    instance._customer = null;
+    instance._sessions = const <CustomerSessionInfo>[];
+    instance._busy = false;
+    await instance._restoreSession();
   }
 
   Future<CustomerAccount> login({
@@ -69,6 +74,7 @@ class CustomerAuthStore extends ChangeNotifier {
         result.token,
       );
       _customer = result.customer;
+      await _persistCustomer();
       notifyListeners();
       await _registerDeviceBestEffort();
       return result.customer;
@@ -100,6 +106,7 @@ class CustomerAuthStore extends ChangeNotifier {
         result.token,
       );
       _customer = result.customer;
+      await _persistCustomer();
       notifyListeners();
       await _registerDeviceBestEffort();
       return result.customer;
@@ -111,6 +118,7 @@ class CustomerAuthStore extends ChangeNotifier {
     return _runBusy(() async {
       final account = await repository.fetchProfile();
       _customer = account;
+      await _persistCustomer();
       notifyListeners();
       return account;
     });
@@ -120,6 +128,7 @@ class CustomerAuthStore extends ChangeNotifier {
     return _runBusy(() async {
       final account = await repository.updateProfile(changes);
       _customer = account;
+      await _persistCustomer();
       notifyListeners();
       return account;
     });
@@ -133,9 +142,68 @@ class CustomerAuthStore extends ChangeNotifier {
     return _runBusy(() async {
       final account = await repository.verifyOtp(code);
       _customer = account;
+      await _persistCustomer();
       notifyListeners();
       return account;
     });
+  }
+
+  Future<void> _restoreSession() async {
+    final token = await context.secureStore.read(SecureStoreKeys.accessToken);
+    if (token == null || token.trim().isEmpty) return;
+
+    final cached = await context.secureStore.read(
+      SecureStoreKeys.customerAccountCache,
+    );
+    if (cached != null && cached.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(cached);
+        if (decoded is Map) {
+          _customer = CustomerAccount.fromJson(
+            Map<String, dynamic>.from(decoded),
+          );
+        }
+      } catch (_) {
+        await context.secureStore.delete(
+          SecureStoreKeys.customerAccountCache,
+        );
+      }
+    }
+
+    if (!usesApi) {
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final account = await repository.fetchProfile();
+      _customer = account;
+      await _persistCustomer();
+      await _registerDeviceBestEffort();
+    } on ApiException catch (error) {
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        await context.secureStore.delete(SecureStoreKeys.accessToken);
+        await _clearCustomerCache();
+        _customer = null;
+      }
+      // Offline/transient API failures retain the cached account for startup.
+    }
+    notifyListeners();
+  }
+
+  Future<void> _persistCustomer() async {
+    final customer = _customer;
+    if (customer == null) return;
+    await context.secureStore.write(
+      SecureStoreKeys.customerAccountCache,
+      jsonEncode(customer.toJson()),
+    );
+  }
+
+  Future<void> _clearCustomerCache() async {
+    await context.secureStore.delete(
+      SecureStoreKeys.customerAccountCache,
+    );
   }
 
   Future<void> _registerDeviceBestEffort() async {
@@ -173,6 +241,7 @@ class CustomerAuthStore extends ChangeNotifier {
       }
     }
     await context.secureStore.delete(SecureStoreKeys.accessToken);
+    await _clearCustomerCache();
     _customer = null;
     _sessions = const <CustomerSessionInfo>[];
     notifyListeners();
@@ -184,6 +253,7 @@ class CustomerAuthStore extends ChangeNotifier {
       await repository.revokeAll();
     }
     await context.secureStore.delete(SecureStoreKeys.accessToken);
+    await _clearCustomerCache();
     _customer = null;
     _sessions = const <CustomerSessionInfo>[];
     notifyListeners();

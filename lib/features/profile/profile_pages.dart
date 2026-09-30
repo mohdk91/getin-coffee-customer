@@ -223,7 +223,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     final localPhone = phone.text.trim();
     final normalizedPhone = _phoneCode.isEmpty
         ? localPhone
-        : '$_phoneCode ${localPhone.replaceFirst(RegExp(r'^\+?[0-9]+\s*'), '')}'.trim();
+        : '$_phoneCode $localPhone'.trim();
     if (first.isEmpty || normalizedEmail.isEmpty || normalizedPhone.isEmpty) {
       _snack(context, 'Name, email and phone number are required.');
       return;

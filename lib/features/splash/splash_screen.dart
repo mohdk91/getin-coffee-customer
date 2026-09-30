@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../auth/sign_in_screen.dart';
+import '../location/location_permission_screen.dart';
 import '../onboarding/onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -119,7 +121,10 @@ class _SplashScreenState extends State<SplashScreen> {
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 350),
         pageBuilder: (_, __, ___) {
-          return completed ? const SignInScreen() : const OnboardingScreen();
+          if (!completed) return const OnboardingScreen();
+          return CustomerAuthStore.instance.isAuthenticated
+              ? const LocationPermissionScreen()
+              : const SignInScreen();
         },
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(

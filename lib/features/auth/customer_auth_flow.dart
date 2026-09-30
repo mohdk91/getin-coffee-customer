@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/auth/customer_account_sync.dart';
 import '../../core/auth/customer_auth_store.dart';
 import '../location/location_permission_screen.dart';
 import 'otp_screen.dart';
@@ -8,6 +9,8 @@ Future<void> continueAfterCustomerAuthentication(BuildContext context) async {
   final auth = CustomerAuthStore.instance;
   final customer = auth.customer;
   if (customer == null) return;
+  await CustomerAccountSync.refreshAfterAuthentication();
+  if (!context.mounted) return;
 
   if (!auth.usesApi || customer.phoneVerified) {
     Navigator.pushAndRemoveUntil(

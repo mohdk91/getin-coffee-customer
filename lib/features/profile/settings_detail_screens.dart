@@ -8,6 +8,7 @@ import '../../core/settings/customer_settings_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
 import '../chat/customer_support_chat_screen.dart';
+import '../auth/otp_screen.dart';
 import '../auth/sign_in_screen.dart';
 
 class PhoneNumberSettingsScreen extends StatefulWidget {
@@ -68,22 +69,42 @@ class _PhoneNumberSettingsScreenState extends State<PhoneNumberSettingsScreen> {
     final local = _controller.text.trim();
     final value = '$_phoneCode $local';
     if (local.replaceAll(RegExp(r'[^0-9]'), '').length < 7) {
-      _showSnack(context, 'Enter a valid demo phone number.');
+      _showSnack(context, 'Enter a valid phone number.');
       return;
     }
-    final confirmed = await _showDemoVerification(
-      context,
-      title: 'Verify phone number',
-      destination: value,
-    );
-    if (!confirmed || !mounted) {
-      return;
+    final store = CustomerSettingsStore.instance;
+    final auth = CustomerAuthStore.instance;
+    try {
+      if (!store.usesApi) {
+        final confirmed = await _showDemoVerification(
+          context,
+          title: 'Verify phone number',
+          destination: value,
+        );
+        if (!confirmed || !mounted) return;
+        await store.setPhone(value);
+        if (mounted) _showSnack(context, 'Phone number saved for this demo.');
+        return;
+      }
+      await store.setPhone(value);
+      if (!mounted) return;
+      final account = auth.customer;
+      if (account != null && !account.phoneVerified) {
+        await auth.sendOtp();
+        if (!mounted) return;
+        await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => OtpScreen(
+              phoneNumber: account.phone,
+              returnAfterVerification: true,
+            ),
+          ),
+        );
+      }
+      if (mounted) _showSnack(context, 'Phone number updated.');
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
     }
-    await CustomerSettingsStore.instance.setPhone(value);
-    if (!mounted) {
-      return;
-    }
-    _showSnack(context, 'Phone number verified and saved for this demo.');
   }
 
   @override
@@ -95,7 +116,7 @@ class _PhoneNumberSettingsScreenState extends State<PhoneNumberSettingsScreen> {
           icon: Icons.verified_user_outlined,
           title: 'Verified contact',
           text:
-              'The production flow will verify a new number using OTP before replacing the current number.',
+              'Changing your phone updates the GETIN account and requires phone OTP verification.',
         ),
         const SizedBox(height: 14),
         TextField(
@@ -138,7 +159,7 @@ class _PhoneNumberSettingsScreenState extends State<PhoneNumberSettingsScreen> {
         const SizedBox(height: 16),
         _PrimaryButton(
           icon: Icons.sms_outlined,
-          label: 'Verify & Save Number',
+          label: 'Save & Verify Number',
           onPressed: _save,
         ),
       ],
@@ -173,22 +194,25 @@ class _EmailSettingsScreenState extends State<EmailSettingsScreen> {
   Future<void> _save() async {
     final value = _controller.text.trim();
     if (!value.contains('@') || !value.contains('.')) {
-      _showSnack(context, 'Enter a valid demo email address.');
+      _showSnack(context, 'Enter a valid email address.');
       return;
     }
-    final confirmed = await _showDemoVerification(
-      context,
-      title: 'Verify email address',
-      destination: value,
-    );
-    if (!confirmed || !mounted) {
-      return;
+    final store = CustomerSettingsStore.instance;
+    final auth = CustomerAuthStore.instance;
+    try {
+      if (!store.usesApi) {
+        final confirmed = await _showDemoVerification(
+          context,
+          title: 'Confirm email address',
+          destination: value,
+        );
+        if (!confirmed || !mounted) return;
+      }
+      await store.setEmail(value);
+      if (mounted) _showSnack(context, 'Email address updated.');
+    } catch (error) {
+      if (mounted) _showSnack(context, auth.userMessage(error));
     }
-    await CustomerSettingsStore.instance.setEmail(value);
-    if (!mounted) {
-      return;
-    }
-    _showSnack(context, 'Email verified and saved for this demo.');
   }
 
   @override
@@ -200,7 +224,7 @@ class _EmailSettingsScreenState extends State<EmailSettingsScreen> {
           icon: Icons.mark_email_read_outlined,
           title: 'Verified contact',
           text:
-              'The production flow will require email verification before the account email changes.',
+              'Your email is stored on your GETIN account. Email verification is shown from the server account state.',
         ),
         const SizedBox(height: 14),
         TextField(
@@ -214,7 +238,7 @@ class _EmailSettingsScreenState extends State<EmailSettingsScreen> {
         const SizedBox(height: 16),
         _PrimaryButton(
           icon: Icons.mark_email_read_outlined,
-          label: 'Verify & Save Email',
+          label: 'Save Email',
           onPressed: _save,
         ),
       ],
@@ -262,11 +286,12 @@ class SettingsNotificationsScreen extends StatelessWidget {
               store: store,
             ),
             const SizedBox(height: 14),
-            const _InfoCard(
+            _InfoCard(
               icon: Icons.info_outline_rounded,
-              title: 'Demo preference storage',
-              text:
-                  'These switches persist locally. Push-notification registration and mandatory service notifications will connect to the backend/provider later.',
+              title: store.usesApi ? 'Account notification preferences' : 'Demo preference storage',
+              text: store.usesApi
+                  ? 'Notification preferences are synchronized with your GETIN account. Push-token delivery is enabled in the notifications integration phase.'
+                  : 'These switches persist locally in demo mode.',
             ),
           ],
         );
@@ -499,59 +524,6 @@ class SettingsAppearanceScreen extends StatelessWidget {
 class SettingsSecurityScreen extends StatelessWidget {
   const SettingsSecurityScreen({super.key});
 
-  Future<void> _changePassword(BuildContext context) async {
-    final newPassword = TextEditingController();
-    final confirmPassword = TextEditingController();
-    final saved = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Change password · demo'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: newPassword,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'New password'),
-                ),
-                TextField(
-                  controller: confirmPassword,
-                  obscureText: true,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirm password'),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final valid = newPassword.text.length >= 8 &&
-                      newPassword.text == confirmPassword.text;
-                  if (!valid) {
-                    return;
-                  }
-                  Navigator.pop(dialogContext, true);
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    newPassword.dispose();
-    confirmPassword.dispose();
-    if (!saved) {
-      return;
-    }
-    await CustomerSettingsStore.instance.markPasswordChanged();
-    if (context.mounted) {
-      _showSnack(context, 'Password change recorded for this local demo.');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -561,15 +533,6 @@ class SettingsSecurityScreen extends StatelessWidget {
       builder: (context, _) => _SettingsPage(
         title: 'Security',
         children: [
-          _ActionCard(
-            icon: Icons.password_rounded,
-            title: 'Change Password',
-            subtitle: store.lastPasswordChangedAt == null
-                ? 'No demo change recorded'
-                : 'Changed in this demo session',
-            onTap: () => _changePassword(context),
-          ),
-          const SizedBox(height: 8),
           _ActionCard(
             icon: Icons.phone_iphone_rounded,
             title: 'Phone Number',
@@ -582,14 +545,6 @@ class SettingsSecurityScreen extends StatelessWidget {
             title: 'Email',
             subtitle: store.email,
             onTap: () => _push(context, const EmailSettingsScreen()),
-          ),
-          const SizedBox(height: 8),
-          _SwitchCard(
-            icon: Icons.fingerprint_rounded,
-            title: 'Biometric Login',
-            subtitle: 'Local demo preference for Face ID / fingerprint',
-            value: store.biometricLogin,
-            onChanged: store.setBiometricLogin,
           ),
           const SizedBox(height: 18),
           const _SectionTitle('Sessions & Devices'),

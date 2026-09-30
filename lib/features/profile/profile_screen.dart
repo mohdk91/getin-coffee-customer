@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/customer/customer_country.dart';
 import '../../core/favorites/customer_favorites_store.dart';
 import '../../core/gift_cards/customer_gift_card_store.dart';
@@ -37,6 +38,7 @@ class ProfileScreen extends StatelessWidget {
         CustomerVoucherStore.instance,
         CustomerFavoritesStore.instance,
         CustomerGiftCardStore.instance,
+        CustomerAuthStore.instance,
       ]),
       builder: (context, _) {
         final rewards = CustomerRewardsStore.instance;
@@ -282,11 +284,13 @@ class _ProfileHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Mohammed Abukalloub',
+                Text(
+                  CustomerAuthStore.instance.customer?.name.trim().isNotEmpty == true
+                      ? CustomerAuthStore.instance.customer!.name.trim()
+                      : 'GETIN Customer',
                   maxLines: 2,
                   overflow: TextOverflow.visible,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.beige,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,

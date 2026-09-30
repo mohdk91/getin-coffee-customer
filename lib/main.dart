@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'app.dart';
 import 'core/config/app_config.dart';
+import 'core/auth/customer_account_sync.dart';
 import 'core/auth/customer_auth_store.dart';
 import 'core/chat/customer_chat_store.dart';
+import 'core/addresses/customer_address_repository.dart';
 import 'core/addresses/customer_address_store.dart';
 import 'core/customer/customer_country.dart';
 import 'core/customer/customer_personal_info_store.dart';
@@ -15,6 +17,7 @@ import 'core/reviews/customer_review_store.dart';
 import 'core/rewards/customer_rewards_store.dart';
 import 'core/rewards/customer_play_store.dart';
 import 'core/rewards/customer_stamp_card_store.dart';
+import 'core/settings/customer_preferences_repository.dart';
 import 'core/settings/customer_settings_store.dart';
 import 'core/vouchers/customer_voucher_store.dart';
 import 'features/cart/cart_controller.dart';
@@ -26,7 +29,9 @@ Future<void> main() async {
   await CustomerAuthStore.initialize(config);
   await CustomerCountryStore.initialize();
   await CustomerChatStore.initialize();
-  await CustomerAddressStore.initialize();
+  await CustomerAddressStore.initialize(
+    repository: CustomerAddressRepository(CustomerAuthStore.instance.context),
+  );
   await CustomerPersonalInfoStore.initialize();
   await CustomerProfilePhotoStore.initialize();
   await CustomerFavoritesStore.initialize();
@@ -36,7 +41,11 @@ Future<void> main() async {
   await CustomerRewardsStore.initialize();
   await CustomerPlayStore.initialize();
   await CustomerStampCardStore.initialize();
-  await CustomerSettingsStore.initialize();
+  await CustomerSettingsStore.initialize(
+    repository:
+        CustomerPreferencesRepository(CustomerAuthStore.instance.context),
+  );
+  await CustomerAccountSync.refreshAfterAuthentication();
   await CustomerVoucherStore.initialize();
   await CustomerReviewStore.initialize();
   await CustomerOrdersController.initialize();

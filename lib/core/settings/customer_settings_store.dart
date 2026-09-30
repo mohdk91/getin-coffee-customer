@@ -63,10 +63,12 @@ class CustomerSupportRequest {
   }
 }
 
-/// Local/demo settings state for Task #16.
+/// Hybrid customer settings state.
 ///
-/// Laravel/auth/push-provider integrations can later replace the persistence
-/// layer without changing the settings screens' public behavior.
+/// Account identity and server-backed preferences use Laravel in API mode.
+/// Device-only presentation/privacy toggles remain local until their dedicated
+/// integrations are completed. Legacy SharedPreferences keys are retained to
+/// preserve existing development data during the roadmap migration.
 class CustomerSettingsStore extends ChangeNotifier {
   CustomerSettingsStore._();
 
@@ -160,6 +162,11 @@ class CustomerSettingsStore extends ChangeNotifier {
       return;
     }
     final preferences = await repository.fetch();
+    final account = CustomerAuthStore.instance.customer;
+    if (account != null) {
+      _phone = account.phone;
+      _email = account.email;
+    }
     _language = preferences.language == 'ar' ? 'العربية' : 'English';
     _inAppNotificationsEnabled = preferences.inAppNotificationsEnabled;
     for (final key in notificationKeys) {
@@ -180,7 +187,15 @@ class CustomerSettingsStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _phone = prefs.getString(_phoneKey) ?? '+20 10 0000 0000';
     _email = prefs.getString(_emailKey) ?? 'mohammed@example.com';
-    _language = prefs.getString(_languageKey) ?? 'English';
+    final account = CustomerAuthStore.instance.customer;
+    if (account != null) {
+      _phone = account.phone;
+      _email = account.email;
+      _language = account.language == 'ar' ? 'العربية' : 'English';
+    }
+    _language = account == null
+        ? (prefs.getString(_languageKey) ?? 'English')
+        : _language;
     _appearance = prefs.getString(_appearanceKey) ?? 'System Default';
     _biometricLogin = prefs.getBool(_biometricKey) ?? false;
     _locationAccess = prefs.getBool(_locationKey) ?? true;
@@ -222,23 +237,33 @@ class CustomerSettingsStore extends ChangeNotifier {
 
   Future<void> setPhone(String value) async {
     final normalized = value.trim();
-    if (normalized.isEmpty) {
-      return;
+    if (normalized.isEmpty) return;
+    if (usesApi) {
+      final account = await CustomerAuthStore.instance.updateProfile(
+        <String, dynamic>{'phone': normalized},
+      );
+      _phone = account.phone;
+    } else {
+      _phone = normalized;
     }
-    _phone = normalized;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_phoneKey, normalized);
+    await prefs.setString(_phoneKey, _phone);
     notifyListeners();
   }
 
   Future<void> setEmail(String value) async {
-    final normalized = value.trim();
-    if (normalized.isEmpty) {
-      return;
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return;
+    if (usesApi) {
+      final account = await CustomerAuthStore.instance.updateProfile(
+        <String, dynamic>{'email': normalized},
+      );
+      _email = account.email;
+    } else {
+      _email = normalized;
     }
-    _email = normalized;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_emailKey, normalized);
+    await prefs.setString(_emailKey, _email);
     notifyListeners();
   }
 
