@@ -115,6 +115,50 @@ class CustomerAccountRepository {
   }
 
 
+  Future<CustomerAccount> fetchProfile() async {
+    if (!usesApi) {
+      final current = _demoCustomer;
+      if (current == null) {
+        throw const ApiException('No demo customer is signed in.');
+      }
+      return current;
+    }
+
+    final payload = await context.apiClient.getJson(
+      '/v1/customer/profile',
+      authenticated: true,
+    );
+    final data = _dataObject(payload);
+    final customer = data.containsKey('customer')
+        ? _mapObject(data['customer'], field: 'customer')
+        : data;
+    return CustomerAccount.fromJson(customer);
+  }
+
+  Future<CustomerAccount> updateProfile(Map<String, dynamic> changes) async {
+    if (!usesApi) {
+      final current = _demoCustomer;
+      if (current == null) {
+        throw const ApiException('No demo customer is signed in.');
+      }
+      final merged = <String, dynamic>{...current.toJson(), ...changes};
+      _demoCustomer = CustomerAccount.fromJson(merged);
+      return _demoCustomer!;
+    }
+
+    final payload = await context.apiClient.requestJson(
+      'PATCH',
+      '/v1/customer/profile',
+      authenticated: true,
+      body: changes,
+    );
+    final data = _dataObject(payload);
+    final customer = data.containsKey('customer')
+        ? _mapObject(data['customer'], field: 'customer')
+        : data;
+    return CustomerAccount.fromJson(customer);
+  }
+
   Future<Map<String, dynamic>> sendOtp({bool resend = false}) async {
     if (!usesApi) {
       return <String, dynamic>{

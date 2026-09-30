@@ -100,6 +100,24 @@ class CustomerAuthStore extends ChangeNotifier {
   }
 
 
+  Future<CustomerAccount> refreshProfile() async {
+    return _runBusy(() async {
+      final account = await repository.fetchProfile();
+      _customer = account;
+      notifyListeners();
+      return account;
+    });
+  }
+
+  Future<CustomerAccount> updateProfile(Map<String, dynamic> changes) async {
+    return _runBusy(() async {
+      final account = await repository.updateProfile(changes);
+      _customer = account;
+      notifyListeners();
+      return account;
+    });
+  }
+
   Future<Map<String, dynamic>> sendOtp({bool resend = false}) async {
     return _runBusy(() => repository.sendOtp(resend: resend));
   }
