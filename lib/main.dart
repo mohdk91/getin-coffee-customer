@@ -35,7 +35,7 @@ Future<void> main() async {
   await CustomerCatalogStore.initialize(CustomerAuthStore.instance.context);
   await MobileAppContentStore.initialize(CustomerAuthStore.instance.context);
   await CustomerCountryStore.initialize();
-  await CustomerChatStore.initialize();
+  await CustomerChatStore.initialize(CustomerAuthStore.instance.context);
   await CustomerAddressStore.initialize(
     repository: CustomerAddressRepository(CustomerAuthStore.instance.context),
   );
