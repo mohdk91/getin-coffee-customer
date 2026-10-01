@@ -1,270 +1,315 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/auth/customer_auth_store.dart';
+import '../../../core/orders/live_driver_tracking_controller.dart';
+import '../../../core/orders/live_driver_tracking_repository.dart';
 import '../../../core/theme/app_colors.dart';
 
-class DriverTrackingSnapshot {
-  final double latitude;
-  final double longitude;
-  final double destinationLatitude;
-  final double destinationLongitude;
-  final int etaMinutes;
-  final double distanceKm;
-  final DateTime updatedAt;
-  final List<LatLng> routePoints;
-
-  const DriverTrackingSnapshot({
-    required this.latitude,
-    required this.longitude,
-    required this.destinationLatitude,
-    required this.destinationLongitude,
-    required this.etaMinutes,
-    required this.distanceKm,
-    required this.updatedAt,
-    required this.routePoints,
-  });
-}
-
-class LiveDriverTrackingCard extends StatelessWidget {
-  final String orderId;
-  final double? destinationLatitude;
-  final double? destinationLongitude;
-
-  /// Later, the real API / websocket layer should provide this stream.
-  /// When null, production mode shows a safe "waiting for GPS" state.
-  final Stream<DriverTrackingSnapshot>? liveStream;
+class LiveDriverTrackingCard extends StatefulWidget {
+  final int orderId;
+  final VoidCallback? onMessageDriver;
+  final LiveDriverTrackingRepository? repository;
+  final Duration pollInterval;
 
   const LiveDriverTrackingCard({
     super.key,
     required this.orderId,
-    required this.destinationLatitude,
-    required this.destinationLongitude,
-    this.liveStream,
+    this.onMessageDriver,
+    this.repository,
+    this.pollInterval = const Duration(seconds: 10),
   });
 
-  static const bool _previewMode = bool.fromEnvironment(
-    'GETIN_TRACKING_PREVIEW',
-    defaultValue: false,
-  );
+  @override
+  State<LiveDriverTrackingCard> createState() => _LiveDriverTrackingCardState();
+}
+
+class _LiveDriverTrackingCardState extends State<LiveDriverTrackingCard> {
+  late final LiveDriverTrackingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final repository = widget.repository ??
+        LiveDriverTrackingRepository(CustomerAuthStore.instance.context);
+    _controller = LiveDriverTrackingController(
+      repository: repository,
+      orderId: widget.orderId,
+      interval: widget.pollInterval,
+    )..addListener(_onChanged);
+    _controller.start();
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (destinationLatitude == null || destinationLongitude == null) {
-      return const _TrackingUnavailableCard(
-        message:
-            'Delivery destination coordinates are not available for this order.',
+    final tracking = _controller.snapshot;
+    if (tracking == null) {
+      return _TrackingUnavailableCard(
+        loading: _controller.loading,
+        message: _controller.errorMessage ?? 'Connecting to GETIN driver GPS…',
+        onRefresh: _controller.refresh,
       );
     }
 
-    final stream = liveStream ??
-        (_previewMode
-            ? _PreviewDriverTracker(
-                destination: LatLng(
-                  destinationLatitude!,
-                  destinationLongitude!,
-                ),
-              ).stream
-            : null);
-
-    if (stream == null) {
-      return const _TrackingUnavailableCard(
-        message:
-            'Waiting for live driver GPS. Tracking appears here when the assigned driver starts the delivery.',
+    if (!tracking.hasPosition) {
+      return _TrackingUnavailableCard(
+        loading: _controller.loading,
+        message: tracking.reason ?? _stateMessage(tracking.state),
+        onRefresh: tracking.isTerminal ? null : _controller.refresh,
       );
     }
 
-    return StreamBuilder<DriverTrackingSnapshot>(
-      stream: stream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const _TrackingUnavailableCard(
-            loading: true,
-            message: 'Connecting to driver location…',
+    final driver = LatLng(tracking.latitude!, tracking.longitude!);
+    final destination = tracking.destinationLatitude != null &&
+            tracking.destinationLongitude != null
+        ? LatLng(
+            tracking.destinationLatitude!,
+            tracking.destinationLongitude!,
+          )
+        : null;
+    final distanceKm = destination == null
+        ? null
+        : _distanceKm(
+            driver,
+            destination,
           );
-        }
+    final center = destination == null
+        ? driver
+        : LatLng(
+            (driver.latitude + destination.latitude) / 2,
+            (driver.longitude + destination.longitude) / 2,
+          );
 
-        final tracking = snapshot.data!;
-        final driver = LatLng(
-          tracking.latitude,
-          tracking.longitude,
-        );
-        final destination = LatLng(
-          tracking.destinationLatitude,
-          tracking.destinationLongitude,
-        );
-
-        final midpoint = LatLng(
-          (driver.latitude + destination.latitude) / 2,
-          (driver.longitude + destination.longitude) / 2,
-        );
-
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppColors.border,
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  14,
-                  13,
-                  14,
-                  12,
-                ),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Live delivery tracking',
-                        style: TextStyle(
-                          color: AppColors.green,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _previewMode
-                            ? AppColors.beige
-                            : const Color(0xFFE9F3ED),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        _previewMode ? 'DEV PREVIEW' : 'LIVE',
-                        style: TextStyle(
-                          color: AppColors.green,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 210,
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: midpoint,
-                    initialZoom: 14.2,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all,
-                    ),
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.getincoffee.getin_coffee',
-                    ),
-                    PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: tracking.routePoints,
-                          strokeWidth: 4,
-                          color: AppColors.green,
-                        ),
-                      ],
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: destination,
-                          width: 44,
-                          height: 44,
-                          child: const _TrackingMarker(
-                            icon: Icons.home_rounded,
-                            background: AppColors.beige,
-                            foreground: AppColors.green,
-                          ),
-                        ),
-                        Marker(
-                          point: driver,
-                          width: 50,
-                          height: 50,
-                          child: const _TrackingMarker(
-                            icon: Icons.delivery_dining_rounded,
-                            background: AppColors.green,
-                            foreground: AppColors.beige,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  14,
-                  12,
-                  14,
-                  14,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _TrackingMetric(
-                        label: 'Estimated arrival',
-                        value: tracking.etaMinutes <= 1
-                            ? 'Arriving'
-                            : '${tracking.etaMinutes} min',
-                        icon: Icons.schedule_rounded,
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 36,
-                      color: AppColors.border,
-                    ),
-                    Expanded(
-                      child: _TrackingMetric(
-                        label: 'Driver distance',
-                        value: '${tracking.distanceKm.toStringAsFixed(1)} km',
-                        icon: Icons.route_rounded,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_previewMode)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(
-                    14,
-                    9,
-                    14,
-                    10,
-                  ),
-                  color: AppColors.beige.withOpacity(0.35),
-                  child: const Text(
-                    'Development preview only. Real tracking will use GPS from the assigned Driver App and route ETA from the backend.',
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Live delivery tracking',
                     style: TextStyle(
                       color: AppColors.green,
-                      fontSize: 9,
-                      height: 1.3,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-            ],
+                _TrackingStateBadge(state: tracking.state),
+              ],
+            ),
           ),
+          SizedBox(
+            height: 210,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: center,
+                initialZoom: destination == null ? 15 : 14.2,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.getincoffee.getin_coffee',
+                ),
+                if (destination != null)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: [driver, destination],
+                        strokeWidth: 3,
+                        color: AppColors.green,
+                      ),
+                    ],
+                  ),
+                MarkerLayer(
+                  markers: [
+                    if (destination != null)
+                      Marker(
+                        point: destination,
+                        width: 44,
+                        height: 44,
+                        child: const _TrackingMarker(
+                          icon: Icons.home_rounded,
+                          background: AppColors.beige,
+                          foreground: AppColors.green,
+                        ),
+                      ),
+                    Marker(
+                      point: driver,
+                      width: 50,
+                      height: 50,
+                      child: const _TrackingMarker(
+                        icon: Icons.delivery_dining_rounded,
+                        background: AppColors.green,
+                        foreground: AppColors.beige,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              children: [
+                _TrackingMetric(
+                  label: 'GPS updated',
+                  value: _ageLabel(tracking.ageSeconds),
+                  icon: Icons.schedule_rounded,
+                ),
+                _TrackingMetric(
+                  label: 'GPS accuracy',
+                  value: tracking.accuracyMeters == null
+                      ? '—'
+                      : '±${tracking.accuracyMeters!.toStringAsFixed(0)} m',
+                  icon: Icons.gps_fixed_rounded,
+                ),
+                if (distanceKm != null)
+                  _TrackingMetric(
+                    label: 'Straight-line distance',
+                    value: '${distanceKm.toStringAsFixed(1)} km',
+                    icon: Icons.route_rounded,
+                  ),
+              ],
+            ),
+          ),
+          if (tracking.state != 'live' || _controller.errorMessage != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 9, 14, 10),
+              color: AppColors.beige.withOpacity(0.35),
+              child: Text(
+                _controller.errorMessage ??
+                    tracking.reason ??
+                    _stateMessage(tracking.state),
+                style: const TextStyle(
+                  color: AppColors.green,
+                  fontSize: 9,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _controller.loading ? null : _controller.refresh,
+                  icon: const Icon(Icons.refresh_rounded, size: 17),
+                  label: const Text('Refresh GPS'),
+                ),
+                const Spacer(),
+                if (widget.onMessageDriver != null &&
+                    tracking.state != 'waiting_assignment')
+                  TextButton.icon(
+                    onPressed: widget.onMessageDriver,
+                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 17),
+                    label: const Text('Message driver'),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _stateMessage(String state) => switch (state) {
+        'waiting_assignment' => 'Waiting for GETIN to assign a driver.',
+        'waiting_gps' => 'Waiting for the assigned driver to send GPS.',
+        'stale' => 'The latest driver position is stale.',
+        'inaccurate' => 'The latest driver position has low GPS accuracy.',
+        'terminal' => 'Live driver tracking has ended for this delivery.',
+        _ => 'Driver tracking is temporarily unavailable.',
+      };
+
+  static String _ageLabel(int? seconds) {
+    if (seconds == null) return '—';
+    if (seconds < 5) return 'Just now';
+    if (seconds < 60) return '${seconds}s ago';
+    final minutes = seconds ~/ 60;
+    return '${minutes}m ago';
+  }
+
+  static double _distanceKm(LatLng a, LatLng b) {
+    const earthRadius = 6371.0;
+    final dLat = _rad(b.latitude - a.latitude);
+    final dLon = _rad(b.longitude - a.longitude);
+    final lat1 = _rad(a.latitude);
+    final lat2 = _rad(b.latitude);
+    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1) *
+            math.cos(lat2) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    return earthRadius *
+        2 *
+        math.atan2(
+          math.sqrt(h),
+          math.sqrt(1 - h),
         );
-      },
+  }
+
+  static double _rad(double value) => value * math.pi / 180;
+}
+
+class _TrackingStateBadge extends StatelessWidget {
+  final String state;
+
+  const _TrackingStateBadge({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (state) {
+      'live' => 'LIVE',
+      'stale' => 'STALE',
+      'inaccurate' => 'LOW ACCURACY',
+      _ => 'GPS',
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: state == 'live' ? const Color(0xFFE9F3ED) : AppColors.beige,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.green,
+          fontSize: 8,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
+      ),
     );
   }
 }
@@ -282,43 +327,34 @@ class _TrackingMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          color: AppColors.green,
-          size: 18,
-        ),
-        const SizedBox(width: 7),
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.visible,
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 8.8,
+    return SizedBox(
+      width: 145,
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.green, size: 18),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 8.8),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                maxLines: 2,
-                overflow: TextOverflow.visible,
-                style: const TextStyle(
-                  color: AppColors.green,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: AppColors.green,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -340,10 +376,7 @@ class _TrackingMarker extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white,
-          width: 2,
-        ),
+        border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x33000000),
@@ -352,11 +385,7 @@ class _TrackingMarker extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(
-        icon,
-        color: foreground,
-        size: 24,
-      ),
+      child: Icon(icon, color: foreground, size: 24),
     );
   }
 }
@@ -364,10 +393,12 @@ class _TrackingMarker extends StatelessWidget {
 class _TrackingUnavailableCard extends StatelessWidget {
   final String message;
   final bool loading;
+  final Future<void> Function()? onRefresh;
 
   const _TrackingUnavailableCard({
     required this.message,
     this.loading = false,
+    this.onRefresh,
   });
 
   @override
@@ -378,9 +409,7 @@ class _TrackingUnavailableCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.border,
-        ),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
@@ -415,112 +444,14 @@ class _TrackingUnavailableCard extends StatelessWidget {
               ),
             ),
           ),
+          if (onRefresh != null)
+            IconButton(
+              tooltip: 'Refresh GPS',
+              onPressed: loading ? null : () => onRefresh!(),
+              icon: const Icon(Icons.refresh_rounded),
+            ),
         ],
       ),
     );
-  }
-}
-
-class _PreviewDriverTracker {
-  final LatLng destination;
-
-  const _PreviewDriverTracker({
-    required this.destination,
-  });
-
-  Stream<DriverTrackingSnapshot> get stream async* {
-    const secondsPerTrip = 120;
-    var tick = 0;
-
-    while (true) {
-      final progress = (tick % secondsPerTrip) / secondsPerTrip;
-
-      // Preview starts ~1.7 km southwest of the destination.
-      final start = LatLng(
-        destination.latitude - 0.0105,
-        destination.longitude - 0.0135,
-      );
-
-      final driver = LatLng(
-        _lerp(
-          start.latitude,
-          destination.latitude,
-          progress,
-        ),
-        _lerp(
-          start.longitude,
-          destination.longitude,
-          progress,
-        ),
-      );
-
-      final remainingKm = _distanceKm(
-        driver,
-        destination,
-      );
-
-      final etaMinutes = math.max(1, (remainingKm / 0.42).ceil());
-
-      yield DriverTrackingSnapshot(
-        latitude: driver.latitude,
-        longitude: driver.longitude,
-        destinationLatitude: destination.latitude,
-        destinationLongitude: destination.longitude,
-        etaMinutes: etaMinutes,
-        distanceKm: remainingKm,
-        updatedAt: DateTime.now(),
-        routePoints: [
-          driver,
-          destination,
-        ],
-      );
-
-      tick += 4;
-      await Future<void>.delayed(
-        const Duration(seconds: 4),
-      );
-    }
-  }
-
-  static double _lerp(
-    double a,
-    double b,
-    double t,
-  ) {
-    return a + (b - a) * t;
-  }
-
-  static double _distanceKm(
-    LatLng a,
-    LatLng b,
-  ) {
-    const earthRadius = 6371.0;
-
-    final dLat = _rad(
-      b.latitude - a.latitude,
-    );
-    final dLon = _rad(
-      b.longitude - a.longitude,
-    );
-
-    final lat1 = _rad(a.latitude);
-    final lat2 = _rad(b.latitude);
-
-    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1) *
-            math.cos(lat2) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-
-    return earthRadius *
-        2 *
-        math.atan2(
-          math.sqrt(h),
-          math.sqrt(1 - h),
-        );
-  }
-
-  static double _rad(double value) {
-    return value * math.pi / 180;
   }
 }
