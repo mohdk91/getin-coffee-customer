@@ -63,7 +63,8 @@ class CustomerFavoritesRepository {
   }
 
   Future<void> add(int productId) async {
-    await context.apiClient.postJson(
+    await context.apiClient.requestJson(
+      'PUT',
       '/api/v1/customer/favorites/$productId',
       authenticated: true,
     );
