@@ -13,7 +13,11 @@ void main() {
     expect(checkout, contains('completeServerOrder()'));
     expect(checkout, contains("result.currency ?? draft.currency"));
     expect(checkout, contains("delivery && !_usesApi ? '4728' : null"));
-    expect(checkout, contains('payment as pending'));
+    expect(checkout, contains('card payment pending'));
+    expect(
+      checkout,
+      contains('does not claim payment success until a configured payment provider confirms it'),
+    );
     expect(cart, contains('void completeServerOrder()'));
     expect(confirmation, contains('if (earnedStars > 0)'));
   });
