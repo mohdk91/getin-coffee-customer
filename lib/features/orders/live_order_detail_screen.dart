@@ -72,6 +72,23 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
     }
   }
 
+  Future<void> _refreshAuthoritativeState() async {
+    final detail = await _service.loadOrder(widget.orderId);
+    var deliveryTimeline = const <LiveOrderTimelineEntry>[];
+    if (detail.isDelivery) {
+      try {
+        deliveryTimeline = await _service.loadDeliveryTimeline(widget.orderId);
+      } catch (_) {
+        deliveryTimeline = const <LiveOrderTimelineEntry>[];
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _detail = detail;
+      _deliveryTimeline = deliveryTimeline;
+    });
+  }
+
   Future<void> _cancelOrder() async {
     final reason = await _requestReason(
       title: 'Cancel order',
@@ -86,14 +103,12 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
       _errorMessage = null;
     });
     try {
-      final detail = await _service.cancelOrder(
+      await _service.cancelOrder(
         orderId: widget.orderId,
         reason: reason,
       );
+      await _refreshAuthoritativeState();
       if (!mounted) return;
-      setState(() {
-        _detail = detail;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order cancelled by GETIN.')),
       );
@@ -123,6 +138,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
         _deliveryPin = pin;
         _deliveryQr = null;
       });
+      await _refreshAuthoritativeState();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -149,6 +165,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
         _deliveryQr = qr;
         _deliveryPin = null;
       });
+      await _refreshAuthoritativeState();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -185,6 +202,8 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
       setState(() {
         _refundRequest = refund;
       });
+      await _refreshAuthoritativeState();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Refund request submitted to GETIN.')),
       );
