@@ -140,12 +140,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final draft = CheckoutOrderDraft(
       clientRequestId: 'getin-demo-${DateTime.now().microsecondsSinceEpoch}',
       createdAt: DateTime.now(),
+      branchId: _cart.cartBranchId ?? _cart.currentBranchId,
       branchName: branchName,
       serviceType: delivery ? 'delivery' : 'pickup',
       currency: _cart.currency,
       lines: _cart.items
           .map(
             (item) => CheckoutOrderLine(
+              productId: item.productId,
+              variantId: item.variantId,
+              optionValueIds: List<int>.unmodifiable(item.optionValueIds),
               name: item.name,
               productType: item.productType.name,
               description: item.description,

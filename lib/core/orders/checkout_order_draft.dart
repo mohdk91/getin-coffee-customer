@@ -5,6 +5,7 @@
 class CheckoutOrderDraft {
   final String clientRequestId;
   final DateTime createdAt;
+  final int? branchId;
   final String branchName;
   final String serviceType;
   final String currency;
@@ -32,6 +33,7 @@ class CheckoutOrderDraft {
   const CheckoutOrderDraft({
     required this.clientRequestId,
     required this.createdAt,
+    required this.branchId,
     required this.branchName,
     required this.serviceType,
     required this.currency,
@@ -60,6 +62,7 @@ class CheckoutOrderDraft {
   bool get isDelivery => serviceType == 'delivery';
 
   Map<String, dynamic> toApiPayload() => <String, dynamic>{
+        'branch_id': branchId,
         'client_request_id': clientRequestId,
         'created_at': createdAt.toIso8601String(),
         'branch_name': branchName,
@@ -92,6 +95,9 @@ class CheckoutOrderDraft {
 }
 
 class CheckoutOrderLine {
+  final int? productId;
+  final int? variantId;
+  final List<int> optionValueIds;
   final String name;
   final String productType;
   final String description;
@@ -111,6 +117,9 @@ class CheckoutOrderLine {
   final String? color;
 
   const CheckoutOrderLine({
+    required this.productId,
+    required this.variantId,
+    required this.optionValueIds,
     required this.name,
     required this.productType,
     required this.description,
@@ -131,6 +140,9 @@ class CheckoutOrderLine {
   });
 
   Map<String, dynamic> toApiPayload() => <String, dynamic>{
+        'product_id': productId,
+        'variant_id': variantId,
+        'option_value_ids': optionValueIds,
         'name': name,
         'product_type': productType,
         'description': description,

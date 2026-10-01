@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/favorites/customer_favorites_store.dart';
+import '../../core/catalog/customer_catalog_models.dart';
 import '../../core/catalog/customer_catalog_store.dart';
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/rewards/reward_earning_policy.dart';
@@ -52,6 +53,7 @@ class _MenuScreenState extends State<MenuScreen> {
       .productsForBranch(widget.branch.id)
       .map(
         (product) => _MenuProduct(
+          catalogProduct: product,
           id: product.id,
           name: product.name,
           description: product.shortDescription,
@@ -109,6 +111,8 @@ class _MenuScreenState extends State<MenuScreen> {
           price: product.price,
           branchName: widget.branch.name,
           serviceType: widget.serviceType,
+          branchId: widget.branch.id,
+          catalogProduct: product.catalogProduct,
           productType: product.type,
           productBadge: product.badge,
         ),
@@ -927,6 +931,7 @@ class _MenuCategory {
 }
 
 class _MenuProduct {
+  final CatalogProduct catalogProduct;
   final int id;
   final String name;
   final String description;
@@ -942,6 +947,7 @@ class _MenuProduct {
       );
 
   const _MenuProduct({
+    required this.catalogProduct,
     required this.id,
     required this.name,
     required this.description,

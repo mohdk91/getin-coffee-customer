@@ -224,6 +224,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     CartController.instance.setOrderContext(
+      branchId: _branch.id,
       branchName: _branch.name,
       serviceType: _serviceType,
       userLatitude: widget.userLatitude,

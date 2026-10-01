@@ -54,6 +54,7 @@ class ManagedProductSections extends StatelessWidget {
                   sortOrder: collection.sortOrder,
                 ),
                 products: _collectionProducts(collection, products),
+                branchId: branchId,
                 branchName: branchName,
                 serviceType: serviceType,
               ),
@@ -63,6 +64,7 @@ class ManagedProductSections extends StatelessWidget {
               _ManagedProductSection(
                 config: section,
                 products: _productsFor(section, products),
+                branchId: branchId,
                 branchName: branchName,
                 serviceType: serviceType,
               ),
@@ -103,12 +105,14 @@ class ManagedProductSections extends StatelessWidget {
 class _ManagedProductSection extends StatelessWidget {
   final MobileHomeSectionConfig config;
   final List<CatalogProduct> products;
+  final int branchId;
   final String branchName;
   final String serviceType;
 
   const _ManagedProductSection({
     required this.config,
     required this.products,
+    required this.branchId,
     required this.branchName,
     required this.serviceType,
   });
@@ -145,6 +149,8 @@ class _ManagedProductSection extends StatelessWidget {
                       price: product.displayPrice,
                       branchName: branchName,
                       serviceType: serviceType,
+                      branchId: branchId,
+                      catalogProduct: product,
                     ),
                   ),
                 ),

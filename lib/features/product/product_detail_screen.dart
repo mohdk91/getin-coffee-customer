@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/catalog/customer_catalog_models.dart';
 import '../../core/favorites/customer_favorites_store.dart';
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/products/product_type.dart';
@@ -17,6 +18,8 @@ class ProductDetailScreen extends StatefulWidget {
   final String price;
   final String branchName;
   final String serviceType;
+  final int? branchId;
+  final CatalogProduct? catalogProduct;
   final ProductType? productType;
   final String? productBadge;
   final CartItem? editingItem;
@@ -29,6 +32,8 @@ class ProductDetailScreen extends StatefulWidget {
     required this.price,
     required this.branchName,
     required this.serviceType,
+    this.branchId,
+    this.catalogProduct,
     this.productType,
     this.productBadge,
     this.editingItem,
@@ -197,10 +202,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         : '$_currency ${value.toStringAsFixed(2)}';
   }
 
+
+  int? get _serverVariantId {
+    final editing = widget.editingItem;
+    final product = widget.catalogProduct;
+    if (product == null) return editing?.variantId;
+
+    final selected = _variant?.trim().toLowerCase();
+    if (selected != null && selected.isNotEmpty) {
+      for (final variant in product.variants) {
+        if (variant.isAvailable && variant.name.trim().toLowerCase() == selected) {
+          return variant.id;
+        }
+      }
+    }
+
+    for (final variant in product.variants) {
+      if (variant.isAvailable && variant.isDefault) return variant.id;
+    }
+    return null;
+  }
+
+  List<int> get _serverOptionValueIds {
+    final product = widget.catalogProduct;
+    if (product == null) return widget.editingItem?.optionValueIds ?? const <int>[];
+
+    final selectedLabels = <String>{
+      if (_size?.trim().isNotEmpty == true) _size!.trim().toLowerCase(),
+      if (_temperature?.trim().isNotEmpty == true) _temperature!.trim().toLowerCase(),
+      if (_milk?.trim().isNotEmpty == true) _milk!.trim().toLowerCase(),
+      if (_strength != 'Regular') _strength.trim().toLowerCase(),
+      if (_sweetness != 'Regular') _sweetness.trim().toLowerCase(),
+      if (_warming?.trim().isNotEmpty == true) _warming!.trim().toLowerCase(),
+      if (_sauce?.trim().isNotEmpty == true && _sauce != 'No Sauce') _sauce!.trim().toLowerCase(),
+      if (_color?.trim().isNotEmpty == true) _color!.trim().toLowerCase(),
+      ..._addOns.map((value) => value.trim().toLowerCase()),
+    };
+
+    final ids = <int>[];
+    for (final group in product.optionGroups) {
+      for (final value in group.values) {
+        if (selectedLabels.contains(value.name.trim().toLowerCase()) ||
+            (value.isDefault && group.isRequired && group.minSelect > 0 &&
+                !group.values.any((candidate) => selectedLabels.contains(candidate.name.trim().toLowerCase())))) {
+          ids.add(value.id);
+        }
+      }
+    }
+    return ids.toSet().toList(growable: false)..sort();
+  }
+
   CartItem? _currentCartItem() {
     if (!_requiredComplete) return null;
 
     return CartItem(
+      branchId: widget.branchId ?? widget.editingItem?.branchId,
+      productId: widget.catalogProduct?.id ?? widget.editingItem?.productId,
+      variantId: _serverVariantId,
+      optionValueIds: _serverOptionValueIds,
       name: widget.name,
       description: widget.description,
       image: widget.image,
