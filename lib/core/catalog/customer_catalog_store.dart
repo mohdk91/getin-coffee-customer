@@ -22,6 +22,7 @@ class CustomerCatalogStore extends ChangeNotifier {
   List<Branch> get branches => List<Branch>.unmodifiable(_branches);
   bool get loading => _loading;
   Object? get lastError => _lastError;
+  bool get usesApi => _repository?.context.usesApi ?? false;
 
   List<CatalogCategory> get categories {
     if (_categoriesByBranch.isEmpty) return const <CatalogCategory>[];
@@ -101,5 +102,34 @@ class CustomerCatalogStore extends ChangeNotifier {
     final repository = _repository;
     if (repository == null) return null;
     return repository.product(branchId, productId);
+  }
+
+  Future<CatalogProductAvailability?> loadAvailability(
+    int branchId,
+    int productId,
+  ) async {
+    final repository = _repository;
+    if (repository == null || !repository.context.usesApi) return null;
+    return repository.availability(branchId, productId);
+  }
+
+  Future<CatalogPricingQuote?> quoteProduct({
+    required int branchId,
+    required String orderType,
+    required int productId,
+    required int quantity,
+    int? variantId,
+    List<int> optionValueIds = const <int>[],
+  }) async {
+    final repository = _repository;
+    if (repository == null || !repository.context.usesApi) return null;
+    return repository.quoteProduct(
+      branchId: branchId,
+      orderType: orderType,
+      productId: productId,
+      quantity: quantity,
+      variantId: variantId,
+      optionValueIds: optionValueIds,
+    );
   }
 }

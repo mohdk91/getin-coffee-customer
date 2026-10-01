@@ -1,5 +1,10 @@
 import '../../features/location/models/branch.dart';
 
+double _catalogDouble(Object? value, [double fallback = 0]) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? fallback;
+}
+
 class CatalogCategory {
   final int id;
   final String name;
@@ -31,14 +36,19 @@ class CatalogProduct {
   final String name;
   final String shortDescription;
   final String? description;
+  final String? ingredients;
+  final String? allergens;
   final String? imageUrl;
   final String productType;
   final bool isFeatured;
   final double price;
   final String currency;
+  final int? preparationTimeMinutes;
+  final int? calories;
   final int? categoryId;
   final String? categoryName;
   final List<String> gallery;
+  final List<CatalogGalleryImage> galleryItems;
   final List<CatalogVariant> variants;
   final List<CatalogOptionGroup> optionGroups;
 
@@ -51,18 +61,27 @@ class CatalogProduct {
     required this.price,
     required this.currency,
     this.description,
+    this.ingredients,
+    this.allergens,
     this.imageUrl,
+    this.preparationTimeMinutes,
+    this.calories,
     this.categoryId,
     this.categoryName,
     this.gallery = const <String>[],
+    this.galleryItems = const <CatalogGalleryImage>[],
     this.variants = const <CatalogVariant>[],
     this.optionGroups = const <CatalogOptionGroup>[],
   });
 
-  String get displayPrice {
-    final normalized = price == price.roundToDouble()
-        ? price.toStringAsFixed(0)
-        : price.toStringAsFixed(2);
+  bool get isVariable => productType.trim().toLowerCase() == 'variable';
+
+  String get displayPrice => money(price);
+
+  String money(double value) {
+    final normalized = value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(2);
     return '$currency $normalized';
   }
 
@@ -70,10 +89,14 @@ class CatalogProduct {
     final category = json['category'] is Map
         ? Map<String, dynamic>.from(json['category'] as Map)
         : const <String, dynamic>{};
-    final gallery = (json['gallery'] as List? ?? const <dynamic>[])
+    final galleryItems = (json['gallery'] as List? ?? const <dynamic>[])
         .whereType<Map>()
-        .map((item) => item['url']?.toString() ?? '')
-        .where((url) => url.isNotEmpty)
+        .map(
+          (item) => CatalogGalleryImage.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .where((item) => item.url.isNotEmpty)
         .toList(growable: false);
     final variants = (json['variants'] as List? ?? const <dynamic>[])
         .whereType<Map>()
@@ -81,7 +104,11 @@ class CatalogProduct {
         .toList(growable: false);
     final optionGroups = (json['option_groups'] as List? ?? const <dynamic>[])
         .whereType<Map>()
-        .map((item) => CatalogOptionGroup.fromJson(Map<String, dynamic>.from(item)))
+        .map(
+          (item) => CatalogOptionGroup.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
         .toList(growable: false);
 
     return CatalogProduct(
@@ -89,18 +116,62 @@ class CatalogProduct {
       name: json['name']?.toString() ?? '',
       shortDescription: json['short_description']?.toString() ?? '',
       description: json['description']?.toString(),
+      ingredients: json['ingredients']?.toString(),
+      allergens: json['allergens']?.toString(),
       imageUrl: json['image_url']?.toString(),
       productType: json['product_type']?.toString() ?? '',
       isFeatured: json['is_featured'] == true,
-      price: (json['catalog_price'] as num?)?.toDouble() ?? 0,
+      price: _catalogDouble(json['catalog_price']),
       currency: json['currency']?.toString() ?? 'EGP',
+      preparationTimeMinutes:
+          (json['preparation_time_minutes'] as num?)?.toInt(),
+      calories: (json['calories'] as num?)?.toInt(),
       categoryId: (category['id'] as num?)?.toInt(),
       categoryName: category['name']?.toString(),
-      gallery: gallery,
+      gallery: galleryItems.map((item) => item.url).toList(growable: false),
+      galleryItems: galleryItems,
       variants: variants,
       optionGroups: optionGroups,
     );
   }
+}
+
+class CatalogGalleryImage {
+  final int? id;
+  final String url;
+  final String? altText;
+  final bool isPrimary;
+
+  const CatalogGalleryImage({
+    required this.url,
+    this.id,
+    this.altText,
+    this.isPrimary = false,
+  });
+
+  factory CatalogGalleryImage.fromJson(Map<String, dynamic> json) =>
+      CatalogGalleryImage(
+        id: (json['id'] as num?)?.toInt(),
+        url: json['url']?.toString() ?? '',
+        altText: json['alt_text']?.toString(),
+        isPrimary: json['is_primary'] == true,
+      );
+}
+
+class CatalogVariantOptionValue {
+  final int id;
+  final int optionGroupId;
+
+  const CatalogVariantOptionValue({
+    required this.id,
+    required this.optionGroupId,
+  });
+
+  factory CatalogVariantOptionValue.fromJson(Map<String, dynamic> json) =>
+      CatalogVariantOptionValue(
+        id: (json['id'] as num).toInt(),
+        optionGroupId: (json['option_group_id'] as num).toInt(),
+      );
 }
 
 class CatalogVariant {
@@ -109,6 +180,7 @@ class CatalogVariant {
   final double priceAdjustment;
   final bool isDefault;
   final bool isAvailable;
+  final List<CatalogVariantOptionValue> optionValues;
 
   const CatalogVariant({
     required this.id,
@@ -116,20 +188,34 @@ class CatalogVariant {
     required this.priceAdjustment,
     required this.isDefault,
     required this.isAvailable,
+    this.optionValues = const <CatalogVariantOptionValue>[],
   });
+
+  Set<int> get optionValueIds => optionValues.map((value) => value.id).toSet();
 
   factory CatalogVariant.fromJson(Map<String, dynamic> json) => CatalogVariant(
         id: (json['id'] as num).toInt(),
         name: json['name']?.toString() ?? '',
-        priceAdjustment: (json['price_adjustment'] as num?)?.toDouble() ?? 0,
+        priceAdjustment: _catalogDouble(json['price_adjustment']),
         isDefault: json['is_default'] == true,
         isAvailable: json['is_available'] == true,
+        optionValues: (json['option_values'] as List? ?? const <dynamic>[])
+            .whereType<Map>()
+            .map(
+              (item) => CatalogVariantOptionValue.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false),
       );
 }
 
 class CatalogOptionGroup {
   final int id;
+  final String code;
   final String name;
+  final String? description;
+  final String selectionType;
   final bool isRequired;
   final int minSelect;
   final int? maxSelect;
@@ -142,26 +228,39 @@ class CatalogOptionGroup {
     required this.minSelect,
     required this.maxSelect,
     required this.values,
+    this.code = '',
+    this.description,
+    this.selectionType = 'single',
   });
+
+  bool get isSingle => selectionType.trim().toLowerCase() != 'multiple';
+
+  int get effectiveMinimum => isRequired && minSelect < 1 ? 1 : minSelect;
 
   factory CatalogOptionGroup.fromJson(Map<String, dynamic> json) =>
       CatalogOptionGroup(
         id: (json['id'] as num).toInt(),
+        code: json['code']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
+        description: json['description']?.toString(),
+        selectionType: json['selection_type']?.toString() ?? 'single',
         isRequired: json['is_required'] == true,
         minSelect: (json['min_select'] as num?)?.toInt() ?? 0,
         maxSelect: (json['max_select'] as num?)?.toInt(),
         values: (json['values'] as List? ?? const <dynamic>[])
             .whereType<Map>()
-            .map((item) => CatalogOptionValue.fromJson(
-                  Map<String, dynamic>.from(item),
-                ))
+            .map(
+              (item) => CatalogOptionValue.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
             .toList(growable: false),
       );
 }
 
 class CatalogOptionValue {
   final int id;
+  final String code;
   final String name;
   final double priceAdjustment;
   final bool isDefault;
@@ -171,15 +270,133 @@ class CatalogOptionValue {
     required this.name,
     required this.priceAdjustment,
     required this.isDefault,
+    this.code = '',
   });
 
   factory CatalogOptionValue.fromJson(Map<String, dynamic> json) =>
       CatalogOptionValue(
         id: (json['id'] as num).toInt(),
+        code: json['code']?.toString() ?? '',
         name: json['name']?.toString() ?? '',
-        priceAdjustment: (json['price_adjustment'] as num?)?.toDouble() ?? 0,
+        priceAdjustment: _catalogDouble(json['price_adjustment']),
         isDefault: json['is_default'] == true,
       );
+}
+
+class CatalogVariantAvailability {
+  final int id;
+  final bool available;
+  final String status;
+  final bool stockTracked;
+
+  const CatalogVariantAvailability({
+    required this.id,
+    required this.available,
+    required this.status,
+    required this.stockTracked,
+  });
+
+  factory CatalogVariantAvailability.fromJson(Map<String, dynamic> json) =>
+      CatalogVariantAvailability(
+        id: (json['id'] as num).toInt(),
+        available: json['available'] == true,
+        status: json['status']?.toString() ?? 'unavailable',
+        stockTracked: json['stock_tracked'] == true,
+      );
+}
+
+class CatalogProductAvailability {
+  final int branchId;
+  final int productId;
+  final bool available;
+  final String status;
+  final bool stockTracked;
+  final List<CatalogVariantAvailability> variants;
+
+  const CatalogProductAvailability({
+    required this.branchId,
+    required this.productId,
+    required this.available,
+    required this.status,
+    required this.stockTracked,
+    this.variants = const <CatalogVariantAvailability>[],
+  });
+
+  CatalogVariantAvailability? variant(int id) {
+    for (final row in variants) {
+      if (row.id == id) return row;
+    }
+    return null;
+  }
+
+  bool variantAvailable(int id) => variant(id)?.available ?? false;
+
+  factory CatalogProductAvailability.fromJson(Map<String, dynamic> json) =>
+      CatalogProductAvailability(
+        branchId: (json['branch_id'] as num?)?.toInt() ?? 0,
+        productId: (json['product_id'] as num?)?.toInt() ?? 0,
+        available: json['available'] == true,
+        status: json['status']?.toString() ?? 'unavailable',
+        stockTracked: json['stock_tracked'] == true,
+        variants: (json['variants'] as List? ?? const <dynamic>[])
+            .whereType<Map>()
+            .map(
+              (item) => CatalogVariantAvailability.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false),
+      );
+}
+
+class CatalogPricingQuote {
+  final int branchId;
+  final String currency;
+  final String orderType;
+  final int productId;
+  final int? variantId;
+  final double unitTotal;
+  final double lineTotal;
+  final double taxTotal;
+  final double orderTotal;
+
+  const CatalogPricingQuote({
+    required this.branchId,
+    required this.currency,
+    required this.orderType,
+    required this.productId,
+    required this.unitTotal,
+    required this.lineTotal,
+    required this.taxTotal,
+    required this.orderTotal,
+    this.variantId,
+  });
+
+  factory CatalogPricingQuote.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] as List? ?? const <dynamic>[];
+    final first = rawItems.whereType<Map>().isEmpty
+        ? const <String, dynamic>{}
+        : Map<String, dynamic>.from(rawItems.whereType<Map>().first);
+
+    return CatalogPricingQuote(
+      branchId: (json['branch_id'] as num?)?.toInt() ?? 0,
+      currency: json['currency']?.toString() ?? 'EGP',
+      orderType: json['order_type']?.toString() ?? 'pickup',
+      productId: (first['product_id'] as num?)?.toInt() ?? 0,
+      variantId: (first['variant_id'] as num?)?.toInt(),
+      unitTotal: _catalogDouble(first['unit_total']),
+      lineTotal: _catalogDouble(first['line_total']),
+      taxTotal: _catalogDouble(json['tax_total']),
+      orderTotal: _catalogDouble(json['total']),
+    );
+  }
+
+  String get displayUnitTotal {
+    final formatted = unitTotal == unitTotal.roundToDouble()
+        ? unitTotal.toStringAsFixed(0)
+        : unitTotal.toStringAsFixed(2);
+    return '$currency $formatted';
+  }
 }
 
 Branch branchFromApi(Map<String, dynamic> json) {

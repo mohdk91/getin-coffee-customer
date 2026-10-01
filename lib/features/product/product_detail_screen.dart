@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/catalog/customer_catalog_models.dart';
+import '../../core/catalog/customer_catalog_store.dart';
 import '../../core/favorites/customer_favorites_store.dart';
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/products/product_type.dart';
@@ -10,6 +11,7 @@ import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
 import '../cart/cart_screen.dart';
 import '../reviews/review_screens.dart';
+import 'live_product_detail_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String name;
@@ -706,6 +708,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final liveProduct = widget.catalogProduct;
+    final liveBranchId = widget.branchId;
+    if (CustomerCatalogStore.instance.usesApi &&
+        liveProduct != null &&
+        liveBranchId != null) {
+      return LiveProductDetailScreen(
+        branchId: liveBranchId,
+        branchName: widget.branchName,
+        serviceType: widget.serviceType,
+        summary: liveProduct,
+        editingItem: widget.editingItem,
+      );
+    }
+
     final shortBranch = widget.branchName.replaceFirst('Getin ', '');
 
     return Scaffold(
