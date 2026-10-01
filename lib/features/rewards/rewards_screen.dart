@@ -434,7 +434,7 @@ class RewardsScreen extends StatelessWidget {
               const SizedBox(height: 9),
               _HistoryCard(entries: _rewards.history),
               const SizedBox(height: 12),
-              const _DemoNotice(),
+              _RewardsAuthorityNotice(live: _rewards.usesApi),
             ],
           ),
         );
@@ -1032,8 +1032,10 @@ class _EmptyWalletCard extends StatelessWidget {
   }
 }
 
-class _DemoNotice extends StatelessWidget {
-  const _DemoNotice();
+class _RewardsAuthorityNotice extends StatelessWidget {
+  final bool live;
+
+  const _RewardsAuthorityNotice({required this.live});
 
   @override
   Widget build(BuildContext context) {
@@ -1043,15 +1045,17 @@ class _DemoNotice extends StatelessWidget {
         color: const Color(0xFFF0E8D4),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.green, size: 18),
-          SizedBox(width: 9),
+          const Icon(Icons.info_outline_rounded, color: AppColors.green, size: 18),
+          const SizedBox(width: 9),
           Expanded(
             child: Text(
-              'Demo/local rewards only. Stars, eligibility and redemption will later come from the authenticated Laravel rewards API.',
-              style: TextStyle(
+              live
+                  ? 'Stars, reward availability and redeemed vouchers are confirmed by your GETIN account.'
+                  : 'Demo rewards are stored locally on this device.',
+              style: const TextStyle(
                 color: AppColors.green,
                 fontSize: 9.5,
                 height: 1.4,
