@@ -25,6 +25,7 @@ class CheckoutOrderDraft {
   final double voucherSaving;
   final String? voucherCode;
   final double giftCardApplied;
+  final int? giftCardId;
   final String paymentTender;
   final String? paymentMethodId;
   final String? paymentTokenReference;
@@ -53,6 +54,7 @@ class CheckoutOrderDraft {
     required this.voucherSaving,
     required this.voucherCode,
     required this.giftCardApplied,
+    this.giftCardId,
     required this.paymentTender,
     required this.paymentMethodId,
     required this.paymentTokenReference,

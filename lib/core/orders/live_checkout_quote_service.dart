@@ -36,6 +36,11 @@ class LiveCheckoutQuote {
   final String? promotionName;
   final String? promotionKind;
   final double promotionDiscount;
+  final int? giftCardId;
+  final String? giftCardLastFour;
+  final double giftCardBalance;
+  final double giftCardApplied;
+  final double amountDue;
 
   const LiveCheckoutQuote({
     required this.checkoutReady,
@@ -50,6 +55,11 @@ class LiveCheckoutQuote {
     required this.promotionName,
     required this.promotionKind,
     required this.promotionDiscount,
+    required this.giftCardId,
+    required this.giftCardLastFour,
+    required this.giftCardBalance,
+    required this.giftCardApplied,
+    required this.amountDue,
   });
 
   factory LiveCheckoutQuote.fromResponse(Map<String, dynamic> response) {
@@ -64,6 +74,10 @@ class LiveCheckoutQuote {
     final rawPromotion = pricing['promotion'];
     final promotion = rawPromotion is Map
         ? Map<String, dynamic>.from(rawPromotion)
+        : const <String, dynamic>{};
+    final rawGiftCard = data['gift_card'];
+    final giftCard = rawGiftCard is Map
+        ? Map<String, dynamic>.from(rawGiftCard)
         : const <String, dynamic>{};
 
     double amount(String key) =>
@@ -86,6 +100,16 @@ class LiveCheckoutQuote {
       promotionKind: promotion['kind']?.toString(),
       promotionDiscount:
           double.tryParse(promotion['discount_amount']?.toString() ?? '') ?? 0,
+      giftCardId: (giftCard['id'] as num?)?.toInt(),
+      giftCardLastFour: giftCard['last_four']?.toString(),
+      giftCardBalance:
+          double.tryParse(giftCard['balance']?.toString() ?? '') ?? 0,
+      giftCardApplied:
+          double.tryParse(giftCard['applied']?.toString() ?? '') ?? 0,
+      amountDue: double.tryParse(
+            data['amount_due']?.toString() ?? pricing['total']?.toString() ?? '',
+          ) ??
+          amount('total'),
     );
   }
 }
@@ -102,6 +126,7 @@ class LiveCheckoutQuoteService {
     required List<LiveCheckoutQuoteItem> items,
     int? addressId,
     String? promotionCode,
+    int? giftCardId,
   }) async {
     final response = await repository.quoteCheckout(
       branchId: branchId,
@@ -110,6 +135,7 @@ class LiveCheckoutQuoteService {
         items: items,
         addressId: addressId,
         promotionCode: promotionCode,
+        giftCardId: giftCardId,
       ),
     );
     return LiveCheckoutQuote.fromResponse(response);
@@ -120,6 +146,7 @@ class LiveCheckoutQuoteService {
     required List<LiveCheckoutQuoteItem> items,
     int? addressId,
     String? promotionCode,
+    int? giftCardId,
   }) {
     if (orderType != 'pickup' && orderType != 'delivery') {
       throw ArgumentError.value(orderType, 'orderType');
@@ -137,6 +164,7 @@ class LiveCheckoutQuoteService {
       if (orderType == 'delivery') 'address_id': addressId,
       if (promotionCode != null && promotionCode.trim().isNotEmpty)
         'coupon_code': promotionCode.trim(),
+      if (giftCardId != null && giftCardId > 0) 'gift_card_id': giftCardId,
     };
   }
 }
