@@ -23,6 +23,8 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
   LiveOrderDetail? _detail;
   List<LiveOrderTimelineEntry> _deliveryTimeline = const <LiveOrderTimelineEntry>[];
   LiveRefundRequest? _refundRequest;
+  LiveDeliveryPin? _deliveryPin;
+  LiveDeliveryQr? _deliveryQr;
   bool _loading = true;
   bool _actionBusy = false;
   String? _errorMessage;
@@ -95,6 +97,58 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order cancelled by GETIN.')),
       );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _messageFor(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _issueDeliveryPin() async {
+    setState(() {
+      _actionBusy = true;
+      _errorMessage = null;
+    });
+    try {
+      final pin = await _service.issueDeliveryPin(widget.orderId);
+      if (!mounted) return;
+      setState(() {
+        _deliveryPin = pin;
+        _deliveryQr = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _messageFor(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _issueDeliveryQr() async {
+    setState(() {
+      _actionBusy = true;
+      _errorMessage = null;
+    });
+    try {
+      final qr = await _service.issueDeliveryQr(widget.orderId);
+      if (!mounted) return;
+      setState(() {
+        _deliveryQr = qr;
+        _deliveryPin = null;
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -293,6 +347,16 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
                 ? _deliveryTimeline
                 : detail.timeline,
           ),
+          if (detail.isDelivery && !detail.isTerminal) ...[
+            const SizedBox(height: 14),
+            _DeliveryVerificationCard(
+              busy: _actionBusy,
+              pin: _deliveryPin,
+              qr: _deliveryQr,
+              onIssuePin: _issueDeliveryPin,
+              onIssueQr: _issueDeliveryQr,
+            ),
+          ],
           const SizedBox(height: 14),
           _LiveOrderItemsCard(detail: detail),
           const SizedBox(height: 14),
@@ -545,6 +609,129 @@ class _LiveOrderTimelineCard extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeliveryVerificationCard extends StatelessWidget {
+  final bool busy;
+  final LiveDeliveryPin? pin;
+  final LiveDeliveryQr? qr;
+  final VoidCallback onIssuePin;
+  final VoidCallback onIssueQr;
+
+  const _DeliveryVerificationCard({
+    required this.busy,
+    required this.pin,
+    required this.qr,
+    required this.onIssuePin,
+    required this.onIssueQr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _LiveOrderCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Delivery verification',
+            style: TextStyle(
+              color: AppColors.green,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'PIN and QR credentials are issued by GETIN only after the driver reaches the customer. Requesting early is safely rejected by the server.',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 10,
+              height: 1.35,
+            ),
+          ),
+          if (pin != null) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: SelectableText(
+                pin!.pin.split('').join('  '),
+                style: const TextStyle(
+                  color: AppColors.green,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Center(
+              child: Text(
+                'Expires ${pin!.expiresAt == null ? 'soon' : _dateTime(pin!.expiresAt!)} · ${pin!.attemptsRemaining} attempts remaining',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted, fontSize: 9),
+              ),
+            ),
+          ],
+          if (qr != null) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Server QR payload',
+              style: TextStyle(
+                color: AppColors.green,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              qr!.payload,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 9,
+                height: 1.3,
+              ),
+            ),
+            if (qr!.expiresAt != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Expires ${_dateTime(qr!.expiresAt!)}',
+                style: const TextStyle(color: AppColors.muted, fontSize: 9),
+              ),
+            ],
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: busy ? null : onIssuePin,
+                  icon: const Icon(Icons.pin_outlined),
+                  label: const Text('Issue PIN'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : onIssueQr,
+                  icon: const Icon(Icons.qr_code_2_rounded),
+                  label: const Text('Issue QR'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Share a verification credential only after the order is physically handed to you.',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
         ],
       ),
     );
