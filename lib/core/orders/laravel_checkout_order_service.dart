@@ -135,6 +135,9 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
 
     if (includePayment) {
       payload['payment_method'] = 'card';
+      if (draft.paymentSessionId != null && draft.paymentSessionId!.isNotEmpty) {
+        payload['payment_session_id'] = draft.paymentSessionId;
+      }
       if (draft.specialRequest.trim().isNotEmpty) {
         payload['customer_notes'] = draft.specialRequest.trim();
       }
