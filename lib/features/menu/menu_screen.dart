@@ -742,7 +742,10 @@ class _ReferenceProductCard extends StatelessWidget {
                                 builder: (context, _) {
                                   final favorite = CustomerFavoritesStore
                                       .instance
-                                      .containsName(product.name);
+                                      .containsProduct(
+                                        serverProductId: product.id,
+                                        name: product.name,
+                                      );
                                   return InkResponse(
                                     onTap: () => CustomerFavoritesStore.instance
                                         .toggle(_favoriteProduct),

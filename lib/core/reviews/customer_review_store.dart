@@ -8,6 +8,71 @@ import '../data/customer_repository.dart';
 import '../engagement/customer_engagement_api_repository.dart';
 
 @immutable
+class CustomerReviewSlotStatus {
+  final bool eligible;
+  final bool submitted;
+  final String? reason;
+
+  const CustomerReviewSlotStatus({
+    required this.eligible,
+    required this.submitted,
+    required this.reason,
+  });
+
+  factory CustomerReviewSlotStatus.fromJson(Map<String, dynamic> json) {
+    final reason = json['reason']?.toString().trim() ?? '';
+    return CustomerReviewSlotStatus(
+      eligible: json['eligible'] as bool? ?? false,
+      submitted: json['submitted'] as bool? ?? false,
+      reason: reason.isEmpty ? null : reason,
+    );
+  }
+}
+
+@immutable
+class CustomerOrderReviewStatus {
+  final int orderId;
+  final String orderNumber;
+  final String orderType;
+  final String status;
+  final CustomerReviewSlotStatus delivery;
+  final CustomerReviewSlotStatus employee;
+
+  const CustomerOrderReviewStatus({
+    required this.orderId,
+    required this.orderNumber,
+    required this.orderType,
+    required this.status,
+    required this.delivery,
+    required this.employee,
+  });
+
+  bool get hasEligibleReview => delivery.eligible || employee.eligible;
+  bool get hasSubmittedReview => delivery.submitted || employee.submitted;
+
+  factory CustomerOrderReviewStatus.fromJson(Map<String, dynamic> json) {
+    final order = json['order'] is Map
+        ? Map<String, dynamic>.from(json['order'] as Map)
+        : const <String, dynamic>{};
+    final delivery = json['delivery'] is Map
+        ? Map<String, dynamic>.from(json['delivery'] as Map)
+        : const <String, dynamic>{};
+    final employee = json['employee'] is Map
+        ? Map<String, dynamic>.from(json['employee'] as Map)
+        : const <String, dynamic>{};
+
+    return CustomerOrderReviewStatus(
+      orderId: (order['id'] as num?)?.toInt() ?? 0,
+      orderNumber: order['order_number']?.toString() ?? '',
+      orderType: order['order_type']?.toString() ?? '',
+      status: order['status']?.toString() ?? '',
+      delivery: CustomerReviewSlotStatus.fromJson(delivery),
+      employee: CustomerReviewSlotStatus.fromJson(employee),
+    );
+  }
+}
+
+@immutable
 class CustomerProductReview {
   final String id;
   final String productName;
@@ -159,6 +224,8 @@ class CustomerReviewStore extends ChangeNotifier {
   final List<CustomerProductReview> _submittedProductReviews = [];
   final List<CustomerDriverReview> _submittedDriverReviews = [];
   final List<CustomerServiceReview> _submittedServiceReviews = [];
+  final Map<int, CustomerOrderReviewStatus> _orderStatuses =
+      <int, CustomerOrderReviewStatus>{};
 
   static Future<void> initialize([CustomerRepositoryContext? context]) =>
       instance._initialize(context);
@@ -185,6 +252,7 @@ class CustomerReviewStore extends ChangeNotifier {
       return;
     }
     final items = await repository.reviews();
+    _submittedProductReviews.clear();
     _submittedDriverReviews.clear();
     _submittedServiceReviews.clear();
     for (final item in items) {
@@ -225,6 +293,75 @@ class CustomerReviewStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  CustomerOrderReviewStatus? statusForOrder(int orderId) =>
+      _orderStatuses[orderId];
+
+  Future<CustomerOrderReviewStatus?> loadOrderStatus(
+    int orderId, {
+    bool force = false,
+  }) async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi || orderId <= 0) {
+      return null;
+    }
+    if (!force && _orderStatuses.containsKey(orderId)) {
+      return _orderStatuses[orderId];
+    }
+
+    final raw = await repository.orderReviewStatus(orderId);
+    final status = CustomerOrderReviewStatus.fromJson(raw);
+    _orderStatuses[orderId] = status;
+    notifyListeners();
+    return status;
+  }
+
+  Future<void> refreshLiveHistory() async {
+    if (!usesApi) return;
+    await _refreshApi();
+  }
+
+  Future<bool> submitLiveDeliveryReview({
+    required int orderId,
+    required int rating,
+    required String comment,
+  }) async {
+    if (!usesApi || orderId <= 0) return false;
+    final status = await loadOrderStatus(orderId, force: true);
+    if (status?.delivery.eligible != true) {
+      return false;
+    }
+
+    await _repository!.submitDeliveryReview(
+      orderId: orderId,
+      rating: rating,
+      comment: comment,
+    );
+    await _refreshApi();
+    final refreshed = await loadOrderStatus(orderId, force: true);
+    return refreshed?.delivery.submitted == true;
+  }
+
+  Future<bool> submitLiveEmployeeReview({
+    required int orderId,
+    required int rating,
+    required String comment,
+  }) async {
+    if (!usesApi || orderId <= 0) return false;
+    final status = await loadOrderStatus(orderId, force: true);
+    if (status?.employee.eligible != true) {
+      return false;
+    }
+
+    await _repository!.submitEmployeeReview(
+      orderId: orderId,
+      rating: rating,
+      comment: comment,
+    );
+    await _refreshApi();
+    final refreshed = await loadOrderStatus(orderId, force: true);
+    return refreshed?.employee.submitted == true;
+  }
+
   Future<bool> submitLiveReview({
     required String orderId,
     required int rating,
@@ -242,13 +379,13 @@ class CustomerReviewStore extends ChangeNotifier {
       return false;
     }
     if (driverName != null) {
-      await _repository!.submitDeliveryReview(
+      return submitLiveDeliveryReview(
         orderId: numericOrderId,
         rating: rating,
         comment: comment,
       );
     } else if (employeeName != null) {
-      await _repository!.submitEmployeeReview(
+      return submitLiveEmployeeReview(
         orderId: numericOrderId,
         rating: rating,
         comment: comment,
@@ -256,8 +393,6 @@ class CustomerReviewStore extends ChangeNotifier {
     } else {
       return false;
     }
-    await _refreshApi();
-    return true;
   }
 
   void _load() {

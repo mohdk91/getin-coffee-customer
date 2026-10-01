@@ -36,7 +36,9 @@ class FavoriteProductEntry {
     required String serviceType,
   }) {
     return FavoriteProductEntry(
-      id: CustomerFavoritesStore.productId(name),
+      id: serverProductId == null
+          ? CustomerFavoritesStore.productId(name)
+          : 'server:$serverProductId',
       serverProductId: serverProductId,
       name: name,
       description: description,
@@ -80,9 +82,14 @@ class CustomerFavoritesStore extends ChangeNotifier {
 
   final List<FavoriteProductEntry> _products = <FavoriteProductEntry>[];
   bool _initialized = false;
+  bool _refreshing = false;
+  Object? _lastError;
   CustomerFavoritesRepository? _repository;
 
   List<FavoriteProductEntry> get products => List.unmodifiable(_products);
+  bool get usesApi => _repository?.usesApi ?? false;
+  bool get refreshing => _refreshing;
+  Object? get lastError => _lastError;
   int get count => _products.length;
   bool get isEmpty => _products.isEmpty;
 
@@ -100,6 +107,11 @@ class CustomerFavoritesStore extends ChangeNotifier {
   Future<void> _initialize() async {
     if (_initialized) return;
     _initialized = true;
+
+    if (usesApi) {
+      await refreshFromServer();
+      return;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_storageKey);
@@ -139,41 +151,144 @@ class CustomerFavoritesStore extends ChangeNotifier {
     return null;
   }
 
+  FavoriteProductEntry? findByServerProductId(int productId) {
+    for (final product in _products) {
+      if (product.serverProductId == productId) return product;
+    }
+    return null;
+  }
+
+  bool containsServerProductId(int productId) =>
+      findByServerProductId(productId) != null;
+
+  bool containsProduct({
+    int? serverProductId,
+    required String name,
+  }) {
+    if (usesApi && serverProductId != null) {
+      return containsServerProductId(serverProductId);
+    }
+    return containsName(name);
+  }
+
+  Future<void> refreshFromServer() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) return;
+    _refreshing = true;
+    _lastError = null;
+    notifyListeners();
+    try {
+      final remote = await repository.listProducts();
+      _products
+        ..clear()
+        ..addAll(
+          remote.map(
+            (product) => FavoriteProductEntry(
+              id: 'server:${product.id}',
+              serverProductId: product.id,
+              name: product.name,
+              description: product.description,
+              image: product.imageUrl,
+              price: 'Live menu pricing',
+              branchName: 'GETIN',
+              serviceType: 'delivery',
+            ),
+          ),
+        );
+    } catch (error) {
+      _lastError = error;
+      rethrow;
+    } finally {
+      _refreshing = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> toggle(FavoriteProductEntry product) async {
-    final existingIndex = _products.indexWhere((item) => item.id == product.id);
+    final serverId = product.serverProductId;
+    final repository = _repository;
+    final apiMutation = repository != null && repository.usesApi;
+
+    if (apiMutation && serverId == null) {
+      _lastError = StateError(
+        'Live favorites require the Laravel product id.',
+      );
+      notifyListeners();
+      return false;
+    }
+
+    final existingIndex = apiMutation && serverId != null
+        ? _products.indexWhere((item) => item.serverProductId == serverId)
+        : _products.indexWhere((item) => item.id == product.id);
     final added = existingIndex == -1;
+    final removed = added ? null : _products[existingIndex];
+    _lastError = null;
 
     if (added) {
       _products.insert(0, product);
     } else {
       _products.removeAt(existingIndex);
     }
-
     notifyListeners();
-    await _persist();
 
-    final serverId = product.serverProductId;
-    final repository = _repository;
-    if (serverId != null && repository != null && repository.usesApi) {
-      try {
-        if (added) {
-          await repository.add(serverId);
-        } else {
-          await repository.remove(serverId);
-        }
-      } catch (_) {
-        // Keep optimistic local UI; next authenticated refresh reconciles state.
-      }
+    if (!apiMutation) {
+      await _persist();
+      return added;
     }
-    return added;
+
+    try {
+      if (added) {
+        await repository.add(serverId!);
+      } else {
+        await repository.remove(serverId!);
+      }
+      await refreshFromServer();
+      return containsServerProductId(serverId);
+    } catch (error) {
+      _lastError = error;
+      if (added) {
+        _products.removeWhere((item) => item.serverProductId == serverId);
+      } else if (removed != null) {
+        final target = existingIndex.clamp(0, _products.length).toInt();
+        _products.insert(target, removed);
+      }
+      notifyListeners();
+      return !added;
+    }
   }
 
   Future<void> removeById(String id) async {
-    final before = _products.length;
-    _products.removeWhere((product) => product.id == id);
-    if (_products.length == before) return;
+    final index = _products.indexWhere((product) => product.id == id);
+    if (index < 0) return;
+    final removed = _products.removeAt(index);
+    _lastError = null;
     notifyListeners();
-    await _persist();
+
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) {
+      await _persist();
+      return;
+    }
+
+    final serverId = removed.serverProductId;
+    if (serverId == null) {
+      _products.insert(index, removed);
+      _lastError = StateError(
+        'Live favorites require the Laravel product id.',
+      );
+      notifyListeners();
+      return;
+    }
+
+    try {
+      await repository.remove(serverId);
+      await refreshFromServer();
+    } catch (error) {
+      _lastError = error;
+      final target = index.clamp(0, _products.length).toInt();
+      _products.insert(target, removed);
+      notifyListeners();
+    }
   }
 
   Future<void> clear() async {
@@ -184,6 +299,7 @@ class CustomerFavoritesStore extends ChangeNotifier {
   }
 
   Future<void> _persist() async {
+    if (usesApi) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _storageKey,

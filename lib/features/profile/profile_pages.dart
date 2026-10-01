@@ -869,6 +869,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   int index = 0;
 
   void _openProduct(BuildContext context, FavoriteProductEntry product) {
+    if (CustomerFavoritesStore.instance.usesApi) {
+      AppNavigationController.instance.openMenu();
+      Navigator.of(context).pop();
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProductDetailScreen(
@@ -883,6 +889,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
+  Future<void> _refreshLiveFavorites() async {
+    try {
+      await CustomerFavoritesStore.instance.refreshFromServer();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not refresh Favorites from GETIN.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return _PageScaffold(
@@ -890,10 +909,25 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       body: Column(
         children: [
           _SegmentedTabs(
-            labels: const ['Products', 'Branches'],
-            selected: index,
+            labels: CustomerFavoritesStore.instance.usesApi
+                ? const ['Products']
+                : const ['Products', 'Branches'],
+            selected: CustomerFavoritesStore.instance.usesApi ? 0 : index,
             onChanged: (value) => setState(() => index = value),
           ),
+          if (CustomerFavoritesStore.instance.usesApi) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: CustomerFavoritesStore.instance.refreshing
+                    ? null
+                    : _refreshLiveFavorites,
+                icon: const Icon(Icons.sync_rounded, size: 17),
+                label: const Text('Refresh from GETIN'),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           if (index == 0)
             AnimatedBuilder(
@@ -919,7 +953,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 );
               },
             )
-          else ...[
+          else if (!CustomerFavoritesStore.instance.usesApi) ...[
             const _FavoriteBranch(
               name: 'Getin Stanley',
               detail: '0.4 km · Open now',
@@ -2399,6 +2433,24 @@ class _VoucherDetailRow extends StatelessWidget {
   }
 }
 
+class _FavoriteImageFallback extends StatelessWidget {
+  const _FavoriteImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 72,
+      height: 72,
+      color: AppColors.beige.withOpacity(0.4),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.local_cafe_rounded,
+        color: AppColors.green,
+      ),
+    );
+  }
+}
+
 class _FavoriteProduct extends StatelessWidget {
   final FavoriteProductEntry product;
   final VoidCallback onTap;
@@ -2428,22 +2480,23 @@ class _FavoriteProduct extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  product.image,
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 72,
-                    height: 72,
-                    color: AppColors.beige.withOpacity(0.4),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.local_cafe_rounded,
-                      color: AppColors.green,
-                    ),
-                  ),
-                ),
+                child: product.image.startsWith('http')
+                    ? Image.network(
+                        product.image,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const _FavoriteImageFallback(),
+                      )
+                    : Image.asset(
+                        product.image,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const _FavoriteImageFallback(),
+                      ),
               ),
               const SizedBox(width: 11),
               Expanded(

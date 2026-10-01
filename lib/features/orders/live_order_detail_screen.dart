@@ -4,7 +4,9 @@ import '../../core/auth/customer_auth_store.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/orders/live_order_lifecycle_service.dart';
 import '../../core/orders/live_order_models.dart';
+import '../../core/reviews/customer_review_store.dart';
 import '../../core/theme/app_colors.dart';
+import '../reviews/review_screens.dart';
 
 class LiveOrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -27,6 +29,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
   LiveRefundRequest? _refundRequest;
   LiveDeliveryPin? _deliveryPin;
   LiveDeliveryQr? _deliveryQr;
+  CustomerOrderReviewStatus? _reviewStatus;
   bool _loading = true;
   bool _actionBusy = false;
   String? _errorMessage;
@@ -55,10 +58,20 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
           deliveryTimeline = const <LiveOrderTimelineEntry>[];
         }
       }
+      CustomerOrderReviewStatus? reviewStatus;
+      try {
+        reviewStatus = await CustomerReviewStore.instance.loadOrderStatus(
+          widget.orderId,
+          force: true,
+        );
+      } catch (_) {
+        reviewStatus = null;
+      }
       if (!mounted) return;
       setState(() {
         _detail = detail;
         _deliveryTimeline = deliveryTimeline;
+        _reviewStatus = reviewStatus;
       });
     } catch (error) {
       if (!mounted) return;
@@ -91,10 +104,20 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
         deliveryTimeline = const <LiveOrderTimelineEntry>[];
       }
     }
+    CustomerOrderReviewStatus? reviewStatus;
+    try {
+      reviewStatus = await CustomerReviewStore.instance.loadOrderStatus(
+        widget.orderId,
+        force: true,
+      );
+    } catch (_) {
+      reviewStatus = _reviewStatus;
+    }
     if (!mounted) return;
     setState(() {
       _detail = detail;
       _deliveryTimeline = deliveryTimeline;
+      _reviewStatus = reviewStatus;
     });
   }
 
@@ -229,6 +252,46 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
           _actionBusy = false;
         });
       }
+    }
+  }
+
+  Future<void> _openDeliveryReview() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReviewComposerScreen.driver(
+          orderId: widget.orderId.toString(),
+          driverName: 'GETIN delivery driver',
+        ),
+      ),
+    );
+    await _refreshReviewState();
+  }
+
+  Future<void> _openEmployeeReview() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReviewComposerScreen.employee(
+          orderId: widget.orderId.toString(),
+          employeeName: 'GETIN pickup employee',
+        ),
+      ),
+    );
+    await _refreshReviewState();
+  }
+
+  Future<void> _refreshReviewState() async {
+    try {
+      final status = await CustomerReviewStore.instance.loadOrderStatus(
+        widget.orderId,
+        force: true,
+      );
+      await CustomerReviewStore.instance.refreshLiveHistory();
+      if (!mounted) return;
+      setState(() {
+        _reviewStatus = status;
+      });
+    } catch (_) {
+      // Order detail remains usable if the review surface cannot refresh.
     }
   }
 
@@ -385,6 +448,19 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
               qr: _deliveryQr,
               onIssuePin: _issueDeliveryPin,
               onIssueQr: _issueDeliveryQr,
+            ),
+          ],
+          if (_reviewStatus != null &&
+              (_reviewStatus!.hasEligibleReview ||
+                  _reviewStatus!.hasSubmittedReview)) ...[
+            const SizedBox(height: 14),
+            _LiveOrderReviewCard(
+              status: _reviewStatus!,
+              busy: _actionBusy,
+              onDeliveryReview:
+                  _reviewStatus!.delivery.eligible ? _openDeliveryReview : null,
+              onEmployeeReview:
+                  _reviewStatus!.employee.eligible ? _openEmployeeReview : null,
             ),
           ],
           const SizedBox(height: 14),
@@ -762,6 +838,85 @@ class _DeliveryVerificationCard extends StatelessWidget {
               height: 1.3,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveOrderReviewCard extends StatelessWidget {
+  final CustomerOrderReviewStatus status;
+  final bool busy;
+  final VoidCallback? onDeliveryReview;
+  final VoidCallback? onEmployeeReview;
+
+  const _LiveOrderReviewCard({
+    required this.status,
+    required this.busy,
+    required this.onDeliveryReview,
+    required this.onEmployeeReview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final deliverySubmitted = status.delivery.submitted;
+    final employeeSubmitted = status.employee.submitted;
+    return _LiveOrderCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Rate your experience',
+            style: TextStyle(
+              color: AppColors.green,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Review eligibility comes from GETIN. Production currently supports delivery-driver reviews and pickup-employee reviews.',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 10,
+              height: 1.35,
+            ),
+          ),
+          if (deliverySubmitted || employeeSubmitted) ...[
+            const SizedBox(height: 10),
+            Text(
+              deliverySubmitted
+                  ? 'Delivery review submitted.'
+                  : 'Pickup employee review submitted.',
+              style: const TextStyle(
+                color: AppColors.green,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (onDeliveryReview != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: busy ? null : onDeliveryReview,
+                icon: const Icon(Icons.delivery_dining_rounded),
+                label: const Text('Rate delivery driver'),
+              ),
+            ),
+          ],
+          if (onEmployeeReview != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: busy ? null : onEmployeeReview,
+                icon: const Icon(Icons.badge_outlined),
+                label: const Text('Rate pickup employee'),
+              ),
+            ),
+          ],
         ],
       ),
     );
