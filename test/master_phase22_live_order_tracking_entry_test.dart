@@ -9,6 +9,8 @@ void main() {
 
     expect(source, contains("import 'tracking/live_driver_tracking_card.dart';"));
     expect(source, contains('if (detail.isDelivery && !detail.isTerminal)'));
-    expect(source, contains('LiveDriverTrackingCard(orderId: detail.id)'));
+    expect(source, contains('LiveDriverTrackingCard('));
+    expect(source, contains('orderId: detail.id,'));
+    expect(source, contains('onMessageDriver: _openDriverChat'));
   });
 }
