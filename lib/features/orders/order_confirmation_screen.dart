@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/theme/app_colors.dart';
 import 'order_detail_screen.dart';
+import 'live_order_detail_screen.dart';
 import 'orders_screen.dart';
 
 class OrderConfirmationScreen extends StatelessWidget {
@@ -182,7 +183,11 @@ class OrderConfirmationScreen extends StatelessWidget {
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => OrderDetailScreen(order: order),
+                                builder: (_) => order.apiOrderId != null
+                                    ? LiveOrderDetailScreen(
+                                        orderId: order.apiOrderId!,
+                                      )
+                                    : OrderDetailScreen(order: order),
                               ),
                             );
                           },

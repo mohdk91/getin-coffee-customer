@@ -14,6 +14,7 @@ import '../auth/sign_up_screen.dart';
 import '../location/models/branch.dart';
 import '../reviews/review_screens.dart';
 import 'order_detail_screen.dart';
+import 'live_order_detail_screen.dart';
 
 enum OrderFilter {
   all,
@@ -660,9 +661,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => OrderDetailScreen(
-                                  order: order,
-                                ),
+                                builder: (_) => controller.usesApi && order.apiOrderId != null
+                                    ? LiveOrderDetailScreen(
+                                        orderId: order.apiOrderId!,
+                                      )
+                                    : OrderDetailScreen(
+                                        order: order,
+                                      ),
                               ),
                             );
                           },
