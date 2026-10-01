@@ -6,6 +6,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/customer_repository.dart';
 import '../engagement/customer_engagement_api_repository.dart';
 
+@immutable
+class CustomerMembershipTier {
+  final int id;
+  final String code;
+  final String name;
+  final int minimumLifetimePoints;
+  final double pointsMultiplier;
+  final Map<String, dynamic> benefits;
+
+  const CustomerMembershipTier({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.minimumLifetimePoints,
+    required this.pointsMultiplier,
+    required this.benefits,
+  });
+
+  factory CustomerMembershipTier.fromApi(Map<String, dynamic> json) {
+    return CustomerMembershipTier(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      code: json['code']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'GETIN',
+      minimumLifetimePoints:
+          (json['minimum_lifetime_points'] as num?)?.toInt() ?? 0,
+      pointsMultiplier:
+          double.tryParse(json['points_multiplier']?.toString() ?? '') ?? 1,
+      benefits: json['benefits'] is Map
+          ? Map<String, dynamic>.from(json['benefits'] as Map)
+          : const <String, dynamic>{},
+    );
+  }
+
+  bool get hasBonusMultiplier => pointsMultiplier > 1.0001;
+  String get multiplierLabel => '${pointsMultiplier.toStringAsFixed(
+        pointsMultiplier.truncateToDouble() == pointsMultiplier ? 0 : 2,
+      )}×';
+}
+
 class CustomerMembershipStore extends ChangeNotifier {
   CustomerMembershipStore._();
 
@@ -22,14 +61,31 @@ class CustomerMembershipStore extends ChangeNotifier {
   CustomerEngagementApiRepository? _repository;
   bool _active = false;
   String _billingCycle = 'monthly';
-  String? _tierName;
+  CustomerMembershipTier? _currentTier;
+  CustomerMembershipTier? _nextTier;
+  List<CustomerMembershipTier> _tiers = const <CustomerMembershipTier>[];
+  int _lifetimePoints = 0;
+  int _pointsToNext = 0;
   double _progress = 0;
 
   bool get usesApi => _repository?.usesApi ?? false;
-  bool get isActive => _active || _previewMember;
+  bool get isActive => usesApi ? _currentTier != null : _active || _previewMember;
   String get billingCycle => _billingCycle;
-  String? get tierName => _tierName;
+  String? get tierName => _currentTier?.name;
+  String? get nextTierName => _nextTier?.name;
+  CustomerMembershipTier? get currentTier => _currentTier;
+  CustomerMembershipTier? get nextTier => _nextTier;
+  List<CustomerMembershipTier> get tiers => List.unmodifiable(_tiers);
+  int get lifetimePoints => _lifetimePoints;
+  int get pointsToNext => _pointsToNext;
   double get progress => _progress;
+  double get earningMultiplier => usesApi
+      ? (_currentTier?.pointsMultiplier ?? 1)
+      : (isActive ? 1.5 : 1);
+  bool get hasBonusMultiplier => earningMultiplier > 1.0001;
+  String get earningMultiplierLabel => '${earningMultiplier.toStringAsFixed(
+        earningMultiplier.truncateToDouble() == earningMultiplier ? 0 : 2,
+      )}×';
 
   static Future<void> initialize([CustomerRepositoryContext? context]) async {
     final store = instance;
@@ -48,17 +104,40 @@ class CustomerMembershipStore extends ChangeNotifier {
   Future<void> refresh() async {
     final repository = _repository;
     if (repository == null || !repository.usesApi) return;
+
     final data = await repository.membership();
     final current = data['current_tier'];
-    _active = current is Map;
-    _tierName = current is Map ? current['name']?.toString() : null;
+    final next = data['next_tier'];
+    final tierItems = await repository.membershipTiers();
+
+    _currentTier = current is Map
+        ? CustomerMembershipTier.fromApi(Map<String, dynamic>.from(current))
+        : null;
+    _nextTier = next is Map
+        ? CustomerMembershipTier.fromApi(Map<String, dynamic>.from(next))
+        : null;
+    _tiers = tierItems
+        .map(CustomerMembershipTier.fromApi)
+        .toList(growable: false);
+
     final progress = data['progress'];
-    if (progress is num) {
-      _progress = progress.toDouble();
-    } else if (progress is Map) {
-      final raw = progress['percent'] ?? progress['progress_percent'];
-      _progress = (raw as num?)?.toDouble() ?? 0;
+    if (progress is Map) {
+      _lifetimePoints =
+          (progress['lifetime_points'] as num?)?.toInt() ?? 0;
+      _pointsToNext = (progress['points_to_next'] as num?)?.toInt() ?? 0;
+      final rawPercent =
+          progress['percent_to_next'] ?? progress['progress_percent'];
+      _progress = (((rawPercent as num?)?.toDouble() ?? 0) / 100)
+          .clamp(0.0, 1.0)
+          .toDouble();
+    } else if (progress is num) {
+      _progress = (progress.toDouble() / 100).clamp(0.0, 1.0).toDouble();
+    } else {
+      _lifetimePoints = 0;
+      _pointsToNext = 0;
+      _progress = 0;
     }
+
     notifyListeners();
   }
 

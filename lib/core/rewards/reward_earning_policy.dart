@@ -20,19 +20,23 @@ class RewardEarningPolicy {
   static int starsForAmount(
     double amount, {
     required bool isMember,
+    double? multiplier,
   }) {
     final base = baseStarsForAmount(amount);
-    if (!isMember) return base;
-    return (base * memberMultiplier).round();
+    final appliedMultiplier = multiplier ?? (isMember ? memberMultiplier : 1);
+    if (appliedMultiplier <= 1) return base;
+    return (base * appliedMultiplier).round();
   }
 
   static int starsForPrice(
     String price, {
     required bool isMember,
+    double? multiplier,
   }) {
     return starsForAmount(
       parsePrice(price),
       isMember: isMember,
+      multiplier: multiplier,
     );
   }
 

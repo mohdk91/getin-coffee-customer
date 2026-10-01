@@ -643,6 +643,7 @@ class _ReferenceProductCard extends StatelessWidget {
     final earnedStars = RewardEarningPolicy.starsForPrice(
       product.price,
       isMember: CustomerMembershipStore.instance.isActive,
+      multiplier: CustomerMembershipStore.instance.earningMultiplier,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -798,7 +799,7 @@ class _ReferenceProductCard extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      '★ +$earnedStars Stars${CustomerMembershipStore.instance.isActive ? ' · 1.5×' : ''}',
+                                      '★ +$earnedStars Stars${CustomerMembershipStore.instance.hasBonusMultiplier ? ' · ${CustomerMembershipStore.instance.earningMultiplierLabel}' : ''}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(

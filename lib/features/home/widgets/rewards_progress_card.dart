@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/membership/customer_membership_store.dart';
 
 class RewardsProgressCard extends StatelessWidget {
   final int stars;
@@ -89,8 +90,8 @@ class RewardsProgressCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      memberActive
-                          ? '1.5× member earning active'
+                      CustomerMembershipStore.instance.hasBonusMultiplier
+                          ? '${CustomerMembershipStore.instance.earningMultiplierLabel} tier earning active'
                           : (remaining == 0
                               ? 'Your reward is ready'
                               : '$remaining stars until your next reward'),

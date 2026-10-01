@@ -431,9 +431,6 @@ class CustomerRewardsStore extends ChangeNotifier {
 
   Future<RewardRedeemResult> redeemLive(RewardDefinition definition) async {
     if (!usesApi) return redeem(definition);
-    if (_stars < definition.starsRequired) {
-      return RewardRedeemResult.insufficientStars;
-    }
     final rewardId = int.tryParse(definition.id);
     if (rewardId == null) {
       throw StateError('Server reward id is invalid.');
@@ -450,9 +447,11 @@ class CustomerRewardsStore extends ChangeNotifier {
         'Laravel redeemed the reward without returning its issued voucher code.',
       );
     }
-    _redeemedRewards.insert(0, redemption);
-    await _refreshLoyaltyApi();
-    notifyListeners();
+
+    // Laravel is authoritative for balance deduction and voucher issuance.
+    // Re-fetch both ledgers so the app never double-inserts a redemption or
+    // keeps a stale Stars balance after a successful server mutation.
+    await refresh();
     return RewardRedeemResult.success;
   }
 

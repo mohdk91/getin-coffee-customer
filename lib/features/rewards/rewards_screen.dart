@@ -434,7 +434,7 @@ class RewardsScreen extends StatelessWidget {
               const SizedBox(height: 9),
               _HistoryCard(entries: _rewards.history),
               const SizedBox(height: 12),
-              const _DemoNotice(),
+              _RewardsAuthorityNotice(live: _rewards.usesApi),
             ],
           ),
         );
@@ -456,7 +456,8 @@ class _StampCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final remaining = CustomerStampCardStore.instance.requiredStamps - current;
+    final stampStore = CustomerStampCardStore.instance;
+    final remaining = stampStore.requiredStamps - current;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -484,22 +485,24 @@ class _StampCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '7 Cups, 1 On Us',
-                      style: TextStyle(
+                      stampStore.campaignName,
+                      style: const TextStyle(
                         color: AppColors.green,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Each eligible drink earns 1 stamp. Collect 7 to unlock a free drink reward.',
-                      style: TextStyle(
+                      stampStore.usesApi
+                          ? stampStore.campaignDescription
+                          : 'Each eligible drink earns 1 stamp. Collect 7 to unlock a free drink reward.',
+                      style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 9.8,
                         height: 1.3,
@@ -548,8 +551,8 @@ class _StampCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   remaining == 0
-                      ? 'Free drink unlocked'
-                      : '$remaining stamp${remaining == 1 ? '' : 's'} until your free drink',
+                      ? '${stampStore.rewardLabel} unlocked'
+                      : '$remaining stamp${remaining == 1 ? '' : 's'} until ${stampStore.rewardLabel}',
                   style: const TextStyle(
                     color: AppColors.green,
                     fontSize: 10.5,
@@ -567,11 +570,12 @@ class _StampCard extends StatelessWidget {
               ),
             ],
           ),
-          if (memberActive) ...[
+          if (memberActive &&
+              CustomerMembershipStore.instance.hasBonusMultiplier) ...[
             const SizedBox(height: 8),
-            const Text(
-              'Membership gives 1.5× Stars. Stamp earning remains 1 stamp per eligible drink.',
-              style: TextStyle(
+            Text(
+              '${CustomerMembershipStore.instance.earningMultiplierLabel} tier Stars earning is active. Stamp earning follows the active campaign.',
+              style: const TextStyle(
                 color: AppColors.muted,
                 fontSize: 9.2,
                 height: 1.3,
@@ -1032,8 +1036,10 @@ class _EmptyWalletCard extends StatelessWidget {
   }
 }
 
-class _DemoNotice extends StatelessWidget {
-  const _DemoNotice();
+class _RewardsAuthorityNotice extends StatelessWidget {
+  final bool live;
+
+  const _RewardsAuthorityNotice({required this.live});
 
   @override
   Widget build(BuildContext context) {
@@ -1043,15 +1049,17 @@ class _DemoNotice extends StatelessWidget {
         color: const Color(0xFFF0E8D4),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.green, size: 18),
-          SizedBox(width: 9),
+          const Icon(Icons.info_outline_rounded, color: AppColors.green, size: 18),
+          const SizedBox(width: 9),
           Expanded(
             child: Text(
-              'Demo/local rewards only. Stars, eligibility and redemption will later come from the authenticated Laravel rewards API.',
-              style: TextStyle(
+              live
+                  ? 'Stars, reward availability and redeemed vouchers are confirmed by your GETIN account.'
+                  : 'Demo rewards are stored locally on this device.',
+              style: const TextStyle(
                 color: AppColors.green,
                 fontSize: 9.5,
                 height: 1.4,

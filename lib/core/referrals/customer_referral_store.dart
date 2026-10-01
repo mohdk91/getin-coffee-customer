@@ -52,6 +52,12 @@ class CustomerReferralStore extends ChangeNotifier {
   CustomerEngagementApiRepository? _repository;
   String _referralCode = 'GETIN-MOHAMMED';
   List<CustomerReferralActivity> _history = _demoHistory;
+  int _referredCount = 0;
+  int _rewardedCount = 0;
+  String? _campaignName;
+  String? _referrerRewardType;
+  int? _referrerRewardPoints;
+  bool _hasAppliedReferral = false;
 
   bool get usesApi => _repository?.usesApi ?? false;
   String get referralCode => _referralCode;
@@ -59,8 +65,26 @@ class CustomerReferralStore extends ChangeNotifier {
   String get shareMessage =>
       'Good coffee is better together. Join me on GETIN Coffee with code $referralCode.\n$referralLink';
   List<CustomerReferralActivity> get history => List.unmodifiable(_history);
-  int get invitedCount => _history.length;
-  int get completedCount => _history.where((item) => item.completed).length;
+  int get invitedCount => usesApi ? _referredCount : _history.length;
+  int get referredCount => usesApi ? _referredCount : _history.length;
+  int get rewardedCount => usesApi
+      ? _rewardedCount
+      : _history.where((item) => item.status == CustomerReferralStatus.rewardAvailable).length;
+  int get completedCount => usesApi
+      ? _rewardedCount
+      : _history.where((item) => item.completed).length;
+  String? get campaignName => _campaignName;
+  bool get hasAppliedReferral => _hasAppliedReferral;
+  String get programHeadline {
+    if (!usesApi) return 'Give EGP 50. Get EGP 50.';
+    if (_referrerRewardType == 'points' && _referrerRewardPoints != null) {
+      return 'Invite friends. Earn $_referrerRewardPoints Stars.';
+    }
+    if ((_referrerRewardType ?? '').contains('voucher')) {
+      return 'Invite friends. Unlock GETIN rewards.';
+    }
+    return _campaignName ?? 'Refer friends with GETIN';
+  }
   double get totalEarned =>
       _history.fold<double>(0, (sum, item) => sum + item.rewardEarned);
 
@@ -80,6 +104,22 @@ class CustomerReferralStore extends ChangeNotifier {
     }
     final summary = await repository.referralProgram();
     _referralCode = summary['referral_code']?.toString() ?? _referralCode;
+    _referredCount = (summary['referred_count'] as num?)?.toInt() ?? 0;
+    _rewardedCount = (summary['rewarded_count'] as num?)?.toInt() ?? 0;
+    _hasAppliedReferral = summary['applied_referral'] is Map;
+    final campaign = summary['campaign'];
+    if (campaign is Map) {
+      _campaignName = campaign['name']?.toString();
+      final reward = campaign['referrer_reward'];
+      if (reward is Map) {
+        _referrerRewardType = reward['type']?.toString();
+        _referrerRewardPoints = (reward['points'] as num?)?.toInt();
+      }
+    } else {
+      _campaignName = null;
+      _referrerRewardType = null;
+      _referrerRewardPoints = null;
+    }
     final items = await repository.referrals();
     _history = items.map(_fromApi).toList(growable: false);
     notifyListeners();
