@@ -247,12 +247,19 @@ class CustomerRewardsStore extends ChangeNotifier {
       store._repository = CustomerEngagementApiRepository(context);
     }
     if (store.usesApi) {
-      await store._refreshLoyaltyApi();
-      await store._refreshRewardsApi();
+      await store.refresh();
       return;
     }
     store._preferences = await SharedPreferences.getInstance();
     store._load();
+  }
+
+  Future<void> refresh() async {
+    if (!usesApi) {
+      return;
+    }
+    await _refreshLoyaltyApi();
+    await _refreshRewardsApi();
   }
 
   Future<void> _refreshLoyaltyApi() async {

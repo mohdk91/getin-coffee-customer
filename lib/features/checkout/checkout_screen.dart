@@ -442,9 +442,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     var freeDrinksUnlocked = 0;
 
     if (_usesApi) {
-      // The server order is authoritative. Refreshable loyalty/payment state is
-      // not invented locally while Laravel reports payment as pending.
+      // Laravel has atomically consumed any selected voucher during order
+      // creation. Clear the cart first, then refresh server-backed benefit state
+      // instead of marking rewards/vouchers as used locally.
       _cart.completeServerOrder();
+      await CustomerVoucherStore.instance.refresh();
+      await CustomerRewardsStore.instance.refresh();
     } else {
       final memberActive = CustomerMembershipStore.instance.isActive;
       earnedStars = RewardEarningPolicy.starsForAmount(
