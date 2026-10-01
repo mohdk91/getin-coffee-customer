@@ -3,7 +3,7 @@ import 'package:getin_coffee/core/orders/live_order_models.dart';
 
 void main() {
   test('Task 177 parses authoritative Laravel order detail', () {
-    final detail = LiveOrderDetail.fromJson(<String, dynamic>{
+    final detail = LiveOrderDetail.fromJson(const <String, dynamic>{
       'id': 41,
       'order_number': 'GC-41',
       'order_type': 'delivery',
@@ -51,13 +51,13 @@ void main() {
   });
 
   test('Task 177 parses delivery PIN and QR without inventing credentials', () {
-    final pin = LiveDeliveryPin.fromJson(<String, dynamic>{
+    final pin = LiveDeliveryPin.fromJson(const <String, dynamic>{
       'order_id': 41,
       'pin': '012345',
       'expires_at': '2026-10-01T10:10:00Z',
       'attempts_remaining': 5,
     });
-    final qr = LiveDeliveryQr.fromJson(<String, dynamic>{
+    final qr = LiveDeliveryQr.fromJson(const <String, dynamic>{
       'order_id': 41,
       'token': 'server-token',
       'qr_payload': 'getin://delivery/verify?order=41&token=server-token',

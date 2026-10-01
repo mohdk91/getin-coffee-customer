@@ -859,6 +859,7 @@ class _LiveOrderItemsCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
         ],
       ),
     );
