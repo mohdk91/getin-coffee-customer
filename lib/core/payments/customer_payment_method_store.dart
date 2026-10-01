@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/customer_repository.dart';
+import '../orders/customer_checkout_api_repository.dart';
+
 @immutable
 class CustomerPaymentMethod {
   final String id;
@@ -24,16 +27,12 @@ class CustomerPaymentMethod {
   });
 
   String get normalizedBrand => brand.trim().toUpperCase();
-
   String get maskedLabel => '$normalizedBrand •••• $last4';
-
   String get expiryLabel =>
       '${expiryMonth.toString().padLeft(2, '0')}/${(expiryYear % 100).toString().padLeft(2, '0')}';
 
   bool isExpiredAt(DateTime now) {
-    if (expiryYear < now.year) {
-      return true;
-    }
+    if (expiryYear < now.year) return true;
     return expiryYear == now.year && expiryMonth < now.month;
   }
 
@@ -70,14 +69,20 @@ class CustomerPaymentMethod {
       };
 
   factory CustomerPaymentMethod.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString() ?? '';
     return CustomerPaymentMethod(
-      id: json['id'] as String? ?? '',
-      providerTokenRef: json['providerTokenRef'] as String? ?? '',
-      brand: json['brand'] as String? ?? 'CARD',
-      last4: json['last4'] as String? ?? '0000',
-      expiryMonth: (json['expiryMonth'] as num?)?.toInt() ?? 1,
-      expiryYear: (json['expiryYear'] as num?)?.toInt() ?? 2000,
-      isDefault: json['isDefault'] as bool? ?? false,
+      id: id,
+      providerTokenRef:
+          json['providerTokenRef']?.toString() ?? json['provider_token_ref']?.toString() ?? id,
+      brand: json['brand']?.toString() ?? 'CARD',
+      last4: json['last4']?.toString() ?? '0000',
+      expiryMonth: (json['expiryMonth'] as num?)?.toInt() ??
+          (json['expiry_month'] as num?)?.toInt() ??
+          1,
+      expiryYear: (json['expiryYear'] as num?)?.toInt() ??
+          (json['expiry_year'] as num?)?.toInt() ??
+          2000,
+      isDefault: json['isDefault'] as bool? ?? json['is_default'] as bool? ?? false,
     );
   }
 }
@@ -85,70 +90,93 @@ class CustomerPaymentMethod {
 class CustomerPaymentMethodStore extends ChangeNotifier {
   CustomerPaymentMethodStore._();
 
-  static final CustomerPaymentMethodStore instance =
-      CustomerPaymentMethodStore._();
-
+  static final CustomerPaymentMethodStore instance = CustomerPaymentMethodStore._();
   static const _methodsKey = 'getin_demo_payment_methods_v1';
   static const _checkoutMethodKey = 'getin_demo_checkout_payment_method_v1';
 
   final List<CustomerPaymentMethod> _methods = <CustomerPaymentMethod>[];
+  CustomerRepositoryContext? _context;
+  CustomerCheckoutApiRepository? _repository;
   String? _checkoutMethodId;
+  bool _providerEnabled = false;
+  String? _providerMessage;
 
+  bool get usesApi => _context?.usesApi ?? false;
+  bool get providerEnabled => !usesApi || _providerEnabled;
+  String? get providerMessage => _providerMessage;
   List<CustomerPaymentMethod> get methods => List.unmodifiable(_methods);
-
   List<CustomerPaymentMethod> get activeMethods =>
       _methods.where((method) => !method.isExpired).toList(growable: false);
 
   CustomerPaymentMethod? get defaultMethod {
     for (final method in _methods) {
-      if (method.isDefault && !method.isExpired) {
-        return method;
-      }
+      if (method.isDefault && !method.isExpired) return method;
     }
     for (final method in _methods) {
-      if (!method.isExpired) {
-        return method;
-      }
+      if (!method.isExpired) return method;
     }
     return null;
   }
 
   CustomerPaymentMethod? get checkoutMethod {
     final selected = methodById(_checkoutMethodId);
-    if (selected != null && !selected.isExpired) {
-      return selected;
-    }
+    if (selected != null && !selected.isExpired) return selected;
     return defaultMethod;
   }
 
   CustomerPaymentMethod? methodById(String? id) {
-    if (id == null || id.isEmpty) {
-      return null;
-    }
+    if (id == null || id.isEmpty) return null;
     for (final method in _methods) {
-      if (method.id == id) {
-        return method;
-      }
+      if (method.id == id) return method;
     }
     return null;
   }
 
-  static Future<void> initialize() async {
-    await instance._load();
+  static Future<void> initialize([CustomerRepositoryContext? context]) async {
+    instance._context = context;
+    instance._repository = context == null ? null : CustomerCheckoutApiRepository(context);
+    if (instance.usesApi) {
+      await instance.refresh();
+    } else {
+      await instance._loadDemo();
+    }
   }
 
-  Future<void> _load() async {
+  Future<void> refresh() async {
+    if (!usesApi) return;
+    final response = await _repository!.paymentMethods();
+    final data = _responseData(response);
+    _providerEnabled = data['enabled'] == true;
+    _providerMessage = _providerEnabled
+        ? null
+        : 'Card payments are not configured for this environment.';
+    final raw = data['methods'];
+    final parsed = raw is List
+        ? raw.whereType<Map>().map((item) => CustomerPaymentMethod.fromJson(
+              Map<String, dynamic>.from(item),
+            ))
+        : const Iterable<CustomerPaymentMethod>.empty();
+    _methods
+      ..clear()
+      ..addAll(parsed.where((method) =>
+          method.id.startsWith('pm_') && RegExp(r'^\d{4}$').hasMatch(method.last4)));
+    if (checkoutMethod == null) {
+      _checkoutMethodId = defaultMethod?.id;
+    }
+    notifyListeners();
+  }
+
+  Future<void> _loadDemo() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_methodsKey);
     _methods
       ..clear()
       ..addAll(_decodeMethods(raw));
-
     if (_methods.isEmpty) {
       _methods.addAll(_demoMethods());
       await _saveMethods();
     }
-
+    _providerEnabled = true;
     _normalizeDefault();
     _checkoutMethodId = prefs.getString(_checkoutMethodKey);
     if (checkoutMethod == null && defaultMethod != null) {
@@ -158,28 +186,115 @@ class CustomerPaymentMethodStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<CustomerPaymentMethod> _decodeMethods(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
-      return <CustomerPaymentMethod>[];
+  Future<CustomerPaymentMethod> addDemoTokenizedCard({
+    required String brand,
+    required String last4,
+    required int expiryMonth,
+    required int expiryYear,
+    bool makeDefault = false,
+  }) async {
+    if (usesApi) {
+      throw StateError('Live cards must be added through Stripe PaymentSheet.');
     }
+    final normalizedLast4 = last4.trim();
+    if (!RegExp(r'^\d{4}$').hasMatch(normalizedLast4)) {
+      throw ArgumentError('Last four digits must contain exactly 4 digits.');
+    }
+    if (expiryMonth < 1 || expiryMonth > 12) {
+      throw ArgumentError('Expiry month is invalid.');
+    }
+    final preview = CustomerPaymentMethod(
+      id: 'preview',
+      providerTokenRef: 'preview',
+      brand: brand,
+      last4: normalizedLast4,
+      expiryMonth: expiryMonth,
+      expiryYear: expiryYear,
+      isDefault: false,
+    );
+    if (preview.isExpired) throw ArgumentError('Expired cards cannot be added.');
+
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final method = CustomerPaymentMethod(
+      id: 'demo-card-$stamp',
+      providerTokenRef: 'demo_pm_$stamp',
+      brand: brand.trim().toUpperCase(),
+      last4: normalizedLast4,
+      expiryMonth: expiryMonth,
+      expiryYear: expiryYear,
+      isDefault: makeDefault || defaultMethod == null,
+    );
+    if (method.isDefault) _clearDefaultFlags();
+    _methods.add(method);
+    if (_checkoutMethodId == null || method.isDefault) _checkoutMethodId = method.id;
+    await _saveAll();
+    notifyListeners();
+    return method;
+  }
+
+  Future<bool> setDefault(String id) async {
+    final method = methodById(id);
+    if (method == null || method.isExpired) return false;
+    if (usesApi) {
+      await _repository!.setDefaultPaymentMethod(
+        paymentMethodId: id,
+        idempotencyKey: _mutationKey('default'),
+      );
+      await refresh();
+      _checkoutMethodId = id;
+      return true;
+    }
+    _clearDefaultFlags();
+    final index = _methods.indexWhere((item) => item.id == id);
+    _methods[index] = _methods[index].copyWith(isDefault: true);
+    _checkoutMethodId ??= id;
+    await _saveAll();
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> selectForCheckout(String id) async {
+    final method = methodById(id);
+    if (method == null || method.isExpired) return false;
+    _checkoutMethodId = id;
+    if (!usesApi) await _saveCheckoutMethod();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> remove(String id) async {
+    final removed = methodById(id);
+    if (removed == null) return;
+    if (usesApi) {
+      await _repository!.deletePaymentMethod(
+        paymentMethodId: id,
+        idempotencyKey: _mutationKey('detach'),
+      );
+      if (_checkoutMethodId == id) _checkoutMethodId = null;
+      await refresh();
+      return;
+    }
+    _methods.removeWhere((method) => method.id == id);
+    if (_checkoutMethodId == id) _checkoutMethodId = null;
+    if (removed.isDefault) _normalizeDefault();
+    if (_checkoutMethodId == null && defaultMethod != null) {
+      _checkoutMethodId = defaultMethod!.id;
+    }
+    await _saveAll();
+    notifyListeners();
+  }
+
+  List<CustomerPaymentMethod> _decodeMethods(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return <CustomerPaymentMethod>[];
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! List) {
-        return <CustomerPaymentMethod>[];
-      }
+      if (decoded is! List) return <CustomerPaymentMethod>[];
       return decoded
           .whereType<Map>()
-          .map(
-            (item) => CustomerPaymentMethod.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
-          )
-          .where(
-            (method) =>
-                method.id.isNotEmpty &&
-                method.providerTokenRef.isNotEmpty &&
-                RegExp(r'^\d{4}$').hasMatch(method.last4),
-          )
+          .map((item) => CustomerPaymentMethod.fromJson(Map<String, dynamic>.from(item)))
+          .where((method) => method.id.isNotEmpty &&
+              method.providerTokenRef.isNotEmpty &&
+              RegExp(r'^\d{4}$').hasMatch(method.last4))
           .toList();
     } catch (_) {
       return <CustomerPaymentMethod>[];
@@ -216,105 +331,6 @@ class CustomerPaymentMethodStore extends ChangeNotifier {
         ),
       ];
 
-  Future<CustomerPaymentMethod> addDemoTokenizedCard({
-    required String brand,
-    required String last4,
-    required int expiryMonth,
-    required int expiryYear,
-    bool makeDefault = false,
-  }) async {
-    final normalizedLast4 = last4.trim();
-    if (!RegExp(r'^\d{4}$').hasMatch(normalizedLast4)) {
-      throw ArgumentError('Last four digits must contain exactly 4 digits.');
-    }
-    if (expiryMonth < 1 || expiryMonth > 12) {
-      throw ArgumentError('Expiry month is invalid.');
-    }
-
-    final preview = CustomerPaymentMethod(
-      id: 'preview',
-      providerTokenRef: 'preview',
-      brand: brand,
-      last4: normalizedLast4,
-      expiryMonth: expiryMonth,
-      expiryYear: expiryYear,
-      isDefault: false,
-    );
-    if (preview.isExpired) {
-      throw ArgumentError('Expired cards cannot be added.');
-    }
-
-    final stamp = DateTime.now().microsecondsSinceEpoch;
-    final method = CustomerPaymentMethod(
-      id: 'demo-card-$stamp',
-      providerTokenRef: 'demo_pm_$stamp',
-      brand: brand.trim().toUpperCase(),
-      last4: normalizedLast4,
-      expiryMonth: expiryMonth,
-      expiryYear: expiryYear,
-      isDefault: makeDefault || defaultMethod == null,
-    );
-
-    if (method.isDefault) {
-      _clearDefaultFlags();
-    }
-    _methods.add(method);
-    if (_checkoutMethodId == null || method.isDefault) {
-      _checkoutMethodId = method.id;
-    }
-    await _saveAll();
-    notifyListeners();
-    return method;
-  }
-
-  Future<bool> setDefault(String id) async {
-    final method = methodById(id);
-    if (method == null || method.isExpired) {
-      return false;
-    }
-
-    _clearDefaultFlags();
-    final index = _methods.indexWhere((item) => item.id == id);
-    _methods[index] = _methods[index].copyWith(isDefault: true);
-    _checkoutMethodId ??= id;
-    await _saveAll();
-    notifyListeners();
-    return true;
-  }
-
-  Future<bool> selectForCheckout(String id) async {
-    final method = methodById(id);
-    if (method == null || method.isExpired) {
-      return false;
-    }
-    _checkoutMethodId = id;
-    await _saveCheckoutMethod();
-    notifyListeners();
-    return true;
-  }
-
-  Future<void> remove(String id) async {
-    final removed = methodById(id);
-    if (removed == null) {
-      return;
-    }
-
-    _methods.removeWhere((method) => method.id == id);
-    if (_checkoutMethodId == id) {
-      _checkoutMethodId = null;
-    }
-
-    if (removed.isDefault) {
-      _normalizeDefault();
-    }
-    if (_checkoutMethodId == null && defaultMethod != null) {
-      _checkoutMethodId = defaultMethod!.id;
-    }
-
-    await _saveAll();
-    notifyListeners();
-  }
-
   void _clearDefaultFlags() {
     for (var index = 0; index < _methods.length; index++) {
       if (_methods[index].isDefault) {
@@ -329,15 +345,10 @@ class CustomerPaymentMethodStore extends ChangeNotifier {
       _clearDefaultFlags();
       return;
     }
-
     final validDefaults = active.where((method) => method.isDefault).toList();
-    final keepId =
-        validDefaults.isNotEmpty ? validDefaults.first.id : active.first.id;
-
+    final keepId = validDefaults.isNotEmpty ? validDefaults.first.id : active.first.id;
     for (var index = 0; index < _methods.length; index++) {
-      _methods[index] = _methods[index].copyWith(
-        isDefault: _methods[index].id == keepId,
-      );
+      _methods[index] = _methods[index].copyWith(isDefault: _methods[index].id == keepId);
     }
   }
 
@@ -347,14 +358,13 @@ class CustomerPaymentMethodStore extends ChangeNotifier {
   }
 
   Future<void> _saveMethods() async {
+    if (usesApi) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _methodsKey,
-      jsonEncode(_methods.map((method) => method.toJson()).toList()),
-    );
+    await prefs.setString(_methodsKey, jsonEncode(_methods.map((method) => method.toJson()).toList()));
   }
 
   Future<void> _saveCheckoutMethod() async {
+    if (usesApi) return;
     final prefs = await SharedPreferences.getInstance();
     if (_checkoutMethodId == null) {
       await prefs.remove(_checkoutMethodKey);
@@ -371,4 +381,14 @@ class CustomerPaymentMethodStore extends ChangeNotifier {
     await prefs.remove(_checkoutMethodKey);
     notifyListeners();
   }
+
+  static Map<String, dynamic> _responseData(Map<String, dynamic> response) {
+    final raw = response['data'];
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return const <String, dynamic>{};
+  }
+
+  static String _mutationKey(String action) =>
+      'getin-payment-$action-${DateTime.now().microsecondsSinceEpoch}';
 }

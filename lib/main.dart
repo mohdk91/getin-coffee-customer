@@ -46,7 +46,7 @@ Future<void> main() async {
   );
   await CustomerGiftCardStore.initialize(CustomerAuthStore.instance.context);
   await CustomerMembershipStore.initialize(CustomerAuthStore.instance.context);
-  await CustomerPaymentMethodStore.initialize();
+  await CustomerPaymentMethodStore.initialize(CustomerAuthStore.instance.context);
   await CustomerNotificationsStore.initialize(
       CustomerAuthStore.instance.context);
   await CustomerRewardsStore.initialize(CustomerAuthStore.instance.context);
