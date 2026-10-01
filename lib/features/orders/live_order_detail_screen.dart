@@ -21,6 +21,7 @@ class LiveOrderDetailScreen extends StatefulWidget {
 class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
   late final LiveOrderLifecycleService _service;
   LiveOrderDetail? _detail;
+  List<LiveOrderTimelineEntry> _deliveryTimeline = const <LiveOrderTimelineEntry>[];
   bool _loading = true;
   String? _errorMessage;
 
@@ -40,9 +41,18 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
     }
     try {
       final detail = await _service.loadOrder(widget.orderId);
+      var deliveryTimeline = const <LiveOrderTimelineEntry>[];
+      if (detail.isDelivery) {
+        try {
+          deliveryTimeline = await _service.loadDeliveryTimeline(widget.orderId);
+        } catch (_) {
+          deliveryTimeline = const <LiveOrderTimelineEntry>[];
+        }
+      }
       if (!mounted) return;
       setState(() {
         _detail = detail;
+        _deliveryTimeline = deliveryTimeline;
       });
     } catch (error) {
       if (!mounted) return;
@@ -124,7 +134,11 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
             _OrderNotice(message: _errorMessage!),
           ],
           const SizedBox(height: 14),
-          _LiveOrderTimelineCard(entries: detail.timeline),
+          _LiveOrderTimelineCard(
+            entries: _deliveryTimeline.isNotEmpty
+                ? _deliveryTimeline
+                : detail.timeline,
+          ),
           const SizedBox(height: 14),
           _LiveOrderItemsCard(detail: detail),
           const SizedBox(height: 14),
@@ -240,13 +254,24 @@ class _LiveOrderTimelineCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _titleCase(entry.status),
+                            entry.description?.trim().isNotEmpty == true
+                                ? entry.description!
+                                : _titleCase(entry.status),
                             style: const TextStyle(
                               color: AppColors.green,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
+                          if (entry.eventType != null &&
+                              entry.description?.trim().isNotEmpty == true)
+                            Text(
+                              _titleCase(entry.eventType!),
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 9,
+                              ),
+                            ),
                           if (entry.occurredAt != null)
                             Text(
                               _dateTime(entry.occurredAt!),
