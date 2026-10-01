@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/auth/customer_auth_store.dart';
+import '../../core/data/customer_repository.dart';
+import '../../core/orders/customer_orders_api_repository.dart';
 import '../../core/reviews/customer_review_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../auth/sign_in_screen.dart';
