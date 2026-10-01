@@ -7,6 +7,9 @@ void main() {
     final source = File(
       'lib/features/checkout/checkout_screen.dart',
     ).readAsStringSync();
+    final liveQuote = File(
+      'lib/core/orders/live_checkout_quote_service.dart',
+    ).readAsStringSync();
 
     expect(source, contains('LiveCheckoutQuote? _liveQuote'));
     expect(source, contains('Future<bool> _refreshLiveQuote'));
@@ -19,7 +22,10 @@ void main() {
     );
     expect(
       source,
-      contains('Gift Card Balance cannot be spent in live checkout'),
+      isNot(contains('Gift Card Balance cannot be spent in live checkout')),
     );
+    expect(source, contains('_liveQuote?.giftCardApplied'));
+    expect(source, contains('_liveQuote?.amountDue'));
+    expect(liveQuote, contains("'gift_card_id': giftCardId"));
   });
 }

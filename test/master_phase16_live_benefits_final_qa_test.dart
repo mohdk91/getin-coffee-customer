@@ -41,6 +41,7 @@ void main() {
     expect(cart, contains('return 0;'));
 
     expect(liveQuote, contains("'coupon_code': promotionCode.trim()"));
+    expect(liveQuote, contains("'gift_card_id': giftCardId"));
     expect(liveQuote, isNot(contains("'unit_price':")));
     expect(liveQuote, isNot(contains("'subtotal':")));
     expect(liveQuote, isNot(contains("'total':")));
@@ -56,16 +57,21 @@ void main() {
     expect(checkout, isNot(contains('Remove local preview rewards, vouchers')));
     expect(checkout, contains('CustomerVoucherStore.instance.refresh()'));
     expect(checkout, contains('CustomerRewardsStore.instance.refresh()'));
+    expect(checkout, contains('CustomerGiftCardStore.instance.refresh()'));
+    expect(checkout, contains('_liveQuote?.giftCardApplied'));
+    expect(checkout, contains('_liveQuote?.amountDue'));
     expect(
       checkout,
-      contains('Gift Card Balance cannot be spent in live checkout'),
+      isNot(contains('Gift Card Balance cannot be spent in live checkout')),
     );
 
     expect(orderService, contains("'coupon_code': draft.voucherCode!.trim()"));
+    expect(orderService, contains("'gift_card_id': draft.giftCardId"));
     expect(orderService, isNot(contains("'reward_redemption_id':")));
     expect(orderService, isNot(contains("'gift_card_amount':")));
 
-    expect(giftCards, contains('Future<double> spendBalance'));
+    expect(giftCards, contains('selectForCheckout'));
+    expect(giftCards, contains('transactionsFor'));
     expect(giftCards, contains('if (usesApi)'));
   });
 }
