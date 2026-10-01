@@ -66,6 +66,14 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
     });
   }
 
+  Future<void> _refreshLiveThread() async {
+    if (!_store.usesApi) {
+      return;
+    }
+    await _store.refreshThread(CustomerChatStore.supportThreadId);
+    await _store.markThreadRead(CustomerChatStore.supportThreadId);
+  }
+
   Future<void> _send([String? preset]) async {
     if (_sending) return;
     final text = (preset ?? _controller.text).trim();
@@ -213,14 +221,18 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
             ),
             const SizedBox(height: 6),
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: RefreshIndicator(
+                onRefresh: _refreshLiveThread,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 itemCount: messages.length,
-                itemBuilder: (context, index) =>
-                    _ChatBubble(message: messages[index]),
+                  itemBuilder: (context, index) =>
+                      _ChatBubble(message: messages[index]),
+                ),
               ),
             ),
             _ChatComposer(

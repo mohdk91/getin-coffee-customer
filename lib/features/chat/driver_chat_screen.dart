@@ -78,6 +78,14 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
     });
   }
 
+  Future<void> _refreshLiveThread() async {
+    if (!_store.usesApi) {
+      return;
+    }
+    await _store.refreshThread(_threadId);
+    await _store.markThreadRead(_threadId);
+  }
+
   Future<void> _send([String? preset]) async {
     if (_sending) return;
     final text = (preset ?? _controller.text).trim();
@@ -219,11 +227,14 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
             ),
             const SizedBox(height: 6),
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: RefreshIndicator(
+                onRefresh: _refreshLiveThread,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   final message = messages[index];
@@ -272,7 +283,8 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
                       ),
                     ),
                   );
-                },
+                  },
+                ),
               ),
             ),
             SafeArea(
