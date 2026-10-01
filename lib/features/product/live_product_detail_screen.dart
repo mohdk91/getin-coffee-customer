@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/catalog/customer_catalog_models.dart';
 import '../../core/catalog/customer_catalog_store.dart';
+import '../../core/products/product_type.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
 import 'live_product_configuration.dart';
@@ -38,6 +39,7 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
   Object? _quoteError;
   bool _loading = true;
   bool _quoting = false;
+  bool _saving = false;
   late int _quantity;
   Timer? _quoteTimer;
   int _quoteGeneration = 0;
@@ -202,6 +204,154 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
     return product.money(product.price * _quantity);
   }
 
+  Future<void> _saveToCart() async {
+    final product = _product;
+    final configuration = _configuration;
+    if (product == null || configuration == null || !configuration.complete) {
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final freshAvailability = await CustomerCatalogStore.instance
+          .loadAvailability(widget.branchId, product.id);
+      if (freshAvailability == null || !freshAvailability.available) {
+        if (freshAvailability != null) {
+          configuration.replaceAvailability(freshAvailability);
+        }
+        if (!mounted) return;
+        setState(() {
+          _availability = freshAvailability;
+          _quote = null;
+        });
+        _showMessage('This product is no longer available at this branch.');
+        return;
+      }
+
+      configuration.replaceAvailability(freshAvailability);
+      if (!configuration.complete) {
+        if (!mounted) return;
+        setState(() {
+          _availability = freshAvailability;
+          _quote = null;
+        });
+        _showMessage('Your selected configuration is no longer available.');
+        return;
+      }
+
+      final freshQuote = await CustomerCatalogStore.instance.quoteProduct(
+        branchId: widget.branchId,
+        orderType: widget.serviceType,
+        productId: product.id,
+        quantity: _quantity,
+        variantId: configuration.variantId,
+        optionValueIds: configuration.optionValueIds,
+      );
+      if (freshQuote == null) {
+        throw StateError('Live pricing is unavailable.');
+      }
+
+      final labels = configuration.selectedLabels;
+      final image = product.imageUrl ??
+          (product.gallery.isNotEmpty ? product.gallery.first : '');
+      final item = CartItem(
+        branchId: widget.branchId,
+        productId: product.id,
+        variantId: configuration.variantId,
+        optionValueIds: configuration.optionValueIds,
+        name: product.name,
+        description: product.shortDescription,
+        image: image,
+        branchName: widget.branchName,
+        serviceType: widget.serviceType,
+        currency: freshQuote.currency,
+        basePrice: product.price,
+        unitPrice: freshQuote.unitTotal,
+        quantity: _quantity,
+        strength: 'Regular',
+        sweetness: 'Regular',
+        addOns: labels,
+        productType: GetinProductCatalog.typeFromCategory(
+          product.categoryName ?? '',
+        ),
+        variant: configuration.resolvedVariant?.name,
+      );
+
+      final cart = CartController.instance;
+      final editing = widget.editingItem;
+      if (editing != null) {
+        cart.replaceItem(
+          originalSignature: editing.signature,
+          replacement: item,
+        );
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+
+      if (!cart.canAccept(item)) {
+        final replace = await _confirmCartReplacement(cart, item);
+        if (!replace || !mounted) return;
+        cart.clear();
+      }
+
+      final added = cart.addOrMerge(item);
+      if (!added) {
+        _showMessage('Could not add this configuration to the current cart.');
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _availability = freshAvailability;
+        _quote = freshQuote;
+      });
+      _showMessage('Added to cart with live branch pricing.');
+    } catch (_) {
+      if (mounted) {
+        _showMessage(
+          'Could not verify live availability and price. Nothing was added.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<bool> _confirmCartReplacement(
+    CartController cart,
+    CartItem item,
+  ) async {
+    final existingBranch = cart.cartBranchName ?? 'another branch';
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Start a new cart?'),
+        content: Text(
+          'Your cart contains items from $existingBranch. '
+          'This live item belongs to ${item.branchName} and '
+          '${item.serviceType}. Replace the current cart?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep cart'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Replace cart'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = _displayProduct;
@@ -290,14 +440,21 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
             _LiveProductBottomBar(
               quantity: _quantity,
               total: _lineTotal(product),
-              enabled: false,
+              enabled: configuration.complete &&
+                  _quote != null &&
+                  !_quoting &&
+                  !_saving,
               message: configuration.complete
                   ? (_quote != null
                       ? 'Live price confirmed'
                       : 'Waiting for live price')
                   : 'Choose required options',
+              primaryLabel: widget.editingItem == null
+                  ? (_saving ? 'Verifying…' : 'Add to cart')
+                  : (_saving ? 'Verifying…' : 'Update item'),
               onDecrease: () => _changeQuantity(-1),
               onIncrease: () => _changeQuantity(1),
+              onPrimary: _saveToCart,
             ),
         ],
       ),
@@ -762,16 +919,20 @@ class _LiveProductBottomBar extends StatelessWidget {
   final String total;
   final bool enabled;
   final String message;
+  final String primaryLabel;
   final VoidCallback onDecrease;
   final VoidCallback onIncrease;
+  final VoidCallback onPrimary;
 
   const _LiveProductBottomBar({
     required this.quantity,
     required this.total,
     required this.enabled,
     required this.message,
+    required this.primaryLabel,
     required this.onDecrease,
     required this.onIncrease,
+    required this.onPrimary,
   });
 
   @override
@@ -837,7 +998,7 @@ class _LiveProductBottomBar extends StatelessWidget {
                   child: SizedBox(
                     height: 48,
                     child: FilledButton(
-                      onPressed: enabled ? () {} : null,
+                      onPressed: enabled ? onPrimary : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.green,
                         foregroundColor: AppColors.beige,
@@ -847,10 +1008,12 @@ class _LiveProductBottomBar extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Add to cart',
-                              style: TextStyle(fontWeight: FontWeight.w800),
+                              primaryLabel,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                           Text(
