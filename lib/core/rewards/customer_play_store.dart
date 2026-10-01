@@ -122,7 +122,7 @@ class CustomerPlayStore extends ChangeNotifier {
     return null;
   }
 
-  Future<void> recordPlay({
+  Future<PlayHistoryEntry> recordPlay({
     required PlayGameType game,
     required String resultTitle,
     required String rewardText,
@@ -130,11 +130,12 @@ class CustomerPlayStore extends ChangeNotifier {
   }) async {
     if (usesApi) {
       final attempt = await _repository!.playAttempt();
-      _history.insert(0, _fromApi(attempt, fallbackGame: game));
-      _attemptsRemaining = (_attemptsRemaining - 1).clamp(0, 999).toInt();
-      _apiEligible = _attemptsRemaining > 0;
-      notifyListeners();
-      return;
+      final authoritative = _fromApi(attempt, fallbackGame: game);
+      await refresh();
+      for (final entry in _history) {
+        if (entry.id == authoritative.id) return entry;
+      }
+      return authoritative;
     }
 
     final timestamp = playedAt ?? DateTime.now();
@@ -144,20 +145,20 @@ class CustomerPlayStore extends ChangeNotifier {
     } else {
       _timerPlayedDate = date;
     }
-    _history.insert(
-        0,
-        PlayHistoryEntry(
-          id: '${game.name}-${timestamp.microsecondsSinceEpoch}',
-          game: game,
-          resultTitle: resultTitle,
-          rewardText: rewardText,
-          playedAt: timestamp,
-        ));
+    final entry = PlayHistoryEntry(
+      id: '${game.name}-${timestamp.microsecondsSinceEpoch}',
+      game: game,
+      resultTitle: resultTitle,
+      rewardText: rewardText,
+      playedAt: timestamp,
+    );
+    _history.insert(0, entry);
     if (_history.length > 20) {
       _history = _history.take(20).toList(growable: false);
     }
     notifyListeners();
     await _persist();
+    return entry;
   }
 
   PlayHistoryEntry _fromApi(Map<String, dynamic> json,

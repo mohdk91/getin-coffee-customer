@@ -487,7 +487,7 @@ class _SpinWinScreenState extends State<SpinWinScreen>
       }
     }
 
-    await play.recordPlay(
+    final result = await play.recordPlay(
       game: PlayGameType.spinWin,
       resultTitle: 'Spin & Win',
       rewardText: prize.label,
@@ -496,7 +496,7 @@ class _SpinWinScreenState extends State<SpinWinScreen>
     if (!mounted) return;
     setState(() {
       _spinning = false;
-      _result = prize.label;
+      _result = play.usesApi ? result.resultTitle : prize.label;
     });
   }
 
@@ -561,8 +561,12 @@ class _SpinWinScreenState extends State<SpinWinScreen>
               const SizedBox(height: 22),
               if (_result != null)
                 _ResultBanner(
-                  title: 'You won $_result!',
-                  subtitle: 'Your prize is already in your Getin account.',
+                  title: CustomerPlayStore.instance.usesApi
+                      ? _result!
+                      : 'You won $_result!',
+                  subtitle: CustomerPlayStore.instance.usesApi
+                      ? 'This result was generated and confirmed by GETIN.'
+                      : 'Your prize is already in your Getin account.',
                 )
               else if (!canPlay && previous != null)
                 _ResultBanner(
@@ -597,10 +601,12 @@ class _SpinWinScreenState extends State<SpinWinScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Prizes in this local demo are applied immediately after the wheel stops.',
+              Text(
+                CustomerPlayStore.instance.usesApi
+                    ? 'The wheel is visual only. Eligibility, prize selection and rewards are decided by GETIN.'
+                    : 'Prizes in this local demo are applied immediately after the wheel stops.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.muted,
                   fontSize: 9,
                 ),
@@ -765,7 +771,7 @@ class _StopTimerScreenState extends State<StopTimerScreen> {
                 : 'Good try!';
     final reward = '+$stars Stars';
 
-    await CustomerPlayStore.instance.recordPlay(
+    final result = await CustomerPlayStore.instance.recordPlay(
       game: PlayGameType.stopTimer,
       resultTitle: '$title ${elapsed.toStringAsFixed(2)}s',
       rewardText: reward,
@@ -774,8 +780,12 @@ class _StopTimerScreenState extends State<StopTimerScreen> {
     if (!mounted) return;
     setState(() {
       _saving = false;
-      _resultTitle = '$title ${elapsed.toStringAsFixed(2)}s';
-      _rewardText = reward;
+      _resultTitle = CustomerPlayStore.instance.usesApi
+          ? result.resultTitle
+          : '$title ${elapsed.toStringAsFixed(2)}s';
+      _rewardText = CustomerPlayStore.instance.usesApi
+          ? result.rewardText
+          : reward;
     });
   }
 
