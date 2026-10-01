@@ -117,6 +117,8 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
     final payload = <String, dynamic>{
       'order_type': draft.serviceType,
       'items': items,
+      if (draft.voucherCode != null && draft.voucherCode!.trim().isNotEmpty)
+        'coupon_code': draft.voucherCode!.trim(),
     };
 
     if (draft.isDelivery) {

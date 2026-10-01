@@ -11,11 +11,13 @@ import '../../core/membership/customer_membership_store.dart';
 import '../../core/orders/checkout_order_draft.dart';
 import '../../core/orders/checkout_order_service.dart';
 import '../../core/orders/laravel_checkout_order_service.dart';
+import '../../core/orders/live_checkout_quote_service.dart';
 import '../../core/payments/customer_payment_method_store.dart';
 import '../../core/rewards/customer_rewards_store.dart';
 import '../../core/rewards/customer_stamp_card_store.dart';
 import '../../core/rewards/reward_earning_policy.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/vouchers/customer_voucher_store.dart';
 import '../addresses/saved_addresses_screen.dart';
 import '../cart/cart_controller.dart';
 import '../membership/membership_screen.dart';
@@ -53,6 +55,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _placingOrder = false;
   bool _useGiftCardBalance = false;
   String? _orderError;
+  LiveCheckoutQuote? _liveQuote;
+  bool _liveQuoteLoading = false;
+  String? _liveQuoteError;
+
+  String? get _livePromotionCode =>
+      _cart.appliedVoucher?.code ?? _cart.appliedReward?.code;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_usesApi) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_refreshLiveQuote());
+      });
+    }
+  }
 
   String _formatMoney(String currency, double value) {
     final whole = value == value.roundToDouble();
@@ -61,10 +79,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         : '$currency ${value.toStringAsFixed(2)}';
   }
 
-  String _money(double value) => _formatMoney(_cart.currency, value);
+  String get _displayCurrency =>
+      _usesApi && (_liveQuote?.currency.trim().isNotEmpty ?? false)
+          ? _liveQuote!.currency
+          : _cart.currency;
+
+  String _money(double value) => _formatMoney(_displayCurrency, value);
 
   double get _preGiftCardTotal => _usesApi
-      ? _cart.subtotal + _cart.deliveryFee + _cart.serviceFee
+      ? (_liveQuote?.total ?? _cart.subtotal)
       : _cart.totalBeforeTip(
           tip: _tip,
         );
@@ -87,6 +110,91 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
     setState(() {});
+    if (_usesApi) {
+      await _refreshLiveQuote(clearInvalidPromotion: true);
+    }
+  }
+
+  Future<bool> _refreshLiveQuote({
+    bool clearInvalidPromotion = false,
+  }) async {
+    if (!_usesApi || !mounted || _cart.isEmpty) {
+      return true;
+    }
+
+    final branchId = _cart.cartBranchId ?? _cart.currentBranchId;
+    if (branchId == null || branchId <= 0) {
+      return false;
+    }
+    if (_cart.items.any((item) => !item.hasServerIdentity)) {
+      return false;
+    }
+
+    final delivery =
+        (_cart.cartServiceType ?? _cart.currentServiceType) == 'delivery';
+    final address = CustomerAddressStore.instance.checkoutAddress;
+    final addressId = delivery ? int.tryParse(address?.id ?? '') : null;
+    if (delivery && (addressId == null || addressId <= 0)) {
+      setState(() {
+        _liveQuote = null;
+        _liveQuoteError = null;
+        _liveQuoteLoading = false;
+      });
+      return false;
+    }
+
+    setState(() {
+      _liveQuoteLoading = true;
+      _liveQuoteError = null;
+    });
+
+    try {
+      final quote = await LiveCheckoutQuoteService(
+        CustomerAuthStore.instance.context,
+      ).quote(
+        branchId: branchId,
+        orderType: delivery ? 'delivery' : 'pickup',
+        addressId: addressId,
+        promotionCode: _livePromotionCode,
+        items: _cart.items
+            .map(
+              (item) => LiveCheckoutQuoteItem(
+                productId: item.productId!,
+                variantId: item.variantId,
+                optionValueIds: List<int>.unmodifiable(item.optionValueIds),
+                quantity: item.quantity,
+              ),
+            )
+            .toList(growable: false),
+      );
+      if (!mounted) {
+        return quote.checkoutReady;
+      }
+      setState(() {
+        _liveQuote = quote;
+        _liveQuoteLoading = false;
+        _liveQuoteError = quote.checkoutReady
+            ? null
+            : quote.reasons.isEmpty
+                ? 'Laravel could not confirm this checkout.'
+                : quote.reasons.join(', ');
+      });
+      return quote.checkoutReady;
+    } catch (error) {
+      if (clearInvalidPromotion && _livePromotionCode != null) {
+        _cart.removeVoucher();
+        _cart.removeReward();
+      }
+      if (!mounted) {
+        return false;
+      }
+      setState(() {
+        _liveQuote = null;
+        _liveQuoteLoading = false;
+        _liveQuoteError = error.toString().replaceFirst('ApiException: ', '');
+      });
+      return false;
+    }
   }
 
   Future<void> _placeOrder() async {
@@ -123,13 +231,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
         return;
       }
-      if (_cart.appliedReward != null ||
-          _cart.appliedVoucher != null ||
-          _useGiftCardBalance) {
+      if (_useGiftCardBalance) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Remove local preview rewards, vouchers, or Gift Card Balance before live checkout. Laravel must settle every discount authoritatively.',
+              'Gift Card Balance cannot be spent in live checkout until Laravel exposes an authoritative settlement endpoint.',
             ),
           ),
         );
@@ -145,6 +251,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await _chooseDeliveryAddress();
       return;
     }
+
+    if (_usesApi) {
+      final ready = await _refreshLiveQuote(clearInvalidPromotion: true);
+      if (!ready) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _liveQuoteError ??
+                  'Laravel could not confirm that this checkout is ready.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
 
     if (_paymentTender == 'cash' && !CartController.previewCashAllowed) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -236,7 +360,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       rewardSaving: _cart.rewardDiscount,
       rewardRedemptionId: _cart.appliedReward?.id,
       voucherSaving: _cart.voucherDiscount,
-      voucherCode: _cart.appliedVoucher?.code,
+      voucherCode: _usesApi ? _livePromotionCode : _cart.appliedVoucher?.code,
       giftCardApplied: _giftCardApplied,
       paymentTender: _total <= 0 ? 'gift_card_balance' : _paymentTender,
       paymentMethodId:
@@ -321,9 +445,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     var freeDrinksUnlocked = 0;
 
     if (_usesApi) {
-      // The server order is authoritative. Refreshable loyalty/payment state is
-      // not invented locally while Laravel reports payment as pending.
+      // Laravel has atomically consumed any selected voucher during order
+      // creation. Clear the cart first, then refresh server-backed benefit state
+      // instead of marking rewards/vouchers as used locally.
       _cart.completeServerOrder();
+      await CustomerVoucherStore.instance.refresh();
+      await CustomerRewardsStore.instance.refresh();
     } else {
       final memberActive = CustomerMembershipStore.instance.isActive;
       earnedStars = RewardEarningPolicy.starsForAmount(
@@ -545,8 +672,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  if (!_usesApi)
-                    SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -556,7 +682,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       child: _CheckoutVoucherCard(
                         code: _cart.appliedVoucher?.code,
-                        discount: _cart.voucherDiscount,
+                        discount: _usesApi && _cart.appliedVoucher != null
+                            ? (_liveQuote?.promotionDiscount ?? 0)
+                            : _cart.voucherDiscount,
                         money: _money,
                         onTap: () async {
                           await showVoucherPickerSheet(
@@ -565,6 +693,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           );
                           if (mounted) {
                             setState(() {});
+                            if (_usesApi) {
+                              await _refreshLiveQuote(
+                                clearInvalidPromotion: true,
+                              );
+                            }
                           }
                         },
                         onRemove: _cart.appliedVoucher == null
@@ -572,12 +705,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             : () {
                                 _cart.removeVoucher();
                                 setState(() {});
+                                if (_usesApi) {
+                                  unawaited(_refreshLiveQuote());
+                                }
                               },
                       ),
                     ),
                   ),
-                  if (!_usesApi)
-                    SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -587,7 +722,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       child: _CheckoutRewardCard(
                         title: _cart.appliedRewardDefinition?.title,
-                        discount: _cart.rewardDiscount,
+                        discount: _usesApi && _cart.appliedReward != null
+                            ? (_liveQuote?.promotionDiscount ?? 0)
+                            : _cart.rewardDiscount,
                         money: _money,
                         onTap: () async {
                           await showRewardPickerSheet(
@@ -596,6 +733,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           );
                           if (mounted) {
                             setState(() {});
+                            if (_usesApi) {
+                              await _refreshLiveQuote(
+                                clearInvalidPromotion: true,
+                              );
+                            }
                           }
                         },
                         onRemove: _cart.appliedReward == null
@@ -603,6 +745,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             : () {
                                 _cart.removeReward();
                                 setState(() {});
+                                if (_usesApi) {
+                                  unawaited(_refreshLiveQuote());
+                                }
                               },
                       ),
                     ),
@@ -692,20 +837,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         16,
                         28,
                       ),
-                      child: _CheckoutSummary(
-                        subtotal: _cart.subtotal,
-                        deliveryFee: _cart.deliveryFee,
-                        serviceFee: _cart.serviceFee,
-                        tip: _tip,
-                        memberSaving: _cart.memberDeliverySaving,
-                        voucherSaving: _cart.voucherDiscount,
-                        voucherCode: _cart.appliedVoucher?.code,
-                        rewardSaving: _cart.rewardDiscount,
-                        rewardTitle: _cart.appliedRewardDefinition?.title,
-                        giftCardSaving: _giftCardApplied,
-                        total: _total,
-                        money: _money,
-                      ),
+                      child: _usesApi
+                          ? _LiveCheckoutSummary(
+                              quote: _liveQuote,
+                              loading: _liveQuoteLoading,
+                              error: _liveQuoteError,
+                              promotionLabel: _cart.appliedReward != null
+                                  ? _cart.appliedRewardDefinition?.title
+                                  : _cart.appliedVoucher?.code,
+                              money: _money,
+                            )
+                          : _CheckoutSummary(
+                              subtotal: _cart.subtotal,
+                              deliveryFee: _cart.deliveryFee,
+                              serviceFee: _cart.serviceFee,
+                              tip: _tip,
+                              memberSaving: _cart.memberDeliverySaving,
+                              voucherSaving: _cart.voucherDiscount,
+                              voucherCode: _cart.appliedVoucher?.code,
+                              rewardSaving: _cart.rewardDiscount,
+                              rewardTitle: _cart.appliedRewardDefinition?.title,
+                              giftCardSaving: _giftCardApplied,
+                              total: _total,
+                              money: _money,
+                            ),
                     ),
                   ),
                 ],
@@ -1797,6 +1952,119 @@ class _PaymentOption extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LiveCheckoutSummary extends StatelessWidget {
+  final LiveCheckoutQuote? quote;
+  final bool loading;
+  final String? error;
+  final String? promotionLabel;
+  final String Function(double) money;
+
+  const _LiveCheckoutSummary({
+    required this.quote,
+    required this.loading,
+    required this.error,
+    required this.promotionLabel,
+    required this.money,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const _CheckoutCard(
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Confirming live pricing with Laravel…',
+                style: TextStyle(
+                  color: AppColors.green,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final current = quote;
+    if (current == null) {
+      return _CheckoutCard(
+        child: Text(
+          error ??
+              'Choose a saved delivery address to load the authoritative checkout total.',
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 10.5,
+            height: 1.35,
+          ),
+        ),
+      );
+    }
+
+    return _CheckoutCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Live order summary',
+            style: TextStyle(
+              color: AppColors.green,
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _CheckoutSummaryRow(
+            label: 'Subtotal',
+            value: money(current.subtotal),
+          ),
+          if (current.discountTotal > 0)
+            _CheckoutSummaryRow(
+              label: promotionLabel == null
+                  ? 'Promotion'
+                  : 'Promotion · $promotionLabel',
+              value: '- ${money(current.discountTotal)}',
+              highlight: true,
+            ),
+          if (current.deliveryFee > 0)
+            _CheckoutSummaryRow(
+              label: 'Delivery',
+              value: money(current.deliveryFee),
+            ),
+          if (current.taxTotal > 0)
+            _CheckoutSummaryRow(
+              label: 'Tax',
+              value: money(current.taxTotal),
+            ),
+          const Divider(height: 20, color: AppColors.border),
+          _CheckoutSummaryRow(
+            label: 'Total',
+            value: money(current.total),
+            strong: true,
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error!,
+              style: TextStyle(
+                color: Colors.red.shade500,
+                fontSize: 9.5,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

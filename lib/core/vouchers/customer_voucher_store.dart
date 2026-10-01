@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/customer_repository.dart';
+import '../engagement/customer_engagement_api_repository.dart';
+
 enum VoucherStatus {
   available,
   applied,
@@ -22,6 +25,11 @@ class CustomerVoucher {
   final String terms;
   final VoucherStatus status;
   final DateTime? usedAt;
+  final String discountType;
+  final double discountValue;
+  final String? currency;
+  final double? maximumDiscount;
+  final bool serverManaged;
 
   const CustomerVoucher({
     required this.id,
@@ -34,6 +42,11 @@ class CustomerVoucher {
     required this.terms,
     required this.status,
     this.usedAt,
+    this.discountType = 'fixed',
+    this.discountValue = 0,
+    this.currency,
+    this.maximumDiscount,
+    this.serverManaged = false,
   });
 
   CustomerVoucher copyWith({
@@ -52,6 +65,11 @@ class CustomerVoucher {
       terms: terms,
       status: status ?? this.status,
       usedAt: clearUsedAt ? null : usedAt ?? this.usedAt,
+      discountType: discountType,
+      discountValue: discountValue,
+      currency: currency,
+      maximumDiscount: maximumDiscount,
+      serverManaged: serverManaged,
     );
   }
 
@@ -67,6 +85,11 @@ class CustomerVoucher {
       'terms': terms,
       'status': status.name,
       'usedAt': usedAt?.toIso8601String(),
+      'discountType': discountType,
+      'discountValue': discountValue,
+      'currency': currency,
+      'maximumDiscount': maximumDiscount,
+      'serverManaged': serverManaged,
     };
   }
 
@@ -114,6 +137,11 @@ class CustomerVoucher {
       terms: terms,
       status: statuses.first,
       usedAt: DateTime.tryParse(json['usedAt'] as String? ?? ''),
+      discountType: json['discountType']?.toString() ?? 'fixed',
+      discountValue: (json['discountValue'] as num?)?.toDouble() ?? discountAmount,
+      currency: json['currency']?.toString(),
+      maximumDiscount: (json['maximumDiscount'] as num?)?.toDouble(),
+      serverManaged: json['serverManaged'] == true,
     );
   }
 }
@@ -126,8 +154,10 @@ class CustomerVoucherStore extends ChangeNotifier {
   static const String _storageKey = 'getin_demo_vouchers_v1';
 
   SharedPreferences? _preferences;
+  CustomerEngagementApiRepository? _repository;
   List<CustomerVoucher> _vouchers = <CustomerVoucher>[];
 
+  bool get usesApi => _repository?.usesApi ?? false;
   List<CustomerVoucher> get vouchers => List.unmodifiable(_vouchers);
 
   List<CustomerVoucher> get availableVouchers => _vouchers
@@ -156,10 +186,85 @@ class CustomerVoucherStore extends ChangeNotifier {
 
   int get availableCount => availableVouchers.length;
 
-  static Future<void> initialize() async {
+  static Future<void> initialize([CustomerRepositoryContext? context]) async {
     final store = instance;
+    if (context != null) {
+      store._repository = CustomerEngagementApiRepository(context);
+    }
+    if (store.usesApi) {
+      store._preferences = null;
+      await store.refresh();
+      return;
+    }
     store._preferences = await SharedPreferences.getInstance();
     store._load();
+  }
+
+  Future<void> refresh() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) {
+      return;
+    }
+    final items = await repository.vouchers();
+    _vouchers = items.map(_fromApi).toList(growable: false);
+    notifyListeners();
+  }
+
+  Future<String?> validateLiveVoucher(String id) async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) {
+      return null;
+    }
+    final voucherId = int.tryParse(id);
+    if (voucherId == null || voucherId <= 0) {
+      return 'voucher_id_invalid';
+    }
+    final result = await repository.validateVoucher(voucherId);
+    if (result['valid'] == true) {
+      return null;
+    }
+    return result['reason']?.toString() ?? 'voucher_invalid';
+  }
+
+  CustomerVoucher _fromApi(Map<String, dynamic> json) {
+    final template = json['template'] is Map
+        ? Map<String, dynamic>.from(json['template'] as Map)
+        : const <String, dynamic>{};
+    final rawStatus = json['status']?.toString().toLowerCase() ?? '';
+    final status = switch (rawStatus) {
+      'redeemed' || 'used' => VoucherStatus.used,
+      'expired' => VoucherStatus.expired,
+      _ => VoucherStatus.available,
+    };
+    final discountType = template['discount_type']?.toString() ?? 'fixed';
+    final value = double.tryParse(template['value']?.toString() ?? '') ?? 0;
+    final minimumSpend =
+        double.tryParse(template['minimum_order_amount']?.toString() ?? '') ?? 0;
+    final maximumDiscount =
+        double.tryParse(template['maximum_discount_amount']?.toString() ?? '');
+    final expiresAt = DateTime.tryParse(json['expires_at']?.toString() ?? '') ??
+        DateTime.tryParse(template['ends_at']?.toString() ?? '') ??
+        DateTime.now().add(const Duration(days: 3650));
+    final currency = template['currency']?.toString();
+    final discountAmount = discountType == 'fixed' ? value : 0.0;
+
+    return CustomerVoucher(
+      id: json['id']?.toString() ?? '',
+      code: json['voucher_code']?.toString() ?? '',
+      title: template['name']?.toString() ?? 'GETIN Voucher',
+      description: template['description']?.toString() ?? '',
+      discountAmount: discountAmount,
+      minimumSpend: minimumSpend,
+      expiresAt: expiresAt,
+      terms: 'Server-managed voucher. Final eligibility and saving are confirmed by Laravel at checkout.',
+      status: status,
+      usedAt: DateTime.tryParse(json['redeemed_at']?.toString() ?? ''),
+      discountType: discountType,
+      discountValue: value,
+      currency: currency,
+      maximumDiscount: maximumDiscount,
+      serverManaged: true,
+    );
   }
 
   CustomerVoucher? voucherById(String id) {
@@ -196,6 +301,9 @@ class CustomerVoucherStore extends ChangeNotifier {
   }
 
   void markUsed(String id) {
+    if (usesApi) {
+      return;
+    }
     final index = _vouchers.indexWhere((voucher) => voucher.id == id);
     if (index == -1) {
       return;
@@ -211,6 +319,9 @@ class CustomerVoucherStore extends ChangeNotifier {
   void resetToDemoDefaults({
     bool persist = false,
   }) {
+    if (usesApi) {
+      return;
+    }
     _setDemoDefaults();
     notifyListeners();
     if (persist) {
@@ -257,6 +368,8 @@ class CustomerVoucherStore extends ChangeNotifier {
         terms:
             'Valid once on eligible products. Minimum product subtotal EGP 60. Delivery and service fees do not count toward minimum spend.',
         status: VoucherStatus.available,
+        discountValue: 20,
+        currency: 'EGP',
       ),
       CustomerVoucher(
         id: 'demo-getin50',
@@ -269,6 +382,8 @@ class CustomerVoucherStore extends ChangeNotifier {
         terms:
             'Valid once on eligible products. Minimum product subtotal EGP 250. Cannot reduce the product subtotal below zero.',
         status: VoucherStatus.available,
+        discountValue: 50,
+        currency: 'EGP',
       ),
       CustomerVoucher(
         id: 'demo-welcome10-used',
@@ -281,6 +396,8 @@ class CustomerVoucherStore extends ChangeNotifier {
         terms: 'Single-use welcome voucher.',
         status: VoucherStatus.used,
         usedAt: now.subtract(const Duration(days: 8)),
+        discountValue: 10,
+        currency: 'EGP',
       ),
       CustomerVoucher(
         id: 'demo-fall15-expired',
@@ -292,6 +409,8 @@ class CustomerVoucherStore extends ChangeNotifier {
         expiresAt: now.subtract(const Duration(days: 5)),
         terms: 'This seasonal voucher is no longer valid.',
         status: VoucherStatus.expired,
+        discountValue: 15,
+        currency: 'EGP',
       ),
     ];
   }
@@ -315,12 +434,14 @@ class CustomerVoucherStore extends ChangeNotifier {
 
   void _changed() {
     notifyListeners();
-    unawaited(_persist());
+    if (!usesApi) {
+      unawaited(_persist());
+    }
   }
 
   Future<void> _persist() async {
     final preferences = _preferences;
-    if (preferences == null) {
+    if (preferences == null || usesApi) {
       return;
     }
 

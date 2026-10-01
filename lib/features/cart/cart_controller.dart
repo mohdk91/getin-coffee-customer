@@ -441,6 +441,9 @@ class CartController extends ChangeNotifier {
   }
 
   double get rewardDiscount {
+    if (CustomerRewardsStore.instance.usesApi) {
+      return 0;
+    }
     final reward = appliedReward;
     if (reward == null || !isRewardApplicable(reward)) {
       return 0;
@@ -470,6 +473,9 @@ class CartController extends ChangeNotifier {
   }
 
   double get voucherDiscount {
+    if (CustomerVoucherStore.instance.usesApi) {
+      return 0;
+    }
     final voucher = appliedVoucher;
     if (voucher == null || !isVoucherApplicable(voucher)) {
       return 0;
@@ -549,6 +555,10 @@ class CartController extends ChangeNotifier {
       return false;
     }
 
+    if (CustomerRewardsStore.instance.usesApi) {
+      return reward.code.trim().isNotEmpty;
+    }
+
     final definition = CustomerRewardsStore.instance.definitionFor(
       reward.definitionId,
     );
@@ -566,6 +576,11 @@ class CartController extends ChangeNotifier {
   String rewardIneligibilityReason(RedeemedReward reward) {
     if (_items.isEmpty) {
       return 'Add an eligible item to your cart before applying this reward.';
+    }
+    if (CustomerRewardsStore.instance.usesApi) {
+      return reward.code.trim().isEmpty
+          ? 'This reward has no active Laravel voucher to apply.'
+          : 'Laravel will verify this reward against the current checkout.';
     }
 
     final definition = CustomerRewardsStore.instance.definitionFor(
@@ -588,12 +603,21 @@ class CartController extends ChangeNotifier {
       return false;
     }
 
+    if (CustomerVoucherStore.instance.usesApi) {
+      return voucher.code.trim().isNotEmpty;
+    }
+
     return subtotal >= voucher.minimumSpend;
   }
 
   String voucherIneligibilityReason(CustomerVoucher voucher) {
     if (_items.isEmpty) {
       return 'Add items to your cart before applying this voucher.';
+    }
+    if (CustomerVoucherStore.instance.usesApi) {
+      return voucher.code.trim().isEmpty
+          ? 'This server voucher has no usable code.'
+          : 'Laravel will verify this voucher against the current checkout.';
     }
     if (voucher.status == VoucherStatus.expired ||
         voucher.expiresAt.isBefore(DateTime.now())) {
@@ -634,8 +658,14 @@ class CartController extends ChangeNotifier {
     if (voucher.status == VoucherStatus.used) {
       return VoucherApplyResult.used;
     }
-    if (subtotal < voucher.minimumSpend) {
+    if (!vouchers.usesApi && subtotal < voucher.minimumSpend) {
       return VoucherApplyResult.minimumSpendNotMet;
+    }
+
+    if (vouchers.usesApi && appliedReward != null) {
+      final reward = appliedReward!;
+      CustomerRewardsStore.instance.markAvailable(reward.id);
+      _appliedRewardId = null;
     }
 
     final previous = appliedVoucher;
@@ -668,6 +698,12 @@ class CartController extends ChangeNotifier {
 
     if (redemption == null || !isRewardApplicable(redemption)) {
       return false;
+    }
+
+    if (rewards.usesApi && appliedVoucher != null) {
+      final voucher = appliedVoucher!;
+      CustomerVoucherStore.instance.markAvailable(voucher.id);
+      _appliedVoucherId = null;
     }
 
     final previous = appliedReward;

@@ -247,12 +247,19 @@ class CustomerRewardsStore extends ChangeNotifier {
       store._repository = CustomerEngagementApiRepository(context);
     }
     if (store.usesApi) {
-      await store._refreshLoyaltyApi();
-      await store._refreshRewardsApi();
+      await store.refresh();
       return;
     }
     store._preferences = await SharedPreferences.getInstance();
     store._load();
+  }
+
+  Future<void> refresh() async {
+    if (!usesApi) {
+      return;
+    }
+    await _refreshLoyaltyApi();
+    await _refreshRewardsApi();
   }
 
   Future<void> _refreshLoyaltyApi() async {
@@ -301,22 +308,31 @@ class CustomerRewardsStore extends ChangeNotifier {
       );
     }).toList(growable: false);
     final redemptions = await repository.rewardRedemptions();
-    _redeemedRewards = redemptions.map((item) {
-      final statusText = item['status']?.toString().toLowerCase() ?? '';
-      final status =
-          statusText.contains('used') || statusText.contains('fulfill')
-              ? RewardRedemptionStatus.used
-              : RewardRedemptionStatus.available;
-      return RedeemedReward(
-        id: item['id']?.toString() ?? '',
-        definitionId: item['reward_id']?.toString() ?? '',
-        code: 'REWARD-${item['id'] ?? ''}',
-        redeemedAt: DateTime.tryParse(item['redeemed_at']?.toString() ?? '') ??
-            DateTime.now(),
-        status: status,
-      );
-    }).toList(growable: false);
+    _redeemedRewards = redemptions
+        .map(_redemptionFromApi)
+        .where((reward) => reward.code.trim().isNotEmpty)
+        .toList(growable: false);
     notifyListeners();
+  }
+
+  RedeemedReward _redemptionFromApi(Map<String, dynamic> item) {
+    final voucher = item['voucher'] is Map
+        ? Map<String, dynamic>.from(item['voucher'] as Map)
+        : const <String, dynamic>{};
+    final voucherStatus = voucher['status']?.toString().toLowerCase() ?? '';
+    final code = voucher['voucher_code']?.toString() ?? '';
+    final status = voucherStatus == 'active'
+        ? RewardRedemptionStatus.available
+        : RewardRedemptionStatus.used;
+
+    return RedeemedReward(
+      id: item['id']?.toString() ?? '',
+      definitionId: item['reward_id']?.toString() ?? '',
+      code: code,
+      redeemedAt: DateTime.tryParse(item['redeemed_at']?.toString() ?? '') ??
+          DateTime.now(),
+      status: status,
+    );
   }
 
   RewardDefinition definitionFor(String definitionId) {
@@ -423,17 +439,18 @@ class CustomerRewardsStore extends ChangeNotifier {
       throw StateError('Server reward id is invalid.');
     }
     final item = await _repository!.redeemReward(rewardId);
-    _redeemedRewards.insert(
-      0,
-      RedeemedReward(
-        id: item['id']?.toString() ?? '',
-        definitionId: item['reward_id']?.toString() ?? definition.id,
-        code: 'REWARD-${item['id'] ?? ''}',
-        redeemedAt: DateTime.tryParse(item['redeemed_at']?.toString() ?? '') ??
-            DateTime.now(),
-        status: RewardRedemptionStatus.available,
-      ),
+    final redemption = _redemptionFromApi(
+      <String, dynamic>{
+        ...item,
+        if (item['reward_id'] == null) 'reward_id': rewardId,
+      },
     );
+    if (redemption.code.trim().isEmpty) {
+      throw StateError(
+        'Laravel redeemed the reward without returning its issued voucher code.',
+      );
+    }
+    _redeemedRewards.insert(0, redemption);
     await _refreshLoyaltyApi();
     notifyListeners();
     return RewardRedeemResult.success;

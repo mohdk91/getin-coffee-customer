@@ -54,6 +54,12 @@ class CustomerEngagementApiRepository {
     return _dataMap(payload);
   }
 
+  Future<List<Map<String, dynamic>>> vouchers() =>
+      _getItems('/v1/customer/vouchers');
+
+  Future<Map<String, dynamic>> validateVoucher(int voucherId) =>
+      _getMap('/v1/customer/vouchers/$voucherId/validate');
+
   Future<List<Map<String, dynamic>>> giftCards() =>
       _getItems('/v1/customer/gift-cards');
 
