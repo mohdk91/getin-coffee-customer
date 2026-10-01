@@ -84,6 +84,9 @@ class CustomerEngagementApiRepository {
     return _dataMap(payload);
   }
 
+  Future<List<Map<String, dynamic>>> giftCardTransactions(int giftCardId) =>
+      _getItems('/v1/customer/gift-cards/$giftCardId/transactions');
+
   Future<Map<String, dynamic>> playStatus() => _getMap('/v1/customer/play');
 
   Future<Map<String, dynamic>> playAttempt({String? deviceFingerprint}) async {

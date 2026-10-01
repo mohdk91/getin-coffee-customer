@@ -12,10 +12,44 @@ enum GiftCardStatus { sent, received, redeemed }
 enum GiftCardRedeemResult { success, invalidCode, alreadyRedeemed }
 
 @immutable
+class CustomerGiftCardTransaction {
+  final String id;
+  final String type;
+  final double amount;
+  final double balanceAfter;
+  final String? reference;
+  final String? description;
+  final DateTime? createdAt;
+
+  const CustomerGiftCardTransaction({
+    required this.id,
+    required this.type,
+    required this.amount,
+    required this.balanceAfter,
+    required this.reference,
+    required this.description,
+    required this.createdAt,
+  });
+
+  factory CustomerGiftCardTransaction.fromApi(Map<String, dynamic> json) =>
+      CustomerGiftCardTransaction(
+        id: json['id']?.toString() ?? '',
+        type: json['type']?.toString() ?? '',
+        amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0,
+        balanceAfter:
+            double.tryParse(json['balance_after']?.toString() ?? '') ?? 0,
+        reference: json['reference']?.toString(),
+        description: json['description']?.toString(),
+        createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
+      );
+}
+
+@immutable
 class CustomerGiftCard {
   final String id;
   final String code;
   final double amount;
+  final double currentBalance;
   final String currency;
   final String recipientName;
   final String recipientContact;
@@ -28,6 +62,7 @@ class CustomerGiftCard {
     required this.id,
     required this.code,
     required this.amount,
+    required this.currentBalance,
     required this.currency,
     required this.recipientName,
     required this.recipientContact,
@@ -37,10 +72,18 @@ class CustomerGiftCard {
     required this.status,
   });
 
-  CustomerGiftCard copyWith({GiftCardStatus? status}) => CustomerGiftCard(
+  bool get canSpend =>
+      status == GiftCardStatus.received && currentBalance > 0.004;
+
+  CustomerGiftCard copyWith({
+    GiftCardStatus? status,
+    double? currentBalance,
+  }) =>
+      CustomerGiftCard(
         id: id,
         code: code,
         amount: amount,
+        currentBalance: currentBalance ?? this.currentBalance,
         currency: currency,
         recipientName: recipientName,
         recipientContact: recipientContact,
@@ -54,6 +97,7 @@ class CustomerGiftCard {
         'id': id,
         'code': code,
         'amount': amount,
+        'currentBalance': currentBalance,
         'currency': currency,
         'recipientName': recipientName,
         'recipientContact': recipientContact,
@@ -68,10 +112,13 @@ class CustomerGiftCard {
       (value) => value.name == json['status'],
       orElse: () => GiftCardStatus.received,
     );
+    final amount = (json['amount'] as num?)?.toDouble() ?? 0;
     return CustomerGiftCard(
       id: json['id']?.toString() ?? '',
       code: json['code']?.toString() ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      amount: amount,
+      currentBalance:
+          (json['currentBalance'] as num?)?.toDouble() ?? amount,
       currency: json['currency']?.toString() ?? 'EGP',
       recipientName: json['recipientName']?.toString() ?? '',
       recipientContact: json['recipientContact']?.toString() ?? '',
@@ -95,16 +142,28 @@ class CustomerGiftCardStore extends ChangeNotifier {
   CustomerEngagementApiRepository? _repository;
   double _balance = 0;
   final List<CustomerGiftCard> _cards = <CustomerGiftCard>[];
+  final Map<String, List<CustomerGiftCardTransaction>> _transactionsByCard =
+      <String, List<CustomerGiftCardTransaction>>{};
+  String? _checkoutCardId;
 
   bool get usesApi => _repository?.usesApi ?? false;
   double get balance => _balance;
   List<CustomerGiftCard> get cards => List.unmodifiable(_cards);
+  String? get checkoutCardId => _checkoutCardId;
+  CustomerGiftCard? get checkoutCard {
+    final id = _checkoutCardId;
+    if (id == null) return null;
+    for (final card in _cards) {
+      if (card.id == id && card.canSpend) return card;
+    }
+    return null;
+  }
+
   List<CustomerGiftCard> get sentCards => _cards
       .where((card) => card.status == GiftCardStatus.sent)
       .toList(growable: false);
-  List<CustomerGiftCard> get receivedCards => _cards
-      .where((card) => card.status == GiftCardStatus.received)
-      .toList(growable: false);
+  List<CustomerGiftCard> get receivedCards =>
+      _cards.where((card) => card.canSpend).toList(growable: false);
   List<CustomerGiftCard> get redeemedCards => _cards
       .where((card) => card.status == GiftCardStatus.redeemed)
       .toList(growable: false);
@@ -130,8 +189,14 @@ class CustomerGiftCardStore extends ChangeNotifier {
       ..clear()
       ..addAll(items.map(_fromApi));
     _balance = _cards
-        .where((card) => card.status == GiftCardStatus.received)
-        .fold<double>(0, (sum, card) => sum + card.amount);
+        .where((card) => card.canSpend)
+        .fold<double>(0, (sum, card) => sum + card.currentBalance);
+    _transactionsByCard.removeWhere(
+      (id, _) => !_cards.any((card) => card.id == id),
+    );
+    if (checkoutCard == null) {
+      _checkoutCardId = null;
+    }
     notifyListeners();
   }
 
@@ -150,6 +215,7 @@ class CustomerGiftCardStore extends ChangeNotifier {
       id: json['id']?.toString() ?? '',
       code: lastFour.isEmpty ? 'GETIN CARD' : '•••• $lastFour',
       amount: original,
+      currentBalance: balance,
       currency: json['currency']?.toString() ?? 'EGP',
       recipientName: json['recipient_name']?.toString() ?? 'GETIN Customer',
       recipientContact: '',
@@ -158,6 +224,42 @@ class CustomerGiftCardStore extends ChangeNotifier {
       createdAt: issued,
       status: status,
     );
+  }
+
+  Future<void> selectForCheckout(String? cardId) async {
+    if (cardId == null) {
+      _checkoutCardId = null;
+      notifyListeners();
+      return;
+    }
+    final card = _cards.where((item) => item.id == cardId).firstOrNull;
+    if (card == null || !card.canSpend) {
+      throw StateError('This gift card is not available for checkout.');
+    }
+    _checkoutCardId = card.id;
+    notifyListeners();
+  }
+
+  List<CustomerGiftCardTransaction> transactionsFor(String cardId) =>
+      List.unmodifiable(
+        _transactionsByCard[cardId] ?? const <CustomerGiftCardTransaction>[],
+      );
+
+  Future<List<CustomerGiftCardTransaction>> refreshTransactions(
+    String cardId,
+  ) async {
+    final repository = _repository;
+    final numericId = int.tryParse(cardId);
+    if (repository == null || !repository.usesApi || numericId == null) {
+      return transactionsFor(cardId);
+    }
+    final raw = await repository.giftCardTransactions(numericId);
+    final items = raw
+        .map(CustomerGiftCardTransaction.fromApi)
+        .toList(growable: false);
+    _transactionsByCard[cardId] = items;
+    notifyListeners();
+    return List.unmodifiable(items);
   }
 
   Future<CustomerGiftCard> purchase({
@@ -182,6 +284,7 @@ class CustomerGiftCardStore extends ChangeNotifier {
       id: 'gift-$stamp',
       code: code,
       amount: amount,
+      currentBalance: amount,
       currency: currency,
       recipientName: recipientName.trim(),
       recipientContact: recipientContact.trim(),
@@ -238,6 +341,8 @@ class CustomerGiftCardStore extends ChangeNotifier {
       return 0;
     }
     final applied = math.min(requestedAmount, _balance);
+    // Demo mode keeps its original aggregate wallet behavior. Live/API mode
+    // never reaches this path and always spends a specific server card.
     _balance -= applied;
     if (_balance.abs() < 0.005) {
       _balance = 0;
@@ -283,16 +388,18 @@ class CustomerGiftCardStore extends ChangeNotifier {
     final now = DateTime.now();
     return <CustomerGiftCard>[
       CustomerGiftCard(
-          id: 'demo-gift-received-100',
-          code: 'GETIN100',
-          amount: 100,
-          currency: 'EGP',
-          recipientName: 'Mohammed',
-          recipientContact: 'demo@example.com',
-          message: 'Coffee treat',
-          deliveryDate: now,
-          createdAt: now,
-          status: GiftCardStatus.received),
+        id: 'demo-gift-received-100',
+        code: 'GETIN100',
+        amount: 100,
+        currentBalance: 100,
+        currency: 'EGP',
+        recipientName: 'Mohammed',
+        recipientContact: 'demo@example.com',
+        message: 'Coffee treat',
+        deliveryDate: now,
+        createdAt: now,
+        status: GiftCardStatus.received,
+      ),
     ];
   }
 
@@ -300,7 +407,9 @@ class CustomerGiftCardStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_balanceKey, _balance);
     await prefs.setString(
-        _recordsKey, jsonEncode(_cards.map((card) => card.toJson()).toList()));
+      _recordsKey,
+      jsonEncode(_cards.map((card) => card.toJson()).toList()),
+    );
   }
 
   Future<void> resetForTesting() async {
@@ -311,7 +420,16 @@ class CustomerGiftCardStore extends ChangeNotifier {
     await prefs.remove(_balanceKey);
     await prefs.remove(_recordsKey);
     _balance = 0;
+    _checkoutCardId = null;
     _cards.clear();
+    _transactionsByCard.clear();
     notifyListeners();
+  }
+}
+
+extension _FirstOrNullGiftCard on Iterable<CustomerGiftCard> {
+  CustomerGiftCard? get firstOrNull {
+    final iterator = this.iterator;
+    return iterator.moveNext() ? iterator.current : null;
   }
 }
