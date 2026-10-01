@@ -1043,28 +1043,30 @@ class ReferFriendScreen extends StatelessWidget {
                   color: AppColors.green,
                   borderRadius: BorderRadius.circular(22),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.group_add_outlined,
                       color: AppColors.gold,
                       size: 42,
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
-                      'Give EGP 50. Get EGP 50.',
+                      referral.programHeadline,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.beige,
                         fontSize: 21,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 7),
+                    const SizedBox(height: 7),
                     Text(
-                      'Invite a friend with your personal link or code. Your reward becomes available after their eligible first order is completed.',
+                      referral.usesApi
+                          ? 'Share your GETIN referral code. Eligibility and rewards are confirmed by the active server campaign.'
+                          : 'Invite a friend with your personal link or code. Your reward becomes available after their eligible first order is completed.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 10,
                         height: 1.4,
@@ -1079,12 +1081,20 @@ class ReferFriendScreen extends StatelessWidget {
               _ReferralLinkCard(referral: referral),
               const SizedBox(height: 14),
               _MiniStats(
-                values: [
-                  '${referral.invitedCount}',
-                  '${referral.completedCount}',
-                  'EGP ${referral.totalEarned.toStringAsFixed(0)}',
-                ],
-                labels: const ['Invited', 'Completed', 'Earned'],
+                values: referral.usesApi
+                    ? <String>[
+                        '${referral.referredCount}',
+                        '${referral.completedCount}',
+                        '${referral.rewardedCount}',
+                      ]
+                    : <String>[
+                        '${referral.invitedCount}',
+                        '${referral.completedCount}',
+                        'EGP ${referral.totalEarned.toStringAsFixed(0)}',
+                      ],
+                labels: referral.usesApi
+                    ? const ['Referred', 'Completed', 'Rewarded']
+                    : const ['Invited', 'Completed', 'Earned'],
               ),
               const SizedBox(height: 20),
               const _SectionTitle('How It Works'),
@@ -1100,9 +1110,11 @@ class ReferFriendScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Demo activity is stored locally for this prototype. Final referral eligibility and rewards will be verified by the backend.',
-                style: TextStyle(
+              Text(
+                referral.usesApi
+                    ? 'Referral status and reward fulfillment come from your GETIN account.'
+                    : 'Demo referral activity is stored locally on this device.',
+                style: const TextStyle(
                   color: AppColors.muted,
                   fontSize: 9.5,
                   height: 1.4,
