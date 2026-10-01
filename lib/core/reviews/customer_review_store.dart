@@ -320,6 +320,27 @@ class CustomerReviewStore extends ChangeNotifier {
     await _refreshApi();
   }
 
+  Future<bool> submitLiveDeliveryReview({
+    required int orderId,
+    required int rating,
+    required String comment,
+  }) async {
+    if (!usesApi || orderId <= 0) return false;
+    final status = await loadOrderStatus(orderId, force: true);
+    if (status?.delivery.eligible != true) {
+      return false;
+    }
+
+    await _repository!.submitDeliveryReview(
+      orderId: orderId,
+      rating: rating,
+      comment: comment,
+    );
+    await _refreshApi();
+    final refreshed = await loadOrderStatus(orderId, force: true);
+    return refreshed?.delivery.submitted == true;
+  }
+
   Future<bool> submitLiveReview({
     required String orderId,
     required int rating,
@@ -337,7 +358,7 @@ class CustomerReviewStore extends ChangeNotifier {
       return false;
     }
     if (driverName != null) {
-      await _repository!.submitDeliveryReview(
+      return submitLiveDeliveryReview(
         orderId: numericOrderId,
         rating: rating,
         comment: comment,
