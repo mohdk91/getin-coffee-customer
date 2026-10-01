@@ -51,6 +51,7 @@ android {
         release {
             // Existing project behavior retained. Production signing is handled in a later release phase.
             signingConfig = signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
