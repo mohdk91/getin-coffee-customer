@@ -1,12 +1,41 @@
 import '../data/customer_repository.dart';
 
+class CustomerFavoriteRemoteProduct {
+  final int id;
+  final String slug;
+  final String name;
+  final String description;
+  final String imageUrl;
+  final bool isAvailable;
+
+  const CustomerFavoriteRemoteProduct({
+    required this.id,
+    required this.slug,
+    required this.name,
+    required this.description,
+    required this.imageUrl,
+    required this.isAvailable,
+  });
+
+  factory CustomerFavoriteRemoteProduct.fromJson(Map<String, dynamic> json) {
+    return CustomerFavoriteRemoteProduct(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      slug: json['slug']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      description: json['short_description']?.toString() ?? '',
+      imageUrl: json['image_url']?.toString() ?? '',
+      isAvailable: json['is_available'] as bool? ?? false,
+    );
+  }
+}
+
 class CustomerFavoritesRepository {
   final CustomerRepositoryContext context;
   const CustomerFavoritesRepository(this.context);
 
   bool get usesApi => context.usesApi;
 
-  Future<Set<int>> listProductIds() async {
+  Future<List<CustomerFavoriteRemoteProduct>> listProducts() async {
     final payload = await context.apiClient.getJson(
       '/api/v1/customer/favorites',
       authenticated: true,
@@ -16,14 +45,21 @@ class CustomerFavoritesRepository {
         ? Map<String, dynamic>.from(payload['data'] as Map)
         : const <String, dynamic>{};
     final items = data['items'] as List? ?? const <dynamic>[];
-    return items.whereType<Map>().map((raw) {
-      final item = Map<String, dynamic>.from(raw);
-      if (item['product'] is Map) {
-        return (Map<String, dynamic>.from(item['product'] as Map)['id'] as num?)
-            ?.toInt();
-      }
-      return (item['product_id'] as num?)?.toInt();
-    }).whereType<int>().toSet();
+    return items
+        .whereType<Map>()
+        .map((raw) => Map<String, dynamic>.from(raw))
+        .map((item) => item['product'])
+        .whereType<Map>()
+        .map((raw) => CustomerFavoriteRemoteProduct.fromJson(
+              Map<String, dynamic>.from(raw),
+            ))
+        .where((product) => product.id > 0 && product.name.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<Set<int>> listProductIds() async {
+    final products = await listProducts();
+    return products.map((product) => product.id).toSet();
   }
 
   Future<void> add(int productId) async {

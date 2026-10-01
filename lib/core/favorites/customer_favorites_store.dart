@@ -80,9 +80,14 @@ class CustomerFavoritesStore extends ChangeNotifier {
 
   final List<FavoriteProductEntry> _products = <FavoriteProductEntry>[];
   bool _initialized = false;
+  bool _refreshing = false;
+  Object? _lastError;
   CustomerFavoritesRepository? _repository;
 
   List<FavoriteProductEntry> get products => List.unmodifiable(_products);
+  bool get usesApi => _repository?.usesApi ?? false;
+  bool get refreshing => _refreshing;
+  Object? get lastError => _lastError;
   int get count => _products.length;
   bool get isEmpty => _products.isEmpty;
 
@@ -100,6 +105,11 @@ class CustomerFavoritesStore extends ChangeNotifier {
   Future<void> _initialize() async {
     if (_initialized) return;
     _initialized = true;
+
+    if (usesApi) {
+      await refreshFromServer();
+      return;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_storageKey);
@@ -137,6 +147,59 @@ class CustomerFavoritesStore extends ChangeNotifier {
       if (product.id == id) return product;
     }
     return null;
+  }
+
+  FavoriteProductEntry? findByServerProductId(int productId) {
+    for (final product in _products) {
+      if (product.serverProductId == productId) return product;
+    }
+    return null;
+  }
+
+  bool containsServerProductId(int productId) =>
+      findByServerProductId(productId) != null;
+
+  bool containsProduct({
+    int? serverProductId,
+    required String name,
+  }) {
+    if (usesApi && serverProductId != null) {
+      return containsServerProductId(serverProductId);
+    }
+    return containsName(name);
+  }
+
+  Future<void> refreshFromServer() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) return;
+    _refreshing = true;
+    _lastError = null;
+    notifyListeners();
+    try {
+      final remote = await repository.listProducts();
+      _products
+        ..clear()
+        ..addAll(
+          remote.map(
+            (product) => FavoriteProductEntry(
+              id: 'server:${product.id}',
+              serverProductId: product.id,
+              name: product.name,
+              description: product.description,
+              image: product.imageUrl,
+              price: 'Live menu pricing',
+              branchName: 'GETIN',
+              serviceType: 'delivery',
+            ),
+          ),
+        );
+    } catch (error) {
+      _lastError = error;
+      rethrow;
+    } finally {
+      _refreshing = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> toggle(FavoriteProductEntry product) async {
