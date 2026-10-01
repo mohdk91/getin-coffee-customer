@@ -1004,17 +1004,17 @@ class _SecurityNote extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.shield_outlined, color: AppColors.green, size: 19),
-          SizedBox(width: 9),
+          const Icon(Icons.shield_outlined, color: AppColors.green, size: 19),
+          const SizedBox(width: 9),
           Expanded(
             child: Text(
               live
                   ? 'Live card details are collected directly by Stripe PaymentSheet. GETIN stores only Stripe references and masked card metadata; raw card number and CVC never pass through the GETIN API.'
                   : 'Demo only: full card number and CVV may be entered to test the UI, but they are never persisted. Getin stores only a simulated provider token reference plus masked card metadata.',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.muted,
                 fontSize: 11,
                 height: 1.4,

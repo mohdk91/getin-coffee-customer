@@ -82,7 +82,7 @@ class CustomerPaymentMethod {
       expiryYear: (json['expiryYear'] as num?)?.toInt() ??
           (json['expiry_year'] as num?)?.toInt() ??
           2000,
-      isDefault: json['isDefault'] as bool? ?? json['is_default'] as bool? ?? false,
+      isDefault: json['isDefault'] == true || json['is_default'] == true,
     );
   }
 }

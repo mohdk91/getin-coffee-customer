@@ -104,6 +104,12 @@ class CustomerStripePaymentService {
         setupIntentClientSecret: session.setupIntentClientSecret,
         allowsDelayedPaymentMethods: false,
         paymentMethodOrder: const <String>['card'],
+        cardBrandAcceptance: const CardBrandAcceptance.allowed(
+          brands: <CardBrandCategory>[
+            CardBrandCategory.visa,
+            CardBrandCategory.mastercard,
+          ],
+        ),
       ),
     );
     await Stripe.instance.presentPaymentSheet();
@@ -120,6 +126,12 @@ class CustomerStripePaymentService {
         paymentIntentClientSecret: session.paymentIntentClientSecret,
         allowsDelayedPaymentMethods: false,
         paymentMethodOrder: const <String>['card'],
+        cardBrandAcceptance: const CardBrandAcceptance.allowed(
+          brands: <CardBrandCategory>[
+            CardBrandCategory.visa,
+            CardBrandCategory.mastercard,
+          ],
+        ),
       ),
     );
     await Stripe.instance.presentPaymentSheet();
