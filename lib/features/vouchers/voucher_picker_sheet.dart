@@ -26,10 +26,12 @@ Future<void> showVoucherPickerSheet(
               )
               .toList(growable: false);
           final eligible =
-              active.where(cart.isVoucherApplicable).toList(growable: false)
-                ..sort(
-                  (a, b) => b.discountAmount.compareTo(a.discountAmount),
-                );
+              active.where(cart.isVoucherApplicable).toList(growable: false);
+          if (!vouchers.usesApi) {
+            eligible.sort(
+              (a, b) => b.discountAmount.compareTo(a.discountAmount),
+            );
+          }
           final applied = cart.appliedVoucher;
 
           return SafeArea(
@@ -60,11 +62,11 @@ Future<void> showVoucherPickerSheet(
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Use a voucher',
                                 style: TextStyle(
                                   color: AppColors.green,
@@ -72,10 +74,12 @@ Future<void> showVoucherPickerSheet(
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4),
                               Text(
-                                'Choose a saved voucher, or automatically apply the best eligible saving.',
-                                style: TextStyle(
+                                vouchers.usesApi
+                                    ? 'Choose a server voucher. Laravel will confirm eligibility and the final saving.'
+                                    : 'Choose a saved voucher, or automatically apply the best eligible saving.',
+                                style: const TextStyle(
                                   color: AppColors.muted,
                                   fontSize: 11,
                                 ),
@@ -91,7 +95,7 @@ Future<void> showVoucherPickerSheet(
                       ],
                     ),
                   ),
-                  if (eligible.isNotEmpty)
+                  if (!vouchers.usesApi && eligible.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                       child: _BestVoucherCard(
@@ -124,6 +128,7 @@ Future<void> showVoucherPickerSheet(
 
                               return _VoucherOption(
                                 voucher: voucher,
+                                serverManaged: vouchers.usesApi || voucher.serverManaged,
                                 eligible: isEligible,
                                 selected: selected,
                                 reason: isEligible
@@ -282,6 +287,7 @@ class _EmptyVouchers extends StatelessWidget {
 
 class _VoucherOption extends StatelessWidget {
   final CustomerVoucher voucher;
+  final bool serverManaged;
   final bool eligible;
   final bool selected;
   final String? reason;
@@ -289,6 +295,7 @@ class _VoucherOption extends StatelessWidget {
 
   const _VoucherOption({
     required this.voucher,
+    required this.serverManaged,
     required this.eligible,
     required this.selected,
     required this.reason,
@@ -303,6 +310,9 @@ class _VoucherOption extends StatelessWidget {
     final discount = voucher.discountAmount.toStringAsFixed(
       voucher.discountAmount == voucher.discountAmount.roundToDouble() ? 0 : 2,
     );
+    final serverDetail = voucher.description.trim().isNotEmpty
+        ? voucher.description.trim()
+        : 'Final saving confirmed by Laravel at checkout.';
 
     return Material(
       color: selected ? const Color(0xFFF0E8D4) : Colors.white,
@@ -372,7 +382,9 @@ class _VoucherOption extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${voucher.code} · EGP $discount off',
+                      serverManaged
+                          ? voucher.code
+                          : '${voucher.code} · EGP $discount off',
                       style: const TextStyle(
                         color: AppColors.gold,
                         fontSize: 9.5,
@@ -381,7 +393,9 @@ class _VoucherOption extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'Minimum spend EGP $minimum',
+                      serverManaged
+                          ? serverDetail
+                          : 'Minimum spend EGP $minimum',
                       style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 9.2,
@@ -390,7 +404,9 @@ class _VoucherOption extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       eligible
-                          ? 'Eligible for your current cart.'
+                          ? serverManaged
+                              ? 'Laravel will verify this voucher and calculate the final saving.'
+                              : 'Eligible for your current cart.'
                           : reason ?? 'Not eligible for this cart.',
                       style: TextStyle(
                         color: eligible ? AppColors.muted : Colors.red.shade400,

@@ -49,11 +49,11 @@ Future<void> showRewardPickerSheet(
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Use a reward',
                                 style: TextStyle(
                                   color: AppColors.green,
@@ -61,10 +61,12 @@ Future<void> showRewardPickerSheet(
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4),
                               Text(
-                                'Only rewards eligible for this cart can be applied.',
-                                style: TextStyle(
+                                rewards.usesApi
+                                    ? 'Choose a redeemed reward. Laravel will confirm it against this checkout.'
+                                    : 'Only rewards eligible for this cart can be applied.',
+                                style: const TextStyle(
                                   color: AppColors.muted,
                                   fontSize: 11,
                                 ),
