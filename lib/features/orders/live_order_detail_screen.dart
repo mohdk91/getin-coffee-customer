@@ -738,7 +738,7 @@ class _DeliveryVerificationCard extends StatelessWidget {
               Expanded(
                 child: FilledButton.tonalIcon(
                   onPressed: busy ? null : onIssuePin,
-                  icon: const Icon(Icons.pin_outlined),
+                  icon: const Icon(Icons.lock_outline_rounded),
                   label: const Text('Issue PIN'),
                 ),
               ),
