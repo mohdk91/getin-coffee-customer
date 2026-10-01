@@ -673,7 +673,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               ),
                             );
                           },
-                          onRate: order.status == GetinOrderStatus.delivered
+                          onRate: !controller.usesApi &&
+                                  order.status == GetinOrderStatus.delivered
                               ? () {
                                   Navigator.push(
                                     context,
