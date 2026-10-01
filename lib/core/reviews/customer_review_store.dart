@@ -341,6 +341,27 @@ class CustomerReviewStore extends ChangeNotifier {
     return refreshed?.delivery.submitted == true;
   }
 
+  Future<bool> submitLiveEmployeeReview({
+    required int orderId,
+    required int rating,
+    required String comment,
+  }) async {
+    if (!usesApi || orderId <= 0) return false;
+    final status = await loadOrderStatus(orderId, force: true);
+    if (status?.employee.eligible != true) {
+      return false;
+    }
+
+    await _repository!.submitEmployeeReview(
+      orderId: orderId,
+      rating: rating,
+      comment: comment,
+    );
+    await _refreshApi();
+    final refreshed = await loadOrderStatus(orderId, force: true);
+    return refreshed?.employee.submitted == true;
+  }
+
   Future<bool> submitLiveReview({
     required String orderId,
     required int rating,
@@ -364,7 +385,7 @@ class CustomerReviewStore extends ChangeNotifier {
         comment: comment,
       );
     } else if (employeeName != null) {
-      await _repository!.submitEmployeeReview(
+      return submitLiveEmployeeReview(
         orderId: numericOrderId,
         rating: rating,
         comment: comment,
@@ -372,8 +393,6 @@ class CustomerReviewStore extends ChangeNotifier {
     } else {
       return false;
     }
-    await _refreshApi();
-    return true;
   }
 
   void _load() {
