@@ -122,7 +122,7 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
       return 'Perfect, I’m almost there.';
     }
     if (text.contains('where')) {
-      return 'I’m on the way now. The live tracking card on your order shows the demo route and ETA.';
+      return 'I’m on the way now. Open your order tracking card to view the current delivery location.';
     }
     return 'Got it. See you shortly.';
   }
@@ -190,7 +190,7 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
                         const SizedBox(height: 2),
                         Text(
                           _store.usesApi
-                              ? 'Live driver chat · synced with this delivery'
+                              ? 'Live driver chat · GPS remains server-authoritative in Order Details'
                               : 'Demo driver chat · available during delivery',
                           style: const TextStyle(
                             color: Colors.white70,
