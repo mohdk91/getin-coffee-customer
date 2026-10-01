@@ -31,12 +31,34 @@ class ManagedProductSections extends StatelessWidget {
             .where((section) => const {'best_sellers', 'seasonal', 'popular'}.contains(section.key))
             .toList()
           ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        final collections = MobileAppContentStore.instance.menuCollections
+            .where((collection) => collection.productIds.isNotEmpty)
+            .toList()
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
         final products = CustomerCatalogStore.instance.productsForBranch(branchId);
-        if (configs.isEmpty || products.isEmpty) return const SizedBox.shrink();
+        if ((configs.isEmpty && collections.isEmpty) || products.isEmpty) {
+          return const SizedBox.shrink();
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            for (final collection in collections) ...[
+              _ManagedProductSection(
+                config: MobileHomeSectionConfig(
+                  id: collection.id,
+                  key: 'collection:${collection.slug}',
+                  title: collection.title,
+                  subtitle: collection.subtitle,
+                  source: 'menu_collection',
+                  sortOrder: collection.sortOrder,
+                ),
+                products: _collectionProducts(collection, products),
+                branchName: branchName,
+                serviceType: serviceType,
+              ),
+              const SizedBox(height: 22),
+            ],
             for (final section in configs) ...[
               _ManagedProductSection(
                 config: section,
@@ -50,6 +72,17 @@ class ManagedProductSections extends StatelessWidget {
         );
       },
     );
+  }
+
+  List<CatalogProduct> _collectionProducts(
+    MobileMenuCollection collection,
+    List<CatalogProduct> products,
+  ) {
+    final byId = <int, CatalogProduct>{for (final product in products) product.id: product};
+    return collection.productIds
+        .map((id) => byId[id])
+        .whereType<CatalogProduct>()
+        .toList(growable: false);
   }
 
   List<CatalogProduct> _productsFor(
