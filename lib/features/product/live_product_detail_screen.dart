@@ -419,6 +419,12 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
                     if (configuration != null) ...[
                       const SizedBox(height: 14),
                       ..._configurationCards(product, configuration),
+                      if (product.galleryItems.length > 1) ...[
+                        const SizedBox(height: 14),
+                        _LiveProductGallery(product: product),
+                      ],
+                      const SizedBox(height: 14),
+                      _LiveProductInformation(product: product),
                       if (_quoteError != null) ...[
                         const SizedBox(height: 14),
                         _LiveProductStatusCard(
@@ -800,6 +806,121 @@ class _LiveChoiceChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LiveProductGallery extends StatelessWidget {
+  final CatalogProduct product;
+
+  const _LiveProductGallery({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    return _LiveSectionCard(
+      title: 'Gallery',
+      subtitle: '${product.galleryItems.length} product images',
+      child: SizedBox(
+        height: 126,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: product.galleryItems.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 9),
+          itemBuilder: (context, index) {
+            final image = product.galleryItems[index];
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(13),
+              child: SizedBox(
+                width: 126,
+                child: _LiveRemoteAwareImage(image: image.url),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveProductInformation extends StatelessWidget {
+  final CatalogProduct product;
+
+  const _LiveProductInformation({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <(String, String)>[
+      if (product.description?.trim().isNotEmpty == true)
+        ('Description', product.description!.trim()),
+      if (product.ingredients?.trim().isNotEmpty == true)
+        ('Ingredients', product.ingredients!.trim()),
+      if (product.allergens?.trim().isNotEmpty == true)
+        ('Allergens', product.allergens!.trim()),
+      if (product.calories != null)
+        ('Calories', '${product.calories} kcal'),
+      if (product.preparationTimeMinutes != null)
+        ('Preparation', '${product.preparationTimeMinutes} min'),
+    ];
+
+    if (rows.isEmpty) {
+      return const _LiveProductStatusCard(
+        icon: Icons.info_outline_rounded,
+        title: 'Product information',
+        body: 'No additional product information is published yet.',
+      );
+    }
+
+    return _LiveSectionCard(
+      title: 'Product Information',
+      subtitle: 'Published product details',
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index++) ...[
+            _LiveInfoRow(title: rows[index].$1, value: rows[index].$2),
+            if (index != rows.length - 1)
+              const Divider(height: 18, color: AppColors.border),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveInfoRow extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _LiveInfoRow({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 96,
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.green,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 10.5,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
