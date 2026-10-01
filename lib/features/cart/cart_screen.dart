@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/catalog/customer_catalog_store.dart';
 import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/products/product_type.dart';
 import '../../core/theme/app_colors.dart';
@@ -49,6 +50,44 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _editItem(CartItem item) async {
+    final catalog = CustomerCatalogStore.instance;
+    if (catalog.usesApi) {
+      final branchId = item.branchId;
+      final productId = item.productId;
+      if (branchId == null || productId == null) {
+        _showCartMessage(
+          'This saved item has no live product identity. Remove it and add it again from the current menu.',
+        );
+        return;
+      }
+
+      try {
+        final product = await catalog.loadProduct(branchId, productId);
+        if (product == null || !mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProductDetailScreen(
+              name: product.name,
+              description: product.shortDescription,
+              image: product.imageUrl ?? item.image,
+              price: product.displayPrice,
+              branchName: item.branchName,
+              serviceType: item.serviceType,
+              branchId: branchId,
+              catalogProduct: product,
+              editingItem: item,
+            ),
+          ),
+        );
+        return;
+      } catch (_) {
+        _showCartMessage(
+          'Could not reload this item from the live menu. Nothing was changed.',
+        );
+        return;
+      }
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProductDetailScreen(
@@ -62,6 +101,13 @@ class _CartScreenState extends State<CartScreen> {
         ),
       ),
     );
+  }
+
+  void _showCartMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _addRecommendation({
@@ -185,19 +231,20 @@ class _CartScreenState extends State<CartScreen> {
                           },
                         ),
                       ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            16,
-                            20,
-                            16,
-                            0,
-                          ),
-                          child: _Recommendations(
-                            onAdd: _addRecommendation,
+                      if (!CustomerCatalogStore.instance.usesApi)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              16,
+                              20,
+                              16,
+                              0,
+                            ),
+                            child: _Recommendations(
+                              onAdd: _addRecommendation,
+                            ),
                           ),
                         ),
-                      ),
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(
