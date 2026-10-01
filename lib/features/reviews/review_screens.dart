@@ -555,30 +555,52 @@ class _ReviewComposerScreenState extends State<ReviewComposerScreen> {
     ].join(' — ');
 
     if (store.usesApi) {
-      final submitted = await store.submitLiveReview(
-        orderId: widget.orderId,
-        rating: _rating,
-        comment: combinedComment,
-        driverName: widget.driverName,
-        employeeName: widget.employeeName,
-        branchName: widget.branchName,
-        productName: widget.productName,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _submitting = false);
-      if (!submitted) {
+      if (!widget.isDriver && !widget.isEmployee) {
+        setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'This review type is not available on the production API yet.',
+              'GETIN does not expose this review type in the production API.',
             ),
           ),
         );
         return;
       }
-      Navigator.of(context).pop();
+
+      try {
+        final submitted = await store.submitLiveReview(
+          orderId: widget.orderId,
+          rating: _rating,
+          comment: combinedComment,
+          driverName: widget.driverName,
+          employeeName: widget.employeeName,
+        );
+        if (!mounted) {
+          return;
+        }
+        setState(() => _submitting = false);
+        if (!submitted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'GETIN says this review is no longer eligible or was already submitted.',
+              ),
+            ),
+          );
+          return;
+        }
+        Navigator.of(context).pop();
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not submit this review to GETIN. Nothing was saved locally.',
+            ),
+          ),
+        );
+      }
       return;
     }
 
