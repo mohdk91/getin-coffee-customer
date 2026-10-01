@@ -17,6 +17,7 @@ import '../../core/rewards/customer_rewards_store.dart';
 import '../../core/rewards/customer_stamp_card_store.dart';
 import '../../core/rewards/reward_earning_policy.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/vouchers/customer_voucher_store.dart';
 import '../addresses/saved_addresses_screen.dart';
 import '../cart/cart_controller.dart';
 import '../membership/membership_screen.dart';
@@ -266,6 +267,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return;
       }
     }
+
+    if (!mounted) return;
 
     if (_paymentTender == 'cash' && !CartController.previewCashAllowed) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2033,7 +2036,7 @@ class _LiveCheckoutSummary extends StatelessWidget {
                   ? 'Promotion'
                   : 'Promotion · $promotionLabel',
               value: '- ${money(current.discountTotal)}',
-              saving: true,
+              highlight: true,
             ),
           if (current.deliveryFee > 0)
             _CheckoutSummaryRow(
@@ -2049,7 +2052,7 @@ class _LiveCheckoutSummary extends StatelessWidget {
           _CheckoutSummaryRow(
             label: 'Total',
             value: money(current.total),
-            emphasized: true,
+            strong: true,
           ),
           if (error != null) ...[
             const SizedBox(height: 8),
