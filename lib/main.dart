@@ -56,9 +56,9 @@ Future<void> main() async {
     repository:
         CustomerPreferencesRepository(CustomerAuthStore.instance.context),
   );
+  await CustomerReferralStore.initialize(CustomerAuthStore.instance.context);
   await CustomerAccountSync.refreshAfterAuthentication();
   await CustomerVoucherStore.initialize(CustomerAuthStore.instance.context);
-  await CustomerReferralStore.initialize(CustomerAuthStore.instance.context);
   await CustomerReviewStore.initialize(CustomerAuthStore.instance.context);
   await CustomerOrdersController.initialize(CustomerAuthStore.instance.context);
   await CartController.initialize();

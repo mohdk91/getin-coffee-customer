@@ -570,11 +570,12 @@ class _StampCard extends StatelessWidget {
               ),
             ],
           ),
-          if (memberActive) ...[
+          if (memberActive &&
+              CustomerMembershipStore.instance.hasBonusMultiplier) ...[
             const SizedBox(height: 8),
-            const Text(
-              'Membership gives 1.5× Stars. Stamp earning remains 1 stamp per eligible drink.',
-              style: TextStyle(
+            Text(
+              '${CustomerMembershipStore.instance.earningMultiplierLabel} tier Stars earning is active. Stamp earning follows the active campaign.',
+              style: const TextStyle(
                 color: AppColors.muted,
                 fontSize: 9.2,
                 height: 1.3,
