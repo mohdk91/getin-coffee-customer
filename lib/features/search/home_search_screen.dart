@@ -329,7 +329,7 @@ class _HomeSearchScreenState extends State<HomeSearchScreen> {
                                             const SizedBox(width: 2),
                                             Expanded(
                                               child: Text(
-                                                '+${RewardEarningPolicy.starsForPrice(product.price, isMember: CustomerMembershipStore.instance.isActive)} Stars${CustomerMembershipStore.instance.isActive ? ' · 1.5×' : ''}',
+                                                '+${RewardEarningPolicy.starsForPrice(product.price, isMember: CustomerMembershipStore.instance.isActive, multiplier: CustomerMembershipStore.instance.earningMultiplier)} Stars${CustomerMembershipStore.instance.hasBonusMultiplier ? ' · ${CustomerMembershipStore.instance.earningMultiplierLabel}' : ''}',
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(

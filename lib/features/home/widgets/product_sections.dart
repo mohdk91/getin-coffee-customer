@@ -450,6 +450,7 @@ class _ProductCard extends StatelessWidget {
     final earnedStars = RewardEarningPolicy.starsForPrice(
       product.price,
       isMember: CustomerMembershipStore.instance.isActive,
+      multiplier: CustomerMembershipStore.instance.earningMultiplier,
     );
 
     return Material(
@@ -581,7 +582,7 @@ class _ProductCard extends StatelessWidget {
                         const SizedBox(width: 3),
                         Flexible(
                           child: Text(
-                            '+$earnedStars Stars${CustomerMembershipStore.instance.isActive ? ' · 1.5×' : ''}',
+                            '+$earnedStars Stars${CustomerMembershipStore.instance.hasBonusMultiplier ? ' · ${CustomerMembershipStore.instance.earningMultiplierLabel}' : ''}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
