@@ -48,6 +48,9 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
       orderId: widget.orderId,
       driverName: widget.driverName,
     );
+    if (_store.usesApi) {
+      await _store.markThreadRead(_threadId);
+    }
     _scheduleScroll();
   }
 
@@ -75,6 +78,14 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
     });
   }
 
+  Future<void> _refreshLiveThread() async {
+    if (!_store.usesApi) {
+      return;
+    }
+    await _store.refreshThread(_threadId);
+    await _store.markThreadRead(_threadId);
+  }
+
   Future<void> _send([String? preset]) async {
     if (_sending) return;
     final text = (preset ?? _controller.text).trim();
@@ -86,12 +97,16 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
       author: CustomerChatAuthor.customer,
       text: text,
     );
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    await _store.addMessage(
-      threadId: _threadId,
-      author: CustomerChatAuthor.driver,
-      text: _driverReply(text),
-    );
+    if (_store.usesApi) {
+      await _store.markThreadRead(_threadId);
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      await _store.addMessage(
+        threadId: _threadId,
+        author: CustomerChatAuthor.driver,
+        text: _driverReply(text),
+      );
+    }
     if (mounted) setState(() => _sending = false);
   }
 
@@ -173,9 +188,11 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
-                          'Demo driver chat · available during delivery',
-                          style: TextStyle(
+                        Text(
+                          _store.usesApi
+                              ? 'Live driver chat · synced with this delivery'
+                              : 'Demo driver chat · available during delivery',
+                          style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
                           ),
@@ -210,11 +227,14 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
             ),
             const SizedBox(height: 6),
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: RefreshIndicator(
+                onRefresh: _refreshLiveThread,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   final message = messages[index];
@@ -263,7 +283,8 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
                       ),
                     ),
                   );
-                },
+                  },
+                ),
               ),
             ),
             SafeArea(

@@ -55,11 +55,14 @@ class CustomerNotificationsStore extends ChangeNotifier {
   CustomerEngagementApiRepository? _repository;
   List<CustomerNotificationItem> _items = const <CustomerNotificationItem>[];
   bool _loading = false;
+  int _serverUnreadCount = 0;
 
   List<CustomerNotificationItem> get items => List.unmodifiable(_items);
   bool get loading => _loading;
   bool get usesApi => _repository?.usesApi ?? false;
-  int get unreadCount => _items.where((item) => !item.isRead).length;
+  int get unreadCount => usesApi
+      ? _serverUnreadCount
+      : _items.where((item) => !item.isRead).length;
 
   static Future<void> initialize(CustomerRepositoryContext context) async {
     instance._repository = CustomerEngagementApiRepository(context);
@@ -79,7 +82,9 @@ class CustomerNotificationsStore extends ChangeNotifier {
     notifyListeners();
     try {
       final items = await repository.notifications();
+      final unreadCount = await repository.notificationUnreadCount();
       _items = items.map(CustomerNotificationItem.fromApi).toList();
+      _serverUnreadCount = unreadCount;
     } finally {
       _loading = false;
       notifyListeners();
@@ -95,6 +100,9 @@ class CustomerNotificationsStore extends ChangeNotifier {
     final repository = _repository;
     if (repository != null && repository.usesApi) {
       await repository.markNotificationRead(id);
+      if (_serverUnreadCount > 0) {
+        _serverUnreadCount -= 1;
+      }
     }
     _items = <CustomerNotificationItem>[
       for (var i = 0; i < _items.length; i++)
@@ -107,6 +115,7 @@ class CustomerNotificationsStore extends ChangeNotifier {
     final repository = _repository;
     if (repository != null && repository.usesApi) {
       await repository.markAllNotificationsRead();
+      _serverUnreadCount = 0;
     }
     _items = _items.map((item) => item.copyWith(isRead: true)).toList();
     notifyListeners();

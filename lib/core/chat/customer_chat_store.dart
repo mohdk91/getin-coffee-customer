@@ -155,12 +155,11 @@ class CustomerChatStore extends ChangeNotifier {
       if (conversationId == null) {
         return;
       }
-      final message = await _repository!.sendConversationMessage(
+      await _repository!.sendConversationMessage(
         conversationId: conversationId,
         body: clean,
       );
-      _messages.add(_messageFromApi(threadId, message));
-      notifyListeners();
+      await refreshThread(threadId);
       return;
     }
 
@@ -176,6 +175,48 @@ class CustomerChatStore extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
+  }
+
+  Future<void> refreshThread(String threadId) async {
+    await _ensureInitialized();
+    if (!usesApi) {
+      return;
+    }
+    final conversationId = _conversationIds[threadId];
+    if (conversationId == null) {
+      return;
+    }
+    final conversation = await _repository!.conversation(conversationId);
+    final rawMessages = conversation['messages'];
+    _messages.removeWhere((message) => message.threadId == threadId);
+    if (rawMessages is List) {
+      _messages.addAll(
+        rawMessages.whereType<Map>().map(
+              (raw) => _messageFromApi(
+                threadId,
+                Map<String, dynamic>.from(raw),
+              ),
+            ),
+      );
+    }
+    notifyListeners();
+  }
+
+  Future<void> markThreadRead(String threadId) async {
+    await _ensureInitialized();
+    if (!usesApi) {
+      return;
+    }
+    final conversationId = _conversationIds[threadId];
+    if (conversationId == null) {
+      return;
+    }
+    final messages = messagesFor(threadId);
+    final lastMessageId = messages.isEmpty ? null : int.tryParse(messages.last.id);
+    await _repository!.markConversationRead(
+      conversationId,
+      messageId: lastMessageId,
+    );
   }
 
   Future<void> clearThread(String threadId) async {
@@ -196,20 +237,7 @@ class CustomerChatStore extends ChangeNotifier {
       return;
     }
     _conversationIds[threadId] = id;
-    final conversation = await _repository!.conversation(id);
-    final rawMessages = conversation['messages'];
-    _messages.removeWhere((message) => message.threadId == threadId);
-    if (rawMessages is List) {
-      _messages.addAll(
-        rawMessages.whereType<Map>().map(
-              (raw) => _messageFromApi(
-                threadId,
-                Map<String, dynamic>.from(raw),
-              ),
-            ),
-      );
-    }
-    notifyListeners();
+    await refreshThread(threadId);
   }
 
   CustomerChatMessage _messageFromApi(
