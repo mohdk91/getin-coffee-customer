@@ -541,7 +541,7 @@ class _GiftCardWalletScreenState extends State<GiftCardWalletScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
     if (result == GiftCardRedeemResult.success) {
       _codeController.clear();
-      setState(() => _filter = GiftCardStatus.redeemed);
+      setState(() => _filter = GiftCardStatus.received);
     }
   }
 
@@ -763,8 +763,16 @@ class _GiftCardWalletScreenState extends State<GiftCardWalletScreen> {
                 for (final card in cards) ...[
                   _GiftCardTile(
                     card: card,
-                    onRedeem: card.status == GiftCardStatus.received
+                    onRedeem: !store.usesApi &&
+                            card.status == GiftCardStatus.received
                         ? () => _redeem(card.code)
+                        : null,
+                    onActivity: store.usesApi
+                        ? () => showModalBottomSheet<void>(
+                              context: context,
+                              showDragHandle: true,
+                              builder: (_) => _GiftCardActivitySheet(card: card),
+                            )
                         : null,
                   ),
                   const SizedBox(height: 10),
@@ -780,8 +788,13 @@ class _GiftCardWalletScreenState extends State<GiftCardWalletScreen> {
 class _GiftCardTile extends StatelessWidget {
   final CustomerGiftCard card;
   final VoidCallback? onRedeem;
+  final VoidCallback? onActivity;
 
-  const _GiftCardTile({required this.card, this.onRedeem});
+  const _GiftCardTile({
+    required this.card,
+    this.onRedeem,
+    this.onActivity,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -800,7 +813,7 @@ class _GiftCardTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    '${card.currency} ${card.amount.toStringAsFixed(card.amount == card.amount.roundToDouble() ? 0 : 2)}',
+                    '${card.currency} ${card.currentBalance.toStringAsFixed(card.currentBalance == card.currentBalance.roundToDouble() ? 0 : 2)}',
                     style: const TextStyle(
                       color: AppColors.green,
                       fontSize: 19,
@@ -865,6 +878,117 @@ class _GiftCardTile extends StatelessWidget {
                 ),
               ),
             ],
+            if (onActivity != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: onActivity,
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('View balance activity'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GiftCardActivitySheet extends StatefulWidget {
+  final CustomerGiftCard card;
+
+  const _GiftCardActivitySheet({required this.card});
+
+  @override
+  State<_GiftCardActivitySheet> createState() =>
+      _GiftCardActivitySheetState();
+}
+
+class _GiftCardActivitySheetState extends State<_GiftCardActivitySheet> {
+  late final Future<List<CustomerGiftCardTransaction>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = CustomerGiftCardStore.instance
+        .refreshTransactions(widget.card.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Gift card ${widget.card.code}',
+              style: const TextStyle(
+                color: AppColors.green,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${widget.card.currency} ${widget.card.currentBalance.toStringAsFixed(2)} available',
+              style: const TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: FutureBuilder<List<CustomerGiftCardTransaction>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Text('Could not load gift-card activity.');
+                  }
+                  final items = snapshot.data ?? const <CustomerGiftCardTransaction>[];
+                  if (items.isEmpty) {
+                    return const Text('No gift-card activity yet.');
+                  }
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      final positive = item.amount >= 0;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          positive
+                              ? Icons.add_circle_outline_rounded
+                              : Icons.remove_circle_outline_rounded,
+                          color: AppColors.green,
+                        ),
+                        title: Text(
+                          item.description?.trim().isNotEmpty == true
+                              ? item.description!
+                              : item.type,
+                        ),
+                        subtitle: Text(
+                          'Balance after: ${widget.card.currency} ${item.balanceAfter.toStringAsFixed(2)}',
+                        ),
+                        trailing: Text(
+                          '${positive ? '+' : ''}${item.amount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: AppColors.green,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),

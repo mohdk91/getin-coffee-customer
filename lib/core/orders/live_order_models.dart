@@ -216,6 +216,42 @@ class LiveDeliveryQr {
   }
 }
 
+
+@immutable
+class LiveGiftCardSettlement {
+  final int id;
+  final String? lastFour;
+  final String currency;
+  final double applied;
+  final double refunded;
+  final double netApplied;
+  final double amountDue;
+  final double? balance;
+
+  const LiveGiftCardSettlement({
+    required this.id,
+    required this.lastFour,
+    required this.currency,
+    required this.applied,
+    required this.refunded,
+    required this.netApplied,
+    required this.amountDue,
+    required this.balance,
+  });
+
+  factory LiveGiftCardSettlement.fromJson(Map<String, dynamic> json) =>
+      LiveGiftCardSettlement(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        lastFour: _nullableText(json['last_four']),
+        currency: json['currency']?.toString() ?? '',
+        applied: _money(json['applied']),
+        refunded: _money(json['refunded']),
+        netApplied: _money(json['net_applied']),
+        amountDue: _money(json['amount_due']),
+        balance: json['balance'] == null ? null : _money(json['balance']),
+      );
+}
+
 @immutable
 class LiveOrderDetail {
   final int id;
@@ -224,6 +260,8 @@ class LiveOrderDetail {
   final String status;
   final String paymentStatus;
   final String paymentMethod;
+  final LiveGiftCardSettlement? giftCard;
+  final double amountDue;
   final double subtotal;
   final double discountTotal;
   final double deliveryFee;
@@ -248,6 +286,8 @@ class LiveOrderDetail {
     required this.status,
     required this.paymentStatus,
     required this.paymentMethod,
+    required this.giftCard,
+    required this.amountDue,
     required this.subtotal,
     required this.discountTotal,
     required this.deliveryFee,
@@ -278,6 +318,7 @@ class LiveOrderDetail {
         ? Map<String, dynamic>.from(json['branch'] as Map)
         : const <String, dynamic>{};
     final rawAddress = json['delivery_address'];
+    final rawGiftCard = json['gift_card'];
     final rawItems = json['items'];
     final rawTimeline = json['timeline'];
 
@@ -288,6 +329,12 @@ class LiveOrderDetail {
       status: json['status']?.toString() ?? '',
       paymentStatus: json['payment_status']?.toString() ?? '',
       paymentMethod: json['payment_method']?.toString() ?? '',
+      giftCard: rawGiftCard is Map
+          ? LiveGiftCardSettlement.fromJson(
+              Map<String, dynamic>.from(rawGiftCard),
+            )
+          : null,
+      amountDue: _money(json['amount_due'] ?? json['total']),
       subtotal: _money(json['subtotal']),
       discountTotal: _money(json['discount_total']),
       deliveryFee: _money(json['delivery_fee']),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth/customer_auth_store.dart';
+import '../../core/gift_cards/customer_gift_card_store.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/orders/live_order_lifecycle_service.dart';
 import '../../core/orders/live_order_models.dart';
@@ -140,6 +141,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
         reason: reason,
       );
       await _refreshAuthoritativeState();
+      await CustomerGiftCardStore.instance.refresh();
       await _notifyOrderChanged();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1112,6 +1114,28 @@ class _LiveOrderPaymentCard extends StatelessWidget {
             detail: detail,
             strong: true,
           ),
+          if (detail.giftCard != null && detail.giftCard!.applied > 0) ...[
+            const SizedBox(height: 4),
+            _AmountRow(
+              label: detail.giftCard!.lastFour == null
+                  ? 'Gift card'
+                  : 'Gift card •••• ${detail.giftCard!.lastFour}',
+              value: -detail.giftCard!.applied,
+              detail: detail,
+            ),
+            if (detail.giftCard!.refunded > 0)
+              _AmountRow(
+                label: 'Gift card restored',
+                value: detail.giftCard!.refunded,
+                detail: detail,
+              ),
+            _AmountRow(
+              label: 'Amount due',
+              value: detail.amountDue,
+              detail: detail,
+              strong: true,
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
             '${_titleCase(detail.paymentMethod)} · ${_titleCase(detail.paymentStatus)}',
