@@ -10,6 +10,10 @@ import '../../core/rewards/customer_rewards_store.dart';
 import '../../core/vouchers/customer_voucher_store.dart';
 
 class CartItem {
+  final int? branchId;
+  final int? productId;
+  final int? variantId;
+  final List<int> optionValueIds;
   final String name;
   final String description;
   final String image;
@@ -32,6 +36,10 @@ class CartItem {
   final String? color;
 
   const CartItem({
+    this.branchId,
+    this.productId,
+    this.variantId,
+    this.optionValueIds = const <int>[],
     required this.name,
     required this.description,
     required this.image,
@@ -63,6 +71,13 @@ class CartItem {
     final rawAddOns = json['addOns'];
 
     return CartItem(
+      branchId: (json['branchId'] as num?)?.toInt(),
+      productId: (json['productId'] as num?)?.toInt(),
+      variantId: (json['variantId'] as num?)?.toInt(),
+      optionValueIds: (json['optionValueIds'] as List? ?? const <dynamic>[])
+          .whereType<num>()
+          .map((value) => value.toInt())
+          .toList(growable: false),
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       image: json['image'] as String? ?? '',
@@ -89,6 +104,10 @@ class CartItem {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
+        'branchId': branchId,
+        'productId': productId,
+        'variantId': variantId,
+        'optionValueIds': optionValueIds,
         'name': name,
         'description': description,
         'image': image,
@@ -114,6 +133,10 @@ class CartItem {
   String get signature {
     final sortedAddOns = [...addOns]..sort();
     return [
+      branchId?.toString() ?? '',
+      productId?.toString() ?? '',
+      variantId?.toString() ?? '',
+      ([...optionValueIds]..sort()).join(','),
       branchName,
       serviceType,
       currency,
@@ -131,6 +154,8 @@ class CartItem {
       sortedAddOns.join(','),
     ].join('|');
   }
+
+  bool get hasServerIdentity => branchId != null && productId != null;
 
   double get lineTotal => unitPrice * quantity;
 
@@ -176,6 +201,10 @@ class CartItem {
   }
 
   CartItem copyWith({
+    int? branchId,
+    int? productId,
+    int? variantId,
+    List<int>? optionValueIds,
     int? quantity,
     double? unitPrice,
     String? size,
@@ -191,6 +220,10 @@ class CartItem {
     String? color,
   }) {
     return CartItem(
+      branchId: branchId ?? this.branchId,
+      productId: productId ?? this.productId,
+      variantId: variantId ?? this.variantId,
+      optionValueIds: optionValueIds ?? this.optionValueIds,
       name: name,
       description: description,
       image: image,
@@ -242,6 +275,7 @@ class CartController extends ChangeNotifier {
 
   final List<CartItem> _items = <CartItem>[];
 
+  int? _currentBranchId;
   String? _currentBranchName;
   String _currentServiceType = 'delivery';
   double? _userLatitude;
@@ -286,6 +320,7 @@ class CartController extends ChangeNotifier {
       _items
         ..clear()
         ..addAll(restored);
+      _currentBranchId = (map['currentBranchId'] as num?)?.toInt();
       _currentBranchName = map['currentBranchName'] as String?;
       _currentServiceType = map['currentServiceType'] as String? ?? 'delivery';
       _userLatitude = (map['userLatitude'] as num?)?.toDouble();
@@ -341,6 +376,10 @@ class CartController extends ChangeNotifier {
     );
   }
 
+  int? get cartBranchId {
+    return _items.isEmpty ? null : _items.first.branchId;
+  }
+
   String? get cartBranchName {
     return _items.isEmpty ? null : _items.first.branchName;
   }
@@ -353,6 +392,7 @@ class CartController extends ChangeNotifier {
     return _items.isEmpty ? 'EGP' : _items.first.currency;
   }
 
+  int? get currentBranchId => _currentBranchId;
   String? get currentBranchName => _currentBranchName;
   String get currentServiceType => _currentServiceType;
   double? get userLatitude => _userLatitude;
@@ -450,6 +490,7 @@ class CartController extends ChangeNotifier {
     final first = _items.first;
     return _items.every(
       (item) =>
+          item.branchId == first.branchId &&
           item.branchName == first.branchName &&
           item.serviceType == first.serviceType &&
           item.currency == first.currency,
@@ -470,11 +511,13 @@ class CartController extends ChangeNotifier {
   }
 
   void setOrderContext({
+    required int branchId,
     required String branchName,
     required String serviceType,
     required double userLatitude,
     required double userLongitude,
   }) {
+    _currentBranchId = branchId;
     _currentBranchName = branchName;
     _currentServiceType = serviceType;
     _userLatitude = userLatitude;
@@ -489,7 +532,8 @@ class CartController extends ChangeNotifier {
 
     final first = _items.first;
 
-    return first.branchName == item.branchName &&
+    return first.branchId == item.branchId &&
+        first.branchName == item.branchName &&
         first.serviceType == item.serviceType &&
         first.currency == item.currency;
   }
@@ -773,6 +817,17 @@ class CartController extends ChangeNotifier {
     unawaited(_persist());
   }
 
+  void completeServerOrder() {
+    // Server-side loyalty/voucher/gift-card state must be refreshed from Laravel.
+    // Never mark local demo benefits as consumed for a production order.
+    _items.clear();
+    _specialRequest = '';
+    _appliedRewardId = null;
+    _appliedVoucherId = null;
+    notifyListeners();
+    unawaited(_persist());
+  }
+
   void completeDemoOrder() {
     final reward = appliedReward;
     if (reward != null) {
@@ -819,8 +874,9 @@ class CartController extends ChangeNotifier {
     await preferences.setString(
       _storageKey,
       jsonEncode(<String, dynamic>{
-        'version': 2,
+        'version': 3,
         'items': _items.map((item) => item.toJson()).toList(growable: false),
+        'currentBranchId': _currentBranchId,
         'currentBranchName': _currentBranchName,
         'currentServiceType': _currentServiceType,
         'userLatitude': _userLatitude,

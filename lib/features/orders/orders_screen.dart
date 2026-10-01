@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/auth/customer_auth_store.dart';
+import '../../core/data/customer_repository.dart';
+import '../../core/orders/customer_orders_api_repository.dart';
 import '../../core/reviews/customer_review_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../auth/sign_in_screen.dart';
@@ -20,6 +23,7 @@ enum OrderFilter {
 }
 
 enum GetinOrderStatus {
+  pending,
   confirmed,
   preparing,
   ready,
@@ -29,6 +33,7 @@ enum GetinOrderStatus {
 }
 
 class GetinOrder {
+  final int? apiOrderId;
   final String id;
   final DateTime placedAt;
   final String branchName;
@@ -47,6 +52,7 @@ class GetinOrder {
   final String? deliveryCode;
 
   const GetinOrder({
+    this.apiOrderId,
     required this.id,
     required this.placedAt,
     required this.branchName,
@@ -66,22 +72,78 @@ class GetinOrder {
   });
 
   bool get isActive {
-    return status == GetinOrderStatus.confirmed ||
+    return status == GetinOrderStatus.pending ||
+        status == GetinOrderStatus.confirmed ||
         status == GetinOrderStatus.preparing ||
         status == GetinOrderStatus.ready ||
         status == GetinOrderStatus.outForDelivery;
   }
 
+  static GetinOrderStatus statusFromApi(String? value) {
+    switch ((value ?? '').trim().toLowerCase()) {
+      case 'pending':
+        return GetinOrderStatus.pending;
+      case 'confirmed':
+      case 'accepted':
+        return GetinOrderStatus.confirmed;
+      case 'preparing':
+      case 'processing':
+        return GetinOrderStatus.preparing;
+      case 'ready':
+      case 'ready_for_pickup':
+        return GetinOrderStatus.ready;
+      case 'out_for_delivery':
+      case 'on_the_way':
+        return GetinOrderStatus.outForDelivery;
+      case 'completed':
+      case 'delivered':
+      case 'collected':
+        return GetinOrderStatus.delivered;
+      case 'cancelled':
+      case 'canceled':
+        return GetinOrderStatus.cancelled;
+      default:
+        return GetinOrderStatus.pending;
+    }
+  }
+
+  factory GetinOrder.fromApiSummary(Map<String, dynamic> json) {
+    final branch = json['branch'] is Map
+        ? Map<String, dynamic>.from(json['branch'] as Map)
+        : const <String, dynamic>{};
+    final apiId = (json['id'] as num?)?.toInt();
+    final orderNumber = json['order_number']?.toString().trim();
+    final currency = json['currency']?.toString().trim();
+    final total = json['total']?.toString().trim();
+    final orderType = json['order_type']?.toString().trim().toLowerCase();
+
+    return GetinOrder(
+      apiOrderId: apiId,
+      id: orderNumber?.isNotEmpty == true
+          ? orderNumber!
+          : (apiId?.toString() ?? ''),
+      placedAt: DateTime.tryParse(json['placed_at']?.toString() ?? '') ??
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      branchName: branch['name']?.toString() ?? 'Getin',
+      fulfillment: orderType == 'pickup' ? 'Pickup' : 'Delivery',
+      status: GetinOrder.statusFromApi(json['status']?.toString()),
+      itemCount: (json['item_count'] as num?)?.toInt() ?? 0,
+      total: '${currency?.isNotEmpty == true ? currency : 'EGP'} ${total?.isNotEmpty == true ? total : '0.00'}',
+      itemImages: const <String>[],
+    );
+  }
+
   factory GetinOrder.fromJson(Map<String, dynamic> json) {
     final statusName = json['status'] as String? ?? '';
-    final status = GetinOrderStatus.values.firstWhere(
-      (value) => value.name == statusName,
-      orElse: () => GetinOrderStatus.confirmed,
-    );
+    final status = GetinOrderStatus.values.any((value) => value.name == statusName)
+        ? GetinOrderStatus.values.firstWhere((value) => value.name == statusName)
+        : GetinOrder.statusFromApi(statusName);
     final rawImages = json['itemImages'];
     final rawProducts = json['reviewProducts'];
 
     return GetinOrder(
+      apiOrderId: (json['apiOrderId'] as num?)?.toInt(),
       id: json['id'] as String? ?? '',
       placedAt: DateTime.tryParse(json['placedAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
@@ -118,6 +180,7 @@ class GetinOrder {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
+        'apiOrderId': apiOrderId,
         'id': id,
         'placedAt': placedAt.toIso8601String(),
         'branchName': branchName,
@@ -153,21 +216,82 @@ class CustomerOrdersController extends ChangeNotifier {
   static const String _storageKey = 'getin_demo_created_orders_v1';
 
   SharedPreferences? _preferences;
+  CustomerOrdersApiRepository? _repository;
   bool _initialized = false;
+  bool _loading = false;
+  String? _errorMessage;
   final List<GetinOrder> _createdOrders = <GetinOrder>[];
 
   List<GetinOrder> get createdOrders => List.unmodifiable(_createdOrders);
+  bool get usesApi => _repository?.usesApi ?? false;
+  bool get loading => _loading;
+  String? get errorMessage => _errorMessage;
 
-  static Future<void> initialize() => instance._initialize();
+  static Future<void> initialize([CustomerRepositoryContext? context]) =>
+      instance._initialize(context);
 
-  Future<void> _initialize() async {
+  Future<void> _initialize(CustomerRepositoryContext? context) async {
     if (_initialized) return;
-    _preferences = await SharedPreferences.getInstance();
+    if (context != null) {
+      _repository = CustomerOrdersApiRepository(context);
+    }
     _initialized = true;
-    _load();
+
+    if (usesApi) {
+      if (CustomerAuthStore.instance.isAuthenticated) {
+        await refreshFromApi();
+      } else {
+        _createdOrders.clear();
+      }
+      return;
+    }
+
+    _preferences = await SharedPreferences.getInstance();
+    _loadDemo();
   }
 
-  void _load() {
+  Future<void> refreshFromApi() async {
+    final repository = _repository;
+    if (repository == null || !repository.usesApi) return;
+    if (!CustomerAuthStore.instance.isAuthenticated) {
+      _createdOrders.clear();
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
+    _loading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await repository.list();
+      final rawData = response['data'];
+      final data = rawData is Map
+          ? Map<String, dynamic>.from(rawData)
+          : const <String, dynamic>{};
+      final rawItems = data['items'];
+      final orders = rawItems is List
+          ? rawItems
+              .whereType<Map>()
+              .map((item) => GetinOrder.fromApiSummary(
+                    Map<String, dynamic>.from(item),
+                  ))
+              .where((order) => order.id.isNotEmpty)
+              .toList(growable: false)
+          : const <GetinOrder>[];
+
+      _createdOrders
+        ..clear()
+        ..addAll(orders);
+    } catch (_) {
+      _errorMessage = 'Unable to refresh orders from GETIN right now.';
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  void _loadDemo() {
     final raw = _preferences?.getString(_storageKey);
     if (raw == null || raw.trim().isEmpty) return;
 
@@ -195,19 +319,25 @@ class CustomerOrdersController extends ChangeNotifier {
   }
 
   void addCreatedOrder(GetinOrder order) {
-    _createdOrders.removeWhere((existing) => existing.id == order.id);
+    _createdOrders.removeWhere((existing) =>
+        (order.apiOrderId != null && existing.apiOrderId == order.apiOrderId) ||
+        existing.id == order.id);
     _createdOrders.insert(0, order);
     notifyListeners();
-    unawaited(_persist());
+    if (!usesApi) {
+      unawaited(_persistDemo());
+    }
   }
 
   void clearCreatedOrdersForTesting() {
     _createdOrders.clear();
     notifyListeners();
-    unawaited(_persist());
+    if (!usesApi) {
+      unawaited(_persistDemo());
+    }
   }
 
-  Future<void> _persist() async {
+  Future<void> _persistDemo() async {
     final preferences = _preferences;
     if (preferences == null) return;
 
@@ -224,10 +354,11 @@ class CustomerOrdersController extends ChangeNotifier {
 
   @visibleForTesting
   Future<void> reloadFromStorageForTesting() async {
+    if (usesApi) return;
     _preferences ??= await SharedPreferences.getInstance();
     _initialized = true;
     _createdOrders.clear();
-    _load();
+    _loadDemo();
   }
 }
 
@@ -377,6 +508,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     CustomerOrdersController.instance.addListener(_handleOrdersChanged);
+    if (CustomerOrdersController.instance.usesApi &&
+        CustomerAuthStore.instance.isAuthenticated) {
+      unawaited(CustomerOrdersController.instance.refreshFromApi());
+    }
   }
 
   @override
@@ -391,10 +526,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-  List<GetinOrder> get _allOrders => <GetinOrder>[
-        ...CustomerOrdersController.instance.createdOrders,
-        ..._orders,
-      ];
+  List<GetinOrder> get _allOrders {
+    final controller = CustomerOrdersController.instance;
+    if (controller.usesApi) {
+      return controller.createdOrders;
+    }
+    return <GetinOrder>[...controller.createdOrders, ..._orders];
+  }
 
   List<GetinOrder> get _visibleOrders {
     switch (_filter) {
@@ -419,8 +557,37 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_previewLoggedIn) {
+    final controller = CustomerOrdersController.instance;
+    final loggedIn = controller.usesApi
+        ? CustomerAuthStore.instance.isAuthenticated
+        : _previewLoggedIn;
+    if (!loggedIn) {
       return const _LoggedOutOrders();
+    }
+
+    if (controller.usesApi && controller.loading && controller.createdOrders.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (controller.usesApi &&
+        controller.errorMessage != null &&
+        controller.createdOrders.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(controller.errorMessage!),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: controller.refreshFromApi,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     final orders = _visibleOrders;
@@ -1077,6 +1244,8 @@ class _EmptyOrdersState extends StatelessWidget {
 
 String _statusText(GetinOrderStatus status) {
   switch (status) {
+    case GetinOrderStatus.pending:
+      return 'PENDING';
     case GetinOrderStatus.confirmed:
       return 'CONFIRMED';
     case GetinOrderStatus.preparing:

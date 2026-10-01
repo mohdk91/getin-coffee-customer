@@ -149,6 +149,10 @@ class _OrderTimeline extends StatelessWidget {
 
   static const _steps = [
     _TimelineStep(
+      label: 'Placed',
+      status: GetinOrderStatus.pending,
+    ),
+    _TimelineStep(
       label: 'Confirmed',
       status: GetinOrderStatus.confirmed,
     ),
@@ -912,16 +916,18 @@ class _TimelineStep {
 
 int _statusIndex(GetinOrderStatus status) {
   switch (status) {
-    case GetinOrderStatus.confirmed:
+    case GetinOrderStatus.pending:
       return 0;
-    case GetinOrderStatus.preparing:
+    case GetinOrderStatus.confirmed:
       return 1;
-    case GetinOrderStatus.ready:
+    case GetinOrderStatus.preparing:
       return 2;
-    case GetinOrderStatus.outForDelivery:
+    case GetinOrderStatus.ready:
       return 3;
-    case GetinOrderStatus.delivered:
+    case GetinOrderStatus.outForDelivery:
       return 4;
+    case GetinOrderStatus.delivered:
+      return 5;
     case GetinOrderStatus.cancelled:
       return 0;
   }
@@ -929,6 +935,8 @@ int _statusIndex(GetinOrderStatus status) {
 
 String _statusTitle(GetinOrderStatus status) {
   switch (status) {
+    case GetinOrderStatus.pending:
+      return 'Order placed';
     case GetinOrderStatus.confirmed:
       return 'Order confirmed';
     case GetinOrderStatus.preparing:

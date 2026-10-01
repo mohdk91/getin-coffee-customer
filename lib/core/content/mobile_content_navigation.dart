@@ -55,6 +55,8 @@ class MobileContentNavigation {
               price: product.displayPrice,
               branchName: branch.name,
               serviceType: serviceType,
+              branchId: branch.id,
+              catalogProduct: product,
             ),
           ),
         );

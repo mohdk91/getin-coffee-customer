@@ -11,11 +11,25 @@ abstract class CheckoutOrderService {
 class CheckoutOrderResult {
   final bool success;
   final String? orderId;
+  final int? apiOrderId;
+  final String? orderNumber;
+  final String? total;
+  final String? currency;
+  final String? status;
+  final String? paymentStatus;
+  final DateTime? placedAt;
   final String message;
 
   const CheckoutOrderResult._({
     required this.success,
     required this.orderId,
+    this.apiOrderId,
+    this.orderNumber,
+    this.total,
+    this.currency,
+    this.status,
+    this.paymentStatus,
+    this.placedAt,
     required this.message,
   });
 
@@ -25,6 +39,28 @@ class CheckoutOrderResult {
   }) : this._(
           success: true,
           orderId: orderId,
+          message: message,
+        );
+
+  const CheckoutOrderResult.server({
+    required int apiOrderId,
+    required String orderNumber,
+    required String total,
+    required String currency,
+    required String status,
+    required String paymentStatus,
+    DateTime? placedAt,
+    String message = 'Order created successfully.',
+  }) : this._(
+          success: true,
+          orderId: orderNumber,
+          apiOrderId: apiOrderId,
+          orderNumber: orderNumber,
+          total: total,
+          currency: currency,
+          status: status,
+          paymentStatus: paymentStatus,
+          placedAt: placedAt,
           message: message,
         );
 

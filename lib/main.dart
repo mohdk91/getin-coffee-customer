@@ -60,7 +60,7 @@ Future<void> main() async {
   await CustomerVoucherStore.initialize();
   await CustomerReferralStore.initialize(CustomerAuthStore.instance.context);
   await CustomerReviewStore.initialize(CustomerAuthStore.instance.context);
-  await CustomerOrdersController.initialize();
+  await CustomerOrdersController.initialize(CustomerAuthStore.instance.context);
   await CartController.initialize();
   runApp(GetinCoffeeApp(config: config));
 }

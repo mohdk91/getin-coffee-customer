@@ -5,10 +5,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/addresses/customer_address_store.dart';
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/gift_cards/customer_gift_card_store.dart';
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/orders/checkout_order_draft.dart';
 import '../../core/orders/checkout_order_service.dart';
+import '../../core/orders/laravel_checkout_order_service.dart';
 import '../../core/payments/customer_payment_method_store.dart';
 import '../../core/rewards/customer_rewards_store.dart';
 import '../../core/rewards/customer_stamp_card_store.dart';
@@ -35,7 +37,12 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final CartController _cart = CartController.instance;
-  final CheckoutOrderService _orderService = DemoCheckoutOrderService.instance;
+
+  bool get _usesApi => CustomerAuthStore.instance.usesApi;
+
+  CheckoutOrderService get _orderService => _usesApi
+      ? LaravelCheckoutOrderService(CustomerAuthStore.instance.context)
+      : DemoCheckoutOrderService.instance;
 
   static const String _deliveryEta = '20–30 min';
   static const String _pickupReadyTime = '10–15 min';
@@ -56,9 +63,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String _money(double value) => _formatMoney(_cart.currency, value);
 
-  double get _preGiftCardTotal => _cart.totalBeforeTip(
-        tip: _tip,
-      );
+  double get _preGiftCardTotal => _usesApi
+      ? _cart.subtotal + _cart.deliveryFee + _cart.serviceFee
+      : _cart.totalBeforeTip(
+          tip: _tip,
+        );
 
   double get _giftCardApplied {
     if (!_useGiftCardBalance) {
@@ -96,6 +105,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    if (_usesApi) {
+      if (!CustomerAuthStore.instance.isAuthenticated) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign in before placing a live order.')),
+        );
+        return;
+      }
+      if (_cart.cartBranchId == null ||
+          _cart.items.any((item) => !item.hasServerIdentity)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'One or more cart items are not from the current live menu. Remove them and add the products again before checkout.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (_cart.appliedReward != null ||
+          _cart.appliedVoucher != null ||
+          _useGiftCardBalance) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Remove local preview rewards, vouchers, or Gift Card Balance before live checkout. Laravel must settle every discount authoritatively.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
     final delivery =
         (_cart.cartServiceType ?? _cart.currentServiceType) == 'delivery';
     final deliveryAddress = CustomerAddressStore.instance.checkoutAddress;
@@ -117,7 +158,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     final selectedCard = CustomerPaymentMethodStore.instance.checkoutMethod;
-    if (_total > 0 && _paymentTender == 'card') {
+    if (!_usesApi && _total > 0 && _paymentTender == 'card') {
       if (selectedCard == null || selectedCard.isExpired) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -138,14 +179,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final fulfilmentEstimate = delivery ? _deliveryEta : _pickupReadyTime;
 
     final draft = CheckoutOrderDraft(
-      clientRequestId: 'getin-demo-${DateTime.now().microsecondsSinceEpoch}',
+      clientRequestId: '${_usesApi ? 'getin-order' : 'getin-demo'}-${DateTime.now().microsecondsSinceEpoch}',
       createdAt: DateTime.now(),
+      branchId: _cart.cartBranchId ?? _cart.currentBranchId,
       branchName: branchName,
       serviceType: delivery ? 'delivery' : 'pickup',
       currency: _cart.currency,
       lines: _cart.items
           .map(
             (item) => CheckoutOrderLine(
+              productId: item.productId,
+              variantId: item.variantId,
+              optionValueIds: List<int>.unmodifiable(item.optionValueIds),
               name: item.name,
               productType: item.productType.name,
               description: item.description,
@@ -221,10 +266,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _orderError = null;
     });
 
-    // This is the single order-creation boundary. In production, replace the
-    // demo service with a Laravel implementation that creates the order and
-    // confirms/authorizes payment. Until this returns success, the cart,
-    // reward, voucher and gift-card balance remain untouched.
+    // Single order-creation boundary. API mode quotes and creates through
+    // Laravel with an idempotency key; demo mode remains isolated for local
+    // development. No local state is consumed before this returns success.
     CheckoutOrderResult result;
     try {
       result = await _orderService
@@ -271,50 +315,65 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    // Award demo loyalty only AFTER order creation succeeds. Production
-    // Laravel should be the source of truth for eligible spend and reward rules.
-    final memberActive = CustomerMembershipStore.instance.isActive;
-    final earnedStars = RewardEarningPolicy.starsForAmount(
-      draft.subtotal,
-      isMember: memberActive,
-    );
-    CustomerRewardsStore.instance.addOrderEarnings(
-      stars: earnedStars,
-      orderId: result.orderId!,
-      memberMultiplierApplied: memberActive,
-    );
+    var earnedStars = 0;
+    var earnedStamps = 0;
+    var currentStamps = CustomerStampCardStore.instance.currentStamps;
+    var freeDrinksUnlocked = 0;
 
-    final eligibleDrinkQuantity = items
-        .where((item) => RewardEarningPolicy.earnsStamp(item.productType))
-        .fold<int>(0, (sum, item) => sum + item.quantity);
-    final stampResult = CustomerStampCardStore.instance.addEligibleDrinks(
-      eligibleDrinkQuantity,
-    );
-    for (var index = 0; index < stampResult.cardsCompleted; index++) {
-      CustomerRewardsStore.instance.grantFreeDrinkReward(
-        source: 'stamp-card',
+    if (_usesApi) {
+      // The server order is authoritative. Refreshable loyalty/payment state is
+      // not invented locally while Laravel reports payment as pending.
+      _cart.completeServerOrder();
+    } else {
+      final memberActive = CustomerMembershipStore.instance.isActive;
+      earnedStars = RewardEarningPolicy.starsForAmount(
+        draft.subtotal,
+        isMember: memberActive,
       );
-    }
+      CustomerRewardsStore.instance.addOrderEarnings(
+        stars: earnedStars,
+        orderId: result.orderId!,
+        memberMultiplierApplied: memberActive,
+      );
 
-    // Consume local benefits/store credit only AFTER order creation succeeds.
-    if (_giftCardApplied > 0) {
-      await CustomerGiftCardStore.instance.spendBalance(_giftCardApplied);
-    }
+      final eligibleDrinkQuantity = items
+          .where((item) => RewardEarningPolicy.earnsStamp(item.productType))
+          .fold<int>(0, (sum, item) => sum + item.quantity);
+      final stampResult = CustomerStampCardStore.instance.addEligibleDrinks(
+        eligibleDrinkQuantity,
+      );
+      earnedStamps = stampResult.stampsAdded;
+      currentStamps = stampResult.currentStamps;
+      freeDrinksUnlocked = stampResult.cardsCompleted;
+      for (var index = 0; index < stampResult.cardsCompleted; index++) {
+        CustomerRewardsStore.instance.grantFreeDrinkReward(
+          source: 'stamp-card',
+        );
+      }
 
-    _cart.completeDemoOrder();
+      if (_giftCardApplied > 0) {
+        await CustomerGiftCardStore.instance.spendBalance(_giftCardApplied);
+      }
+      _cart.completeDemoOrder();
+    }
 
     if (!mounted) {
       return;
     }
 
     final order = GetinOrder(
+      apiOrderId: result.apiOrderId,
       id: result.orderId!,
-      placedAt: draft.createdAt,
+      placedAt: result.placedAt ?? draft.createdAt,
       branchName: branchName,
       fulfillment: delivery ? 'Delivery' : 'Pickup',
-      status: GetinOrderStatus.confirmed,
+      status: _usesApi
+          ? GetinOrder.statusFromApi(result.status)
+          : GetinOrderStatus.confirmed,
       itemCount: draft.itemCount,
-      total: _formatMoney(draft.currency, draft.total),
+      total: _usesApi && result.total != null
+          ? '${result.currency ?? draft.currency} ${result.total}'
+          : _formatMoney(draft.currency, draft.total),
       itemImages: images,
       reviewProducts: reviewProducts,
       eta: fulfilmentEstimate,
@@ -323,7 +382,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           : null,
       deliveryLatitude: delivery ? deliveryAddress!.latitude : null,
       deliveryLongitude: delivery ? deliveryAddress!.longitude : null,
-      deliveryCode: delivery ? '4728' : null,
+      deliveryCode: delivery && !_usesApi ? '4728' : null,
     );
 
     CustomerOrdersController.instance.addCreatedOrder(order);
@@ -336,9 +395,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           order: order,
           delivery: delivery,
           earnedStars: earnedStars,
-          earnedStamps: stampResult.stampsAdded,
-          currentStamps: stampResult.currentStamps,
-          freeDrinksUnlocked: stampResult.cardsCompleted,
+          earnedStamps: earnedStamps,
+          currentStamps: currentStamps,
+          freeDrinksUnlocked: freeDrinksUnlocked,
         ),
       ),
       (route) => route.isFirst,
@@ -419,7 +478,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  if (delivery)
+                  if (delivery && !_usesApi)
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
@@ -459,7 +518,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                     ),
-                  SliverToBoxAdapter(
+                  if (!_usesApi)
+                    SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -485,7 +545,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  SliverToBoxAdapter(
+                  if (!_usesApi)
+                    SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -515,7 +576,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  SliverToBoxAdapter(
+                  if (!_usesApi)
+                    SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -545,7 +607,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  SliverToBoxAdapter(
+                  if (!_usesApi)
+                    SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -568,7 +631,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  SliverToBoxAdapter(
+                  if (_usesApi)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: _LivePaymentNotice(),
+                      ),
+                    ),
+                  if (!_usesApi)
+                    SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -1512,6 +1583,41 @@ class _GiftCardBalanceCheckoutCard extends StatelessWidget {
             value: enabled && balance > 0,
             onChanged: onChanged,
             activeColor: AppColors.green,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LivePaymentNotice extends StatelessWidget {
+  const _LivePaymentNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.credit_card_rounded, color: AppColors.green),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Laravel recalculates the authoritative order total and creates the order with card payment pending. The app does not claim payment success until a configured payment provider confirms it.',
+              style: TextStyle(
+                color: AppColors.green,
+                fontSize: 10.5,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

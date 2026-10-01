@@ -1,3 +1,68 @@
+class MobileMarketContext {
+  final int id;
+  final String code;
+  final String name;
+  final String? countryCode;
+  final String? currency;
+  final String? timezone;
+  final String? locale;
+
+  const MobileMarketContext({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.countryCode,
+    this.currency,
+    this.timezone,
+    this.locale,
+  });
+
+  factory MobileMarketContext.fromJson(Map<String, dynamic> json) =>
+      MobileMarketContext(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        code: json['code']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+        countryCode: json['country_code']?.toString(),
+        currency: json['currency']?.toString(),
+        timezone: json['timezone']?.toString(),
+        locale: json['locale']?.toString(),
+      );
+}
+
+class MobileMenuCollection {
+  final int id;
+  final String slug;
+  final String title;
+  final String? subtitle;
+  final bool isFeatured;
+  final int sortOrder;
+  final List<int> productIds;
+
+  const MobileMenuCollection({
+    required this.id,
+    required this.slug,
+    required this.title,
+    required this.isFeatured,
+    required this.sortOrder,
+    required this.productIds,
+    this.subtitle,
+  });
+
+  factory MobileMenuCollection.fromJson(Map<String, dynamic> json) =>
+      MobileMenuCollection(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        slug: json['slug']?.toString() ?? '',
+        title: json['title']?.toString() ?? '',
+        subtitle: json['subtitle']?.toString(),
+        isFeatured: json['is_featured'] == true,
+        sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+        productIds: (json['product_ids'] as List? ?? const <dynamic>[])
+            .whereType<num>()
+            .map((id) => id.toInt())
+            .toList(growable: false),
+      );
+}
+
 class MobileContentMedia {
   final String type;
   final String url;
@@ -138,18 +203,22 @@ class MobileHomeSectionConfig {
 }
 
 class MobileAppContentSnapshot {
+  final MobileMarketContext? marketContext;
   final MobileContentItem? splash;
   final List<MobileContentItem> onboarding;
   final List<MobileBannerContent> heroBanners;
   final List<MobileBannerContent> secondaryBanners;
   final List<MobileHomeSectionConfig> homeSections;
+  final List<MobileMenuCollection> menuCollections;
 
   const MobileAppContentSnapshot({
+    this.marketContext,
     this.splash,
     this.onboarding = const <MobileContentItem>[],
     this.heroBanners = const <MobileBannerContent>[],
     this.secondaryBanners = const <MobileBannerContent>[],
     this.homeSections = const <MobileHomeSectionConfig>[],
+    this.menuCollections = const <MobileMenuCollection>[],
   });
 
   factory MobileAppContentSnapshot.fromJson(Map<String, dynamic> json) {
@@ -159,6 +228,11 @@ class MobileAppContentSnapshot {
             .map((row) => parse(Map<String, dynamic>.from(row)))
             .toList(growable: false);
     return MobileAppContentSnapshot(
+      marketContext: json['market_context'] is Map
+          ? MobileMarketContext.fromJson(
+              Map<String, dynamic>.from(json['market_context'] as Map),
+            )
+          : null,
       splash: json['splash'] is Map
           ? MobileContentItem.fromJson(
               Map<String, dynamic>.from(json['splash'] as Map),
@@ -170,6 +244,8 @@ class MobileAppContentSnapshot {
           parseList(json['secondary_banners'], MobileBannerContent.fromJson),
       homeSections:
           parseList(json['home_sections'], MobileHomeSectionConfig.fromJson),
+      menuCollections:
+          parseList(json['menu_collections'], MobileMenuCollection.fromJson),
     );
   }
 }

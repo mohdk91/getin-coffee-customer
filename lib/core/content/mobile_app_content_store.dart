@@ -19,6 +19,8 @@ class MobileAppContentStore extends ChangeNotifier {
   List<MobileBannerContent> get heroBanners => _snapshot.heroBanners;
   List<MobileBannerContent> get secondaryBanners => _snapshot.secondaryBanners;
   List<MobileHomeSectionConfig> get homeSections => _snapshot.homeSections;
+  MobileMarketContext? get marketContext => _snapshot.marketContext;
+  List<MobileMenuCollection> get menuCollections => _snapshot.menuCollections;
   bool get loading => _loading;
   Object? get lastError => _lastError;
 

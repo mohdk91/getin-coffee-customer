@@ -10,11 +10,15 @@ void main() {
     return CheckoutOrderDraft(
       clientRequestId: 'test-request',
       createdAt: DateTime(2026, 9, 24),
+      branchId: 1,
       branchName: 'Getin Stanley',
       serviceType: serviceType,
       currency: 'EGP',
       lines: const [
         CheckoutOrderLine(
+          productId: 10,
+          variantId: null,
+          optionValueIds: <int>[101, 102],
           name: 'Iced Latte',
           productType: 'drink',
           description: 'Demo drink',
