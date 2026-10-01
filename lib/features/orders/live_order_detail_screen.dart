@@ -22,6 +22,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
   late final LiveOrderLifecycleService _service;
   LiveOrderDetail? _detail;
   List<LiveOrderTimelineEntry> _deliveryTimeline = const <LiveOrderTimelineEntry>[];
+  LiveRefundRequest? _refundRequest;
   bool _loading = true;
   bool _actionBusy = false;
   String? _errorMessage;
@@ -93,6 +94,45 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order cancelled by GETIN.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _messageFor(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _requestRefund() async {
+    final reason = await _requestReason(
+      title: 'Request refund',
+      prompt: 'Describe why you are requesting a refund. GETIN calculates the refundable amount on the server.',
+      actionLabel: 'Submit refund request',
+      maxLength: 1000,
+    );
+    if (reason == null || !mounted) return;
+
+    setState(() {
+      _actionBusy = true;
+      _errorMessage = null;
+    });
+    try {
+      final refund = await _service.requestRefund(
+        orderId: widget.orderId,
+        reason: reason,
+      );
+      if (!mounted) return;
+      setState(() {
+        _refundRequest = refund;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Refund request submitted to GETIN.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -235,12 +275,17 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
             const SizedBox(height: 10),
             _OrderNotice(message: _errorMessage!),
           ],
-          if (detail.mayOfferCancellation) ...[
+          if (detail.mayOfferCancellation || detail.mayOfferRefund) ...[
             const SizedBox(height: 14),
             _LiveOrderActionsCard(
               busy: _actionBusy,
-              onCancel: _cancelOrder,
+              onCancel: detail.mayOfferCancellation ? _cancelOrder : null,
+              onRefund: detail.mayOfferRefund ? _requestRefund : null,
             ),
+          ],
+          if (_refundRequest != null) ...[
+            const SizedBox(height: 14),
+            _RefundRequestCard(refund: _refundRequest!),
           ],
           const SizedBox(height: 14),
           _LiveOrderTimelineCard(
@@ -319,11 +364,13 @@ class _LiveOrderStatusCard extends StatelessWidget {
 
 class _LiveOrderActionsCard extends StatelessWidget {
   final bool busy;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
+  final VoidCallback? onRefund;
 
   const _LiveOrderActionsCard({
     required this.busy,
     required this.onCancel,
+    required this.onRefund,
   });
 
   @override
@@ -350,12 +397,67 @@ class _LiveOrderActionsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onCancel,
-              icon: const Icon(Icons.cancel_outlined),
-              label: Text(busy ? 'Checking…' : 'Request cancellation'),
+          if (onCancel != null)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onCancel,
+                icon: const Icon(Icons.cancel_outlined),
+                label: Text(busy ? 'Checking…' : 'Request cancellation'),
+              ),
+            ),
+          if (onCancel != null && onRefund != null)
+            const SizedBox(height: 8),
+          if (onRefund != null)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: busy ? null : onRefund,
+                icon: const Icon(Icons.currency_exchange_rounded),
+                label: Text(busy ? 'Checking…' : 'Request refund'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RefundRequestCard extends StatelessWidget {
+  final LiveRefundRequest refund;
+
+  const _RefundRequestCard({required this.refund});
+
+  @override
+  Widget build(BuildContext context) {
+    return _LiveOrderCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Refund request',
+            style: TextStyle(
+              color: AppColors.green,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${_titleCase(refund.status)} · ${_money(refund.currency, refund.amount)}',
+            style: const TextStyle(
+              color: AppColors.green,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'The refundable amount is calculated by GETIN from the paid order and prior successful refunds.',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 10,
+              height: 1.35,
             ),
           ),
         ],
