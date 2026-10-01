@@ -39,7 +39,7 @@ class _MenuScreenState extends State<MenuScreen> {
           image: 'assets/images/getin_logo_mark.png',
           tag: 'TOP',
         ),
-        ...CustomerCatalogStore.instance.categories.map(
+        ...CustomerCatalogStore.instance.categoriesForBranch(widget.branch.id).map(
           (category) => _MenuCategory(
             title: category.name,
             icon: Icons.local_cafe_rounded,

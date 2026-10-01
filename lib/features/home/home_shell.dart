@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/catalog/customer_catalog_store.dart';
+import '../../core/content/mobile_app_content_store.dart';
 import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
@@ -48,6 +52,28 @@ class _HomeShellState extends State<HomeShell> {
     AppNavigationController.instance.addListener(
       _handleNavigationRequest,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_syncCommerceContext());
+    });
+  }
+
+  Future<void> _syncCommerceContext() async {
+    try {
+      await Future.wait<void>(<Future<void>>[
+        CustomerCatalogStore.instance.refreshBranch(_branch.id),
+        MobileAppContentStore.instance.refresh(
+          branchId: _branch.id,
+          market: _branch.countryCode,
+          fulfillment: _serviceType,
+        ),
+      ]);
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+      // Stores retain their last valid snapshots; screens expose their own
+      // fallback/error UI instead of replacing live data with fake success.
+    }
   }
 
   void _handleNavigationRequest() {
@@ -95,6 +121,7 @@ class _HomeShellState extends State<HomeShell> {
         _branch = nearest;
       }
     });
+    unawaited(_syncCommerceContext());
   }
 
   Future<bool> _confirmContextChange(MenuBranchSelection selection) async {
@@ -191,6 +218,7 @@ class _HomeShellState extends State<HomeShell> {
       _menuBranchConfirmed = true;
       _index = 1;
     });
+    unawaited(_syncCommerceContext());
   }
 
   @override
@@ -213,6 +241,7 @@ class _HomeShellState extends State<HomeShell> {
             _branch = value;
             _menuBranchConfirmed = false;
           });
+          unawaited(_syncCommerceContext());
         },
         onServiceChanged: _changeService,
       ),
