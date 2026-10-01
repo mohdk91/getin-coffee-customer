@@ -368,6 +368,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   FavoriteProductEntry get _favoriteProduct => FavoriteProductEntry.fromProduct(
+        serverProductId:
+            widget.catalogProduct?.id ?? widget.editingItem?.productId,
         name: widget.name,
         description: widget.description,
         image: widget.image,
@@ -739,7 +741,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       animation: CustomerFavoritesStore.instance,
                       builder: (context, _) {
                         final isFavorite = CustomerFavoritesStore.instance
-                            .containsName(widget.name);
+                            .containsProduct(
+                              serverProductId: widget.catalogProduct?.id ??
+                                  widget.editingItem?.productId,
+                              name: widget.name,
+                            );
                         return _HeroSection(
                           image: widget.image,
                           name: widget.name,

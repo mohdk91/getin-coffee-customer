@@ -36,7 +36,9 @@ class FavoriteProductEntry {
     required String serviceType,
   }) {
     return FavoriteProductEntry(
-      id: CustomerFavoritesStore.productId(name),
+      id: serverProductId == null
+          ? CustomerFavoritesStore.productId(name)
+          : 'server:$serverProductId',
       serverProductId: serverProductId,
       name: name,
       description: description,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/catalog/customer_catalog_models.dart';
 import '../../core/catalog/customer_catalog_store.dart';
+import '../../core/favorites/customer_favorites_store.dart';
 import '../../core/products/product_type.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
@@ -45,6 +46,30 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
   int _quoteGeneration = 0;
 
   CatalogProduct get _displayProduct => _product ?? widget.summary;
+
+  FavoriteProductEntry get _favoriteEntry {
+    final product = _displayProduct;
+    return FavoriteProductEntry.fromProduct(
+      serverProductId: product.id,
+      name: product.name,
+      description: product.shortDescription,
+      image: product.imageUrl ?? '',
+      price: _quote?.displayUnitTotal ?? product.displayPrice,
+      branchName: widget.branchName,
+      serviceType: widget.serviceType,
+    );
+  }
+
+  Future<void> _toggleFavorite() async {
+    final saved = await CustomerFavoritesStore.instance.toggle(_favoriteEntry);
+    if (!mounted) return;
+    final error = CustomerFavoritesStore.instance.lastError;
+    _showMessage(
+      error == null
+          ? (saved ? 'Added to Favorites.' : 'Removed from Favorites.')
+          : 'Could not update Favorites. Your previous state was restored.',
+    );
+  }
 
   @override
   void initState() {
@@ -373,6 +398,26 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          AnimatedBuilder(
+            animation: CustomerFavoritesStore.instance,
+            builder: (context, _) {
+              final favorite = CustomerFavoritesStore.instance.containsProduct(
+                serverProductId: product.id,
+                name: product.name,
+              );
+              return IconButton(
+                tooltip: favorite ? 'Remove from Favorites' : 'Add to Favorites',
+                onPressed: _toggleFavorite,
+                icon: Icon(
+                  favorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
