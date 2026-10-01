@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/notifications/customer_notifications_store.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -26,6 +27,45 @@ class NotificationsScreen extends StatelessWidget {
     }
     final local = value.toLocal();
     return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
+  }
+
+  Future<void> _openNotification(
+    BuildContext context,
+    CustomerNotificationsStore store,
+    CustomerNotificationItem item,
+  ) async {
+    await store.markRead(item.id);
+    if (!context.mounted) {
+      return;
+    }
+
+    final route = (item.actionRoute ?? '').trim().toLowerCase();
+    if (route.isEmpty) {
+      return;
+    }
+
+    final navigation = AppNavigationController.instance;
+    if (route.contains('order')) {
+      Navigator.of(context).pop();
+      navigation.openOrders();
+      return;
+    }
+    if (route.contains('menu') || route.contains('product')) {
+      Navigator.of(context).pop();
+      navigation.openMenu();
+      return;
+    }
+    if (route.contains('membership') ||
+        route.contains('reward') ||
+        route.contains('loyalty')) {
+      Navigator.of(context).pop();
+      navigation.openMembership();
+      return;
+    }
+    if (route.contains('home')) {
+      Navigator.of(context).pop();
+      navigation.openHome();
+    }
   }
 
   @override
@@ -74,7 +114,11 @@ class NotificationsScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(20),
-                            onTap: () => store.markRead(item.id),
+                            onTap: () => _openNotification(
+                              context,
+                              store,
+                              item,
+                            ),
                             child: Container(
                               padding: const EdgeInsets.all(15),
                               decoration: BoxDecoration(
