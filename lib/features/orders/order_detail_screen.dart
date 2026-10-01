@@ -5,7 +5,6 @@ import '../../core/theme/app_colors.dart';
 import '../reviews/review_screens.dart';
 import '../chat/driver_chat_screen.dart';
 import 'orders_screen.dart';
-import 'tracking/live_driver_tracking_card.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final GetinOrder order;
@@ -40,10 +39,22 @@ class OrderDetailScreen extends StatelessWidget {
             _OrderTimeline(status: order.status),
             if (order.status == GetinOrderStatus.outForDelivery) ...[
               const SizedBox(height: 14),
-              LiveDriverTrackingCard(
-                orderId: order.id,
-                destinationLatitude: order.deliveryLatitude,
-                destinationLongitude: order.deliveryLongitude,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Text(
+                  'Demo order tracking is local-only. Production delivery tracking is loaded from GETIN driver GPS in Live Order Detail.',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontSize: 10.5,
+                    height: 1.35,
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               _DriverCard(order: order),

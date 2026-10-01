@@ -23,7 +23,10 @@ void main() {
 
     expect(support, contains("_store.usesApi ? 'GETIN customer service'"));
     expect(support, contains("'Live conversation · synced with GETIN'"));
-    expect(driver, contains("'Live driver chat · synced with this delivery'"));
+    expect(
+      driver,
+      contains("'Live driver chat · GPS remains server-authoritative in Order Details'"),
+    );
     expect(support, contains('RefreshIndicator('));
     expect(driver, contains('RefreshIndicator('));
 

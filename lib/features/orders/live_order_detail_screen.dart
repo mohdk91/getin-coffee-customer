@@ -7,7 +7,9 @@ import '../../core/orders/live_order_lifecycle_service.dart';
 import '../../core/orders/live_order_models.dart';
 import '../../core/reviews/customer_review_store.dart';
 import '../../core/theme/app_colors.dart';
+import '../chat/driver_chat_screen.dart';
 import '../reviews/review_screens.dart';
+import 'tracking/live_driver_tracking_card.dart';
 
 class LiveOrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -257,6 +259,18 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
     }
   }
 
+
+  Future<void> _openDriverChat() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DriverChatScreen(
+          orderId: widget.orderId.toString(),
+          driverName: 'GETIN delivery driver',
+        ),
+      ),
+    );
+  }
+
   Future<void> _openDeliveryReview() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -442,6 +456,13 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
                 ? _deliveryTimeline
                 : detail.timeline,
           ),
+          if (detail.isDelivery && !detail.isTerminal) ...[
+            const SizedBox(height: 14),
+            LiveDriverTrackingCard(
+              orderId: detail.id,
+              onMessageDriver: _openDriverChat,
+            ),
+          ],
           if (detail.isDelivery && !detail.isTerminal) ...[
             const SizedBox(height: 14),
             _DeliveryVerificationCard(
