@@ -119,6 +119,8 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
       'items': items,
       if (draft.voucherCode != null && draft.voucherCode!.trim().isNotEmpty)
         'coupon_code': draft.voucherCode!.trim(),
+      if (draft.giftCardId != null && draft.giftCardId! > 0)
+        'gift_card_id': draft.giftCardId,
     };
 
     if (draft.isDelivery) {

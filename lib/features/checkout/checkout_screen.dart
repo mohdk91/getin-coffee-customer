@@ -96,13 +96,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (!_useGiftCardBalance) {
       return 0;
     }
+    if (_usesApi) {
+      return _liveQuote?.giftCardApplied ?? 0;
+    }
     final balance = CustomerGiftCardStore.instance.balance;
     return balance < _preGiftCardTotal ? balance : _preGiftCardTotal;
   }
 
-  double get _total => (_preGiftCardTotal - _giftCardApplied)
-      .clamp(0.0, double.infinity)
-      .toDouble();
+  double get _total {
+    if (_usesApi) {
+      return _liveQuote?.amountDue ?? _preGiftCardTotal;
+    }
+    return (_preGiftCardTotal - _giftCardApplied)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+  }
 
   Future<void> _chooseDeliveryAddress() async {
     final selected = await showSavedAddressPicker(context);
@@ -156,6 +164,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         orderType: delivery ? 'delivery' : 'pickup',
         addressId: addressId,
         promotionCode: _livePromotionCode,
+        giftCardId: _useGiftCardBalance
+            ? int.tryParse(
+                CustomerGiftCardStore.instance.checkoutCard?.id ?? '',
+              )
+            : null,
         items: _cart.items
             .map(
               (item) => LiveCheckoutQuoteItem(
@@ -226,16 +239,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           const SnackBar(
             content: Text(
               'One or more cart items are not from the current live menu. Remove them and add the products again before checkout.',
-            ),
-          ),
-        );
-        return;
-      }
-      if (_useGiftCardBalance) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Gift Card Balance cannot be spent in live checkout until Laravel exposes an authoritative settlement endpoint.',
             ),
           ),
         );
@@ -362,6 +365,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       voucherSaving: _cart.voucherDiscount,
       voucherCode: _usesApi ? _livePromotionCode : _cart.appliedVoucher?.code,
       giftCardApplied: _giftCardApplied,
+      giftCardId: _usesApi && _useGiftCardBalance
+          ? int.tryParse(
+              CustomerGiftCardStore.instance.checkoutCard?.id ?? '',
+            )
+          : null,
       paymentTender: _total <= 0 ? 'gift_card_balance' : _paymentTender,
       paymentMethodId:
           _total > 0 && _paymentTender == 'card' ? selectedCard?.id : null,
@@ -451,6 +459,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _cart.completeServerOrder();
       await CustomerVoucherStore.instance.refresh();
       await CustomerRewardsStore.instance.refresh();
+      await CustomerGiftCardStore.instance.refresh();
     } else {
       final memberActive = CustomerMembershipStore.instance.isActive;
       earnedStars = RewardEarningPolicy.starsForAmount(
@@ -752,8 +761,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
-                  if (!_usesApi)
-                    SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -765,13 +773,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         balance: CustomerGiftCardStore.instance.balance,
                         applied: _giftCardApplied,
                         enabled: _useGiftCardBalance,
+                        selectedCard:
+                            CustomerGiftCardStore.instance.checkoutCard?.code,
                         money: _money,
                         onChanged: CustomerGiftCardStore.instance.balance <= 0
                             ? null
-                            : (value) {
+                            : (value) async {
+                                final giftStore =
+                                    CustomerGiftCardStore.instance;
+                                if (_usesApi) {
+                                  if (value && giftStore.checkoutCard == null) {
+                                    final available = giftStore.receivedCards;
+                                    if (available.isEmpty) return;
+                                    await giftStore
+                                        .selectForCheckout(available.first.id);
+                                  } else if (!value) {
+                                    await giftStore.selectForCheckout(null);
+                                  }
+                                }
+                                if (!mounted) return;
                                 setState(() {
                                   _useGiftCardBalance = value;
                                 });
+                                if (_usesApi) {
+                                  await _refreshLiveQuote();
+                                }
                               },
                       ),
                     ),
@@ -1671,6 +1697,7 @@ class _GiftCardBalanceCheckoutCard extends StatelessWidget {
   final double balance;
   final double applied;
   final bool enabled;
+  final String? selectedCard;
   final String Function(double) money;
   final ValueChanged<bool>? onChanged;
 
@@ -1678,6 +1705,7 @@ class _GiftCardBalanceCheckoutCard extends StatelessWidget {
     required this.balance,
     required this.applied,
     required this.enabled,
+    required this.selectedCard,
     required this.money,
     required this.onChanged,
   });
@@ -1716,8 +1744,8 @@ class _GiftCardBalanceCheckoutCard extends StatelessWidget {
                   balance <= 0
                       ? 'No gift-card balance available'
                       : enabled && applied > 0
-                          ? '${money(applied)} applied · ${money(balance)} available'
-                          : '${money(balance)} available',
+                          ? '${money(applied)} applied · ${money(balance)} available${selectedCard == null ? '' : ' · $selectedCard'}'
+                          : '${money(balance)} available${selectedCard == null ? '' : ' · $selectedCard'}',
                   style: const TextStyle(
                     color: AppColors.muted,
                     fontSize: 10,
