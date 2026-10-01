@@ -36,6 +36,9 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
 
   Future<void> _seed() async {
     await _store.ensureSupportSeeded();
+    if (_store.usesApi) {
+      await _store.markThreadRead(CustomerChatStore.supportThreadId);
+    }
     _scheduleScroll();
   }
 
@@ -74,12 +77,16 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
       author: CustomerChatAuthor.customer,
       text: text,
     );
-    await Future<void>.delayed(const Duration(milliseconds: 450));
-    await _store.addMessage(
-      threadId: CustomerChatStore.supportThreadId,
-      author: CustomerChatAuthor.getin,
-      text: _demoReply(text),
-    );
+    if (_store.usesApi) {
+      await _store.markThreadRead(CustomerChatStore.supportThreadId);
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      await _store.addMessage(
+        threadId: CustomerChatStore.supportThreadId,
+        author: CustomerChatAuthor.getin,
+        text: _demoReply(text),
+      );
+    }
     if (mounted) setState(() => _sending = false);
   }
 
@@ -115,16 +122,16 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
         foregroundColor: AppColors.green,
         elevation: 0,
         titleSpacing: 0,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Chat with Getin',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             Text(
-              'Demo customer service',
-              style: TextStyle(
+              _store.usesApi ? 'GETIN customer service' : 'Demo customer service',
+              style: const TextStyle(
                 color: AppColors.muted,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -145,31 +152,33 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     backgroundColor: AppColors.green,
                     child: Icon(
                       Icons.support_agent_rounded,
                       color: AppColors.beige,
                     ),
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Getin Customer Service',
                           style: TextStyle(
                             color: AppColors.green,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          'Local demo chat · messages stay on this device',
-                          style: TextStyle(
+                          _store.usesApi
+                              ? 'Live conversation · synced with GETIN'
+                              : 'Local demo chat · messages stay on this device',
+                          style: const TextStyle(
                             color: AppColors.muted,
                             fontSize: 11,
                           ),
