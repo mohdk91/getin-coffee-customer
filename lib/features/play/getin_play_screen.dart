@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/rewards/customer_play_store.dart';
 import '../../core/rewards/customer_rewards_store.dart';
+import '../../core/vouchers/customer_voucher_store.dart';
 import '../../core/theme/app_colors.dart';
 
 class GetinPlayScreen extends StatelessWidget {
@@ -492,6 +493,10 @@ class _SpinWinScreenState extends State<SpinWinScreen>
       resultTitle: 'Spin & Win',
       rewardText: prize.label,
     );
+    if (play.usesApi) {
+      await CustomerRewardsStore.instance.refresh();
+      await CustomerVoucherStore.instance.refresh();
+    }
 
     if (!mounted) return;
     setState(() {
@@ -776,6 +781,10 @@ class _StopTimerScreenState extends State<StopTimerScreen> {
       resultTitle: '$title ${elapsed.toStringAsFixed(2)}s',
       rewardText: reward,
     );
+    if (CustomerPlayStore.instance.usesApi) {
+      await CustomerRewardsStore.instance.refresh();
+      await CustomerVoucherStore.instance.refresh();
+    }
 
     if (!mounted) return;
     setState(() {
