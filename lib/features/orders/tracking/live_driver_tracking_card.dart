@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -40,7 +41,7 @@ class _LiveDriverTrackingCardState extends State<LiveDriverTrackingCard> {
       orderId: widget.orderId,
       interval: widget.pollInterval,
     )..addListener(_onChanged);
-    _controller.start();
+    unawaited(_controller.start());
   }
 
   @override
