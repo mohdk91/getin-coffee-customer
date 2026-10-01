@@ -20,6 +20,7 @@ enum OrderFilter {
 }
 
 enum GetinOrderStatus {
+  pending,
   confirmed,
   preparing,
   ready,
@@ -66,18 +67,46 @@ class GetinOrder {
   });
 
   bool get isActive {
-    return status == GetinOrderStatus.confirmed ||
+    return status == GetinOrderStatus.pending ||
+        status == GetinOrderStatus.confirmed ||
         status == GetinOrderStatus.preparing ||
         status == GetinOrderStatus.ready ||
         status == GetinOrderStatus.outForDelivery;
   }
 
+  static GetinOrderStatus statusFromApi(String? value) {
+    switch ((value ?? '').trim().toLowerCase()) {
+      case 'pending':
+        return GetinOrderStatus.pending;
+      case 'confirmed':
+      case 'accepted':
+        return GetinOrderStatus.confirmed;
+      case 'preparing':
+      case 'processing':
+        return GetinOrderStatus.preparing;
+      case 'ready':
+      case 'ready_for_pickup':
+        return GetinOrderStatus.ready;
+      case 'out_for_delivery':
+      case 'on_the_way':
+        return GetinOrderStatus.outForDelivery;
+      case 'completed':
+      case 'delivered':
+      case 'collected':
+        return GetinOrderStatus.delivered;
+      case 'cancelled':
+      case 'canceled':
+        return GetinOrderStatus.cancelled;
+      default:
+        return GetinOrderStatus.pending;
+    }
+  }
+
   factory GetinOrder.fromJson(Map<String, dynamic> json) {
     final statusName = json['status'] as String? ?? '';
-    final status = GetinOrderStatus.values.firstWhere(
-      (value) => value.name == statusName,
-      orElse: () => GetinOrderStatus.confirmed,
-    );
+    final status = GetinOrderStatus.values.any((value) => value.name == statusName)
+        ? GetinOrderStatus.values.firstWhere((value) => value.name == statusName)
+        : GetinOrder.statusFromApi(statusName);
     final rawImages = json['itemImages'];
     final rawProducts = json['reviewProducts'];
 
@@ -1077,6 +1106,8 @@ class _EmptyOrdersState extends StatelessWidget {
 
 String _statusText(GetinOrderStatus status) {
   switch (status) {
+    case GetinOrderStatus.pending:
+      return 'PENDING';
     case GetinOrderStatus.confirmed:
       return 'CONFIRMED';
     case GetinOrderStatus.preparing:

@@ -73,8 +73,10 @@ class OrderConfirmationScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      const Text(
-                        'Order Confirmed',
+                      Text(
+                        order.status == GetinOrderStatus.pending
+                            ? 'Order Placed'
+                            : 'Order Confirmed',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppColors.green,
@@ -139,14 +141,15 @@ class OrderConfirmationScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _StarsCard(
-                    earnedStars: earnedStars,
+              if (earnedStars > 0)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _StarsCard(
+                      earnedStars: earnedStars,
+                    ),
                   ),
                 ),
-              ),
               if (earnedStamps > 0 || freeDrinksUnlocked > 0)
                 SliverToBoxAdapter(
                   child: Padding(

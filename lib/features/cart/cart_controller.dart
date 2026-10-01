@@ -817,6 +817,17 @@ class CartController extends ChangeNotifier {
     unawaited(_persist());
   }
 
+  void completeServerOrder() {
+    // Server-side loyalty/voucher/gift-card state must be refreshed from Laravel.
+    // Never mark local demo benefits as consumed for a production order.
+    _items.clear();
+    _specialRequest = '';
+    _appliedRewardId = null;
+    _appliedVoucherId = null;
+    notifyListeners();
+    unawaited(_persist());
+  }
+
   void completeDemoOrder() {
     final reward = appliedReward;
     if (reward != null) {
