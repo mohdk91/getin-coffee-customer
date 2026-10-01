@@ -8,10 +8,12 @@ import '../../core/theme/app_colors.dart';
 
 class LiveOrderDetailScreen extends StatefulWidget {
   final int orderId;
+  final Future<void> Function()? onOrderChanged;
 
   const LiveOrderDetailScreen({
     super.key,
     required this.orderId,
+    this.onOrderChanged,
   });
 
   @override
@@ -72,6 +74,13 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
     }
   }
 
+  Future<void> _notifyOrderChanged() async {
+    final callback = widget.onOrderChanged;
+    if (callback != null) {
+      await callback();
+    }
+  }
+
   Future<void> _refreshAuthoritativeState() async {
     final detail = await _service.loadOrder(widget.orderId);
     var deliveryTimeline = const <LiveOrderTimelineEntry>[];
@@ -108,6 +117,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
         reason: reason,
       );
       await _refreshAuthoritativeState();
+      await _notifyOrderChanged();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order cancelled by GETIN.')),
@@ -203,6 +213,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
         _refundRequest = refund;
       });
       await _refreshAuthoritativeState();
+      await _notifyOrderChanged();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Refund request submitted to GETIN.')),

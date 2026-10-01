@@ -664,6 +664,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                 builder: (_) => controller.usesApi && order.apiOrderId != null
                                     ? LiveOrderDetailScreen(
                                         orderId: order.apiOrderId!,
+                                        onOrderChanged:
+                                            controller.refreshFromApi,
                                       )
                                     : OrderDetailScreen(
                                         order: order,

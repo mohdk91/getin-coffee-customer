@@ -186,6 +186,8 @@ class OrderConfirmationScreen extends StatelessWidget {
                                 builder: (_) => order.apiOrderId != null
                                     ? LiveOrderDetailScreen(
                                         orderId: order.apiOrderId!,
+                                        onOrderChanged:
+                                            CustomerOrdersController.instance.refreshFromApi,
                                       )
                                     : OrderDetailScreen(order: order),
                               ),
