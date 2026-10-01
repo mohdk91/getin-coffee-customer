@@ -190,7 +190,7 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
   }
 
   void _changeQuantity(int delta) {
-    final next = (_quantity + delta).clamp(1, 99);
+    final next = (_quantity + delta).clamp(1, 99).toInt();
     if (next == _quantity) return;
     setState(() => _quantity = next);
     _scheduleQuote();
@@ -250,6 +250,7 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
       if (freshQuote == null) {
         throw StateError('Live pricing is unavailable.');
       }
+      if (!mounted) return;
 
       final labels = configuration.selectedLabels;
       final image = product.imageUrl ??

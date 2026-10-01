@@ -169,7 +169,9 @@ class LiveProductConfiguration {
   void replaceAvailability(CatalogProductAvailability value) {
     availability = value;
     final variant = resolvedVariant;
-    if (variant != null && !availability.variantAvailable(variant.id)) {
+    if (variant != null &&
+        availability.variants.isNotEmpty &&
+        !availability.variantAvailable(variant.id)) {
       _explicitVariantId = null;
     }
   }
