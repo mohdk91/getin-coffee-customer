@@ -78,7 +78,7 @@ class OrderConfirmationScreen extends StatelessWidget {
                             ? 'Order Placed'
                             : 'Order Confirmed',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppColors.green,
                           fontSize: 28,
                           fontWeight: FontWeight.w900,

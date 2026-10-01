@@ -632,9 +632,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ),
                   if (_usesApi)
-                    SliverToBoxAdapter(
+                    const SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                         child: _LivePaymentNotice(),
                       ),
                     ),
