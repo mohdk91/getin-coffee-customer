@@ -23,6 +23,7 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
   LiveOrderDetail? _detail;
   List<LiveOrderTimelineEntry> _deliveryTimeline = const <LiveOrderTimelineEntry>[];
   bool _loading = true;
+  bool _actionBusy = false;
   String? _errorMessage;
 
   @override
@@ -66,6 +67,107 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
         });
       }
     }
+  }
+
+  Future<void> _cancelOrder() async {
+    final reason = await _requestReason(
+      title: 'Cancel order',
+      prompt: 'Tell GETIN why you need to cancel this order.',
+      actionLabel: 'Cancel order',
+      maxLength: 500,
+    );
+    if (reason == null || !mounted) return;
+
+    setState(() {
+      _actionBusy = true;
+      _errorMessage = null;
+    });
+    try {
+      final detail = await _service.cancelOrder(
+        orderId: widget.orderId,
+        reason: reason,
+      );
+      if (!mounted) return;
+      setState(() {
+        _detail = detail;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order cancelled by GETIN.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _messageFor(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<String?> _requestReason({
+    required String title,
+    required String prompt,
+    required String actionLabel,
+    required int maxLength,
+  }) async {
+    final controller = TextEditingController();
+    String? validationMessage;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(prompt),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    maxLength: maxLength,
+                    minLines: 2,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: 'Reason',
+                      errorText: validationMessage,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Back'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final value = controller.text.trim();
+                    if (value.length < 3) {
+                      setDialogState(() {
+                        validationMessage = 'Enter at least 3 characters.';
+                      });
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(value);
+                  },
+                  child: Text(actionLabel),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
+    return result;
   }
 
   @override
@@ -132,6 +234,13 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
           if (_errorMessage != null) ...[
             const SizedBox(height: 10),
             _OrderNotice(message: _errorMessage!),
+          ],
+          if (detail.mayOfferCancellation) ...[
+            const SizedBox(height: 14),
+            _LiveOrderActionsCard(
+              busy: _actionBusy,
+              onCancel: _cancelOrder,
+            ),
           ],
           const SizedBox(height: 14),
           _LiveOrderTimelineCard(
@@ -202,6 +311,53 @@ class _LiveOrderStatusCard extends StatelessWidget {
               style: const TextStyle(color: Colors.white, fontSize: 10.5),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveOrderActionsCard extends StatelessWidget {
+  final bool busy;
+  final VoidCallback onCancel;
+
+  const _LiveOrderActionsCard({
+    required this.busy,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _LiveOrderCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Order actions',
+            style: TextStyle(
+              color: AppColors.green,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'GETIN verifies cancellation eligibility, timing and inventory state on the server.',
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 10,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onCancel,
+              icon: const Icon(Icons.cancel_outlined),
+              label: Text(busy ? 'Checking…' : 'Request cancellation'),
+            ),
+          ),
         ],
       ),
     );
