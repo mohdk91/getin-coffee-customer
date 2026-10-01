@@ -58,11 +58,40 @@ class CustomerCatalogRepository {
     return CatalogProduct.fromJson(_dataMap(payload));
   }
 
-  Future<Map<String, dynamic>> availability(int branchId, int productId) async {
+  Future<CatalogProductAvailability> availability(
+    int branchId,
+    int productId,
+  ) async {
     final payload = await context.apiClient.getJson(
       '/api/v1/customer/branches/$branchId/products/$productId/availability',
     );
-    return _dataMap(payload);
+    return CatalogProductAvailability.fromJson(_dataMap(payload));
+  }
+
+  Future<CatalogPricingQuote> quoteProduct({
+    required int branchId,
+    required String orderType,
+    required int productId,
+    required int quantity,
+    int? variantId,
+    List<int> optionValueIds = const <int>[],
+  }) async {
+    final payload = await context.apiClient.postJson(
+      '/api/v1/customer/branches/$branchId/pricing/quote',
+      body: <String, Object?>{
+        'order_type': orderType,
+        'items': <Map<String, Object?>>[
+          <String, Object?>{
+            'product_id': productId,
+            'quantity': quantity,
+            if (variantId != null) 'variant_id': variantId,
+            if (optionValueIds.isNotEmpty)
+              'option_value_ids': List<int>.unmodifiable(optionValueIds),
+          },
+        ],
+      },
+    );
+    return CatalogPricingQuote.fromJson(_dataMap(payload));
   }
 
   Future<List<int>> favoriteProductIds() async {
