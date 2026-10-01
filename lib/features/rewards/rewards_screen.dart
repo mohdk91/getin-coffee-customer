@@ -456,7 +456,8 @@ class _StampCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final remaining = CustomerStampCardStore.instance.requiredStamps - current;
+    final stampStore = CustomerStampCardStore.instance;
+    final remaining = stampStore.requiredStamps - current;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -484,22 +485,24 @@ class _StampCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '7 Cups, 1 On Us',
-                      style: TextStyle(
+                      stampStore.campaignName,
+                      style: const TextStyle(
                         color: AppColors.green,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Each eligible drink earns 1 stamp. Collect 7 to unlock a free drink reward.',
-                      style: TextStyle(
+                      stampStore.usesApi
+                          ? stampStore.campaignDescription
+                          : 'Each eligible drink earns 1 stamp. Collect 7 to unlock a free drink reward.',
+                      style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 9.8,
                         height: 1.3,
@@ -548,8 +551,8 @@ class _StampCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   remaining == 0
-                      ? 'Free drink unlocked'
-                      : '$remaining stamp${remaining == 1 ? '' : 's'} until your free drink',
+                      ? '${stampStore.rewardLabel} unlocked'
+                      : '$remaining stamp${remaining == 1 ? '' : 's'} until ${stampStore.rewardLabel}',
                   style: const TextStyle(
                     color: AppColors.green,
                     fontSize: 10.5,
