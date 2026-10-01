@@ -362,6 +362,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     final order = GetinOrder(
+      apiOrderId: result.apiOrderId,
       id: result.orderId!,
       placedAt: result.placedAt ?? draft.createdAt,
       branchName: branchName,
