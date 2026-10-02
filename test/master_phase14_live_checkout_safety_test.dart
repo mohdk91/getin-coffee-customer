@@ -13,10 +13,10 @@ void main() {
     expect(checkout, contains('completeServerOrder()'));
     expect(checkout, contains("result.currency ?? draft.currency"));
     expect(checkout, contains("delivery && !_usesApi ? '4728' : null"));
-    expect(checkout, contains('card payment pending'));
+    expect(checkout, contains('Stripe PaymentSheet securely confirms Visa/Mastercard'));
     expect(
       checkout,
-      contains('does not claim payment success until a configured payment provider confirms it'),
+      contains('Raw card number and CVC never pass through GETIN'),
     );
     expect(cart, contains('void completeServerOrder()'));
     expect(confirmation, contains('if (earnedStars > 0)'));

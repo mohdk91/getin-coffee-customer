@@ -29,6 +29,7 @@ class CheckoutOrderDraft {
   final String paymentTender;
   final String? paymentMethodId;
   final String? paymentTokenReference;
+  final String? paymentSessionId;
   final double total;
 
   const CheckoutOrderDraft({
@@ -58,10 +59,44 @@ class CheckoutOrderDraft {
     required this.paymentTender,
     required this.paymentMethodId,
     required this.paymentTokenReference,
+    this.paymentSessionId,
     required this.total,
   });
 
   bool get isDelivery => serviceType == 'delivery';
+
+  CheckoutOrderDraft withPaymentSession(String? id) {
+    return CheckoutOrderDraft(
+      clientRequestId: clientRequestId,
+      createdAt: createdAt,
+      branchId: branchId,
+      branchName: branchName,
+      serviceType: serviceType,
+      currency: currency,
+      lines: lines,
+      itemCount: itemCount,
+      specialRequest: specialRequest,
+      deliveryAddress: deliveryAddress,
+      deliveryInstruction: deliveryInstruction,
+      fulfilmentEstimate: fulfilmentEstimate,
+      subtotal: subtotal,
+      deliveryFee: deliveryFee,
+      serviceFee: serviceFee,
+      tip: tip,
+      membershipSaving: membershipSaving,
+      rewardSaving: rewardSaving,
+      rewardRedemptionId: rewardRedemptionId,
+      voucherSaving: voucherSaving,
+      voucherCode: voucherCode,
+      giftCardApplied: giftCardApplied,
+      giftCardId: giftCardId,
+      paymentTender: paymentTender,
+      paymentMethodId: paymentMethodId,
+      paymentTokenReference: paymentTokenReference,
+      paymentSessionId: id,
+      total: total,
+    );
+  }
 
   Map<String, dynamic> toApiPayload() => <String, dynamic>{
         'branch_id': branchId,
@@ -92,6 +127,7 @@ class CheckoutOrderDraft {
           'tender': paymentTender,
           'payment_method_id': paymentMethodId,
           'payment_token_reference': paymentTokenReference,
+          if (paymentSessionId != null) 'payment_session_id': paymentSessionId,
         },
       };
 }

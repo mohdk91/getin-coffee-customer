@@ -26,6 +26,7 @@ dependencies:
   country_picker: ^2.0.27
   speech_to_text: 6.6.2
   url_launcher: 6.3.1
+  flutter_stripe: ^11.5.0
 
 dev_dependencies:
   flutter_test:
@@ -46,3 +47,10 @@ flutter:
     - assets/images/home/
     - assets/videos/getin_splash_compat.mp4
     - assets/images/
+dependency_overrides:
+  # Phase 23 compatibility shim: flutter_stripe 11.5.0's platform interface
+  # uses Color.r/g/b/a introduced after this project's Flutter toolchain.
+  # The installer vendors the exact 11.5.0 package and applies the upstream-
+  # equivalent older-Flutter color conversion locally.
+  stripe_platform_interface:
+    path: third_party/stripe_platform_interface

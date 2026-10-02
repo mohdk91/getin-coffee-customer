@@ -18,6 +18,54 @@ class CustomerCheckoutApiRepository {
   Future<Map<String, dynamic>> paymentMethods() =>
       context.apiClient.getJson('/api/v1/customer/payment-methods', authenticated: true);
 
+
+  Future<Map<String, dynamic>> createPaymentSetupSession({required String idempotencyKey}) =>
+      context.apiClient.requestJson(
+        'POST',
+        '/api/v1/customer/payment-methods/setup-session',
+        authenticated: true,
+        retryable: true,
+        headers: <String, String>{'Idempotency-Key': idempotencyKey},
+      );
+
+  Future<Map<String, dynamic>> deletePaymentMethod({
+    required String paymentMethodId,
+    required String idempotencyKey,
+  }) =>
+      context.apiClient.requestJson(
+        'DELETE',
+        '/api/v1/customer/payment-methods/$paymentMethodId',
+        authenticated: true,
+        retryable: true,
+        headers: <String, String>{'Idempotency-Key': idempotencyKey},
+      );
+
+  Future<Map<String, dynamic>> setDefaultPaymentMethod({
+    required String paymentMethodId,
+    required String idempotencyKey,
+  }) =>
+      context.apiClient.requestJson(
+        'POST',
+        '/api/v1/customer/payment-methods/$paymentMethodId/default',
+        authenticated: true,
+        retryable: true,
+        headers: <String, String>{'Idempotency-Key': idempotencyKey},
+      );
+
+  Future<Map<String, dynamic>> createPaymentSession({
+    required int branchId,
+    required Map<String, dynamic> payload,
+    required String idempotencyKey,
+  }) =>
+      context.apiClient.requestJson(
+        'POST',
+        '/api/v1/customer/branches/$branchId/checkout/payment-session',
+        body: payload,
+        authenticated: true,
+        retryable: true,
+        headers: <String, String>{'Idempotency-Key': idempotencyKey},
+      );
+
   Future<Map<String, dynamic>> validateCoupon({required int branchId, required String code, required Map<String, dynamic> pricingPayload}) {
     return context.apiClient.postJson('/api/v1/customer/branches/$branchId/coupons/validate', body: <String,dynamic>{...pricingPayload, 'coupon_code': code}, authenticated: true);
   }

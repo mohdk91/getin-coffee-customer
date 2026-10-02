@@ -13,6 +13,7 @@ import '../../core/orders/checkout_order_service.dart';
 import '../../core/orders/laravel_checkout_order_service.dart';
 import '../../core/orders/live_checkout_quote_service.dart';
 import '../../core/payments/customer_payment_method_store.dart';
+import '../../core/payments/customer_stripe_payment_service.dart';
 import '../../core/rewards/customer_rewards_store.dart';
 import '../../core/rewards/customer_stamp_card_store.dart';
 import '../../core/rewards/reward_earning_policy.dart';
@@ -305,7 +306,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         : null;
     final fulfilmentEstimate = delivery ? _deliveryEta : _pickupReadyTime;
 
-    final draft = CheckoutOrderDraft(
+    var draft = CheckoutOrderDraft(
       clientRequestId: '${_usesApi ? 'getin-order' : 'getin-demo'}-${DateTime.now().microsecondsSinceEpoch}',
       createdAt: DateTime.now(),
       branchId: _cart.cartBranchId ?? _cart.currentBranchId,
@@ -398,9 +399,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _orderError = null;
     });
 
-    // Single order-creation boundary. API mode quotes and creates through
-    // Laravel with an idempotency key; demo mode remains isolated for local
-    // development. No local state is consumed before this returns success.
+    // In live API mode, Stripe confirms the card before Laravel accepts the
+    // order. PaymentSheet receives only Stripe client secrets; GETIN never
+    // receives PAN/CVC. A cancelled or failed sheet leaves all checkout state
+    // unchanged and no order creation request is sent.
+    if (_usesApi && _total > 0) {
+      try {
+        final stripe = CustomerStripePaymentService(CustomerAuthStore.instance.context);
+        final branchId = draft.branchId!;
+        final session = await stripe.createCheckoutSession(
+          branchId: branchId,
+          checkoutPayload: LaravelCheckoutOrderService.buildServerPayload(
+            draft,
+            includePayment: false,
+          ),
+          idempotencyKey: '${draft.clientRequestId}-payment',
+        );
+        if (session.paymentRequired) {
+          await stripe.presentCheckoutSheet(session);
+          draft = draft.withPaymentSession(session.paymentSessionId);
+          await CustomerPaymentMethodStore.instance.refresh();
+        }
+      } catch (error) {
+        if (!mounted) return;
+        const message =
+            'Card payment was not completed. Your cart and checkout benefits are unchanged.';
+        setState(() {
+          _placingOrder = false;
+          _orderError = message;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error.toString().contains('cancel')
+                  ? message
+                  : '$message ${error.toString().replaceFirst('ApiException: ', '')}',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    // Single order-creation boundary. API mode creates only after the Stripe
+    // payment session is confirmed and carries the same server checkout state.
     CheckoutOrderResult result;
     try {
       result = await _orderService
@@ -1793,7 +1835,7 @@ class _LivePaymentNotice extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Laravel recalculates the authoritative order total and creates the order with card payment pending. The app does not claim payment success until a configured payment provider confirms it.',
+              'Laravel calculates the authoritative amount due, then Stripe PaymentSheet securely confirms Visa/Mastercard before the order is created. Raw card number and CVC never pass through GETIN.',
               style: TextStyle(
                 color: AppColors.green,
                 fontSize: 10.5,
