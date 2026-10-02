@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties and keep the real file private.
+# Use an absolute path to the upload keystore.
+storePassword=REPLACE_ME
+keyPassword=REPLACE_ME
+keyAlias=upload
+storeFile=/absolute/path/to/getin-upload-key.jks

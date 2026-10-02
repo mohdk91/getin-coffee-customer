@@ -25,7 +25,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Allow Getin Coffee to take a profile photo.</string>
+	<string>Allow Getin Coffee to scan QR codes and take a profile photo.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Allow Getin Coffee to use your location to find nearby branches and support delivery addresses.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Allow Getin Coffee to use the microphone for product voice search.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
