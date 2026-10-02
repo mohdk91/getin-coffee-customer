@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 
 class GetinPrimaryButton extends StatelessWidget {
@@ -15,26 +16,45 @@ class GetinPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final style = FilledButton.styleFrom(
+      minimumSize: const Size(0, 56),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      backgroundColor: AppColors.green,
+      foregroundColor: AppColors.beige,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+    );
+
+    final text = Text(
+      label,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+
+    final child = icon == null
+        ? text
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon),
+              const SizedBox(width: 8),
+              Flexible(child: text),
+            ],
+          );
+
     return SizedBox(
       width: double.infinity,
-      height: 56,
-      child: FilledButton.icon(
+      child: FilledButton(
         onPressed: onPressed,
-        icon: icon == null ? const SizedBox.shrink() : Icon(icon),
-        label: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.green,
-          foregroundColor: AppColors.beige,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
+        style: style,
+        child: child,
       ),
     );
   }

@@ -314,9 +314,10 @@ class _GetinBottomNavigationBar extends StatelessWidget {
       shadowColor: Colors.black12,
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: 64,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 64),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: List.generate(
               _items.length,
               (index) => Expanded(
@@ -353,47 +354,48 @@ class _GetinNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 5, 4, 4),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              width: selected ? 48 : 34,
-              height: 30,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.beige : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                selected ? selectedIcon : icon,
-                color: selected ? AppColors.green : AppColors.muted,
-                size: 22,
-              ),
-            ),
-            const SizedBox(height: 3),
-            SizedBox(
-              height: 15,
-              width: double.infinity,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: TextStyle(
-                    color: selected ? AppColors.green : AppColors.muted,
-                    fontSize: 10.5,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        excludeFromSemantics: true,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 5),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: selected ? 48 : 34,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.beige : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  selected ? selectedIcon : icon,
+                  color: selected ? AppColors.green : AppColors.muted,
+                  size: 22,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? AppColors.green : AppColors.muted,
+                  fontSize: 10.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
