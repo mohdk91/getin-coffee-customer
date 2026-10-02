@@ -17,6 +17,8 @@ void main() {
     final pubspec = File('pubspec.yaml').readAsStringSync();
 
     expect(pubspec, contains('flutter_stripe: ^11.5.0'));
+    expect(pubspec, contains('stripe_platform_interface:'));
+    expect(pubspec, contains('path: third_party/stripe_platform_interface'));
     expect(stripe, contains('SetupPaymentSheetParameters('));
     expect(stripe, contains("paymentMethodOrder: const <String>['card']"));
     expect(stripe, contains('CardBrandAcceptance.allowed('));
