@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'core/bootstrap/customer_app_bootstrap.dart';
 import 'core/config/app_config.dart';
 import 'core/network/api_client.dart';
 import 'core/system/mobile_system_config_repository.dart';
@@ -28,13 +30,16 @@ class GetinCoffeeApp extends StatelessWidget {
           surface: AppColors.cream,
         ),
       ),
-      home: MobileStartupGate(
-        appConfig: config,
-        appKind: MobileAppKind.customer,
-        loader: config.isApiConfigured
-            ? MobileSystemConfigRepository(ApiClient(config))
-            : null,
-        child: const SplashScreen(),
+      home: CustomerAppBootstrapGate(
+        config: config,
+        child: MobileStartupGate(
+          appConfig: config,
+          appKind: MobileAppKind.customer,
+          loader: config.isApiConfigured
+              ? MobileSystemConfigRepository(ApiClient(config))
+              : null,
+          child: const SplashScreen(),
+        ),
       ),
     );
   }

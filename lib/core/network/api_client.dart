@@ -44,7 +44,11 @@ class ApiClient {
         ? config.apiBaseUrl.substring(0, config.apiBaseUrl.length - 1)
         : config.apiBaseUrl;
     final cleanPath = path.startsWith('/') ? path : '/$path';
-    final uri = Uri.parse('$base$cleanPath');
+    // Older Customer repositories use /v1/... while newer commerce routes use
+    // /api/v1/.... Laravel exposes both families under the /api prefix, so
+    // normalize only the legacy /v1 paths at the transport boundary.
+    final apiPath = cleanPath.startsWith('/v1/') ? '/api$cleanPath' : cleanPath;
+    final uri = Uri.parse('$base$apiPath');
     final queryParameters = <String, String>{};
 
     for (final entry in query.entries) {
