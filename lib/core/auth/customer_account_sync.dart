@@ -28,30 +28,27 @@ abstract final class CustomerAccountSync {
     await CustomerPersonalInfoStore.setGender(gender);
 
     if (!auth.usesApi) return;
-    try {
-      await CustomerAddressStore.instance.refreshFromApi();
-    } catch (_) {
-      // Account login remains valid when address refresh is temporarily offline.
-    }
-    try {
-      await CustomerSettingsStore.instance.refreshFromApi();
-    } catch (_) {
-      // Preferences can refresh on the next settings visit.
-    }
 
-    for (final refresh in <Future<void> Function()>[
-      CustomerMembershipStore.instance.refresh,
-      CustomerPaymentMethodStore.instance.refresh,
-      CustomerRewardsStore.instance.refresh,
-      CustomerStampCardStore.instance.refresh,
-      CustomerPlayStore.instance.refresh,
-      CustomerReferralStore.instance.refresh,
-    ]) {
-      try {
-        await refresh();
-      } catch (_) {
-        // Engagement state can retry from its destination screen.
-      }
+    // These reads are independent. Run them concurrently so authentication
+    // does not wait for the sum of every account bootstrap request. Each task
+    // remains best-effort; destination screens can retry their own state.
+    await Future.wait<void>([
+      _bestEffort(CustomerAddressStore.instance.refreshFromApi),
+      _bestEffort(CustomerSettingsStore.instance.refreshFromApi),
+      _bestEffort(CustomerMembershipStore.instance.refresh),
+      _bestEffort(CustomerPaymentMethodStore.instance.refresh),
+      _bestEffort(CustomerRewardsStore.instance.refresh),
+      _bestEffort(CustomerStampCardStore.instance.refresh),
+      _bestEffort(CustomerPlayStore.instance.refresh),
+      _bestEffort(CustomerReferralStore.instance.refresh),
+    ]);
+  }
+
+  static Future<void> _bestEffort(Future<void> Function() refresh) async {
+    try {
+      await refresh();
+    } catch (_) {
+      // Authentication remains valid. The destination screen owns retries.
     }
   }
 }

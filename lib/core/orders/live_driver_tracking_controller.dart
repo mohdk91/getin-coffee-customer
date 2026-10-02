@@ -13,6 +13,7 @@ class LiveDriverTrackingController extends ChangeNotifier {
   String? _errorMessage;
   bool _loading = false;
   bool _disposed = false;
+  bool _active = false;
   Timer? _timer;
 
   LiveDriverTrackingController({
@@ -26,6 +27,22 @@ class LiveDriverTrackingController extends ChangeNotifier {
   bool get loading => _loading;
 
   Future<void> start() async {
+    if (_disposed) return;
+    _active = true;
+    await refresh();
+    _schedule();
+  }
+
+  void pause() {
+    if (_disposed || !_active) return;
+    _active = false;
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  Future<void> resume() async {
+    if (_disposed || _active || _snapshot?.shouldPoll == false) return;
+    _active = true;
     await refresh();
     _schedule();
   }
@@ -57,7 +74,9 @@ class LiveDriverTrackingController extends ChangeNotifier {
   }
 
   void _schedule() {
-    if (_disposed || _snapshot?.shouldPoll == false || _timer != null) return;
+    if (_disposed || !_active || _snapshot?.shouldPoll == false || _timer != null) {
+      return;
+    }
     _timer = Timer.periodic(interval, (_) {
       unawaited(refresh());
     });
@@ -66,6 +85,7 @@ class LiveDriverTrackingController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _active = false;
     _timer?.cancel();
     _timer = null;
     super.dispose();

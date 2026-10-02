@@ -28,12 +28,14 @@ class LiveDriverTrackingCard extends StatefulWidget {
   State<LiveDriverTrackingCard> createState() => _LiveDriverTrackingCardState();
 }
 
-class _LiveDriverTrackingCardState extends State<LiveDriverTrackingCard> {
+class _LiveDriverTrackingCardState extends State<LiveDriverTrackingCard>
+    with WidgetsBindingObserver {
   late final LiveDriverTrackingController _controller;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final repository = widget.repository ??
         LiveDriverTrackingRepository(CustomerAuthStore.instance.context);
     _controller = LiveDriverTrackingController(
@@ -45,7 +47,17 @@ class _LiveDriverTrackingCardState extends State<LiveDriverTrackingCard> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_controller.resume());
+      return;
+    }
+    _controller.pause();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_onChanged);
     _controller.dispose();
     super.dispose();
