@@ -1,5 +1,4 @@
 import '../config/app_config.dart';
-import '../config/app_environment.dart';
 import '../network/api_client.dart';
 import '../storage/secure_store.dart';
 
@@ -37,7 +36,7 @@ class CustomerRepositoryContext {
 
   CustomerDataSource get source {
     if (config.isApiConfigured) return CustomerDataSource.api;
-    if (config.environment == AppEnvironment.development) {
+    if (config.allowsDemo) {
       return CustomerDataSource.demo;
     }
     throw StateError(

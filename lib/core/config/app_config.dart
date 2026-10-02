@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'app_environment.dart';
 
 class AppConfig {
@@ -35,6 +37,12 @@ class AppConfig {
   }
 
   bool get isApiConfigured => apiBaseUrl.isNotEmpty;
+
+  /// Demo repositories are a development/test convenience only. A compiled
+  /// release must never silently enter local demo mode when API configuration
+  /// is missing.
+  bool get allowsDemo =>
+      environment == AppEnvironment.development && !kReleaseMode;
 
   bool get isProduction => environment == AppEnvironment.production;
 

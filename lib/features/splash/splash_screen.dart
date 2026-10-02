@@ -36,12 +36,19 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _start() async {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    final configured = MobileAppContentStore.instance.splash;
+    final contentStore = MobileAppContentStore.instance;
+    final configured = contentStore.splash;
     final media = configured?.media ?? configured?.fallbackMedia;
 
     if (media != null && media.url.isNotEmpty && media.type == 'image') {
       if (mounted) setState(() => _imageUrl = media.url);
       _safetyTimer = Timer(const Duration(seconds: 3), _continue);
+      return;
+    }
+
+    if (media == null && contentStore.usesApi) {
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      await _continue();
       return;
     }
 
@@ -71,8 +78,10 @@ class _SplashScreenState extends State<SplashScreen> {
       if (media != null) {
         await controller.dispose();
         _controller = null;
-        await _startVideo(null);
-        return;
+        if (!MobileAppContentStore.instance.usesApi) {
+          await _startVideo(null);
+          return;
+        }
       }
       await Future<void>.delayed(const Duration(milliseconds: 450));
       await _continue();

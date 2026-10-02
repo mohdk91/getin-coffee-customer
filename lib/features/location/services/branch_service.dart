@@ -40,8 +40,10 @@ class BranchService {
   ];
 
   static List<Branch> get branches {
-    final live = CustomerCatalogStore.instance.branches;
-    return live.isNotEmpty ? live : _developmentFallback;
+    final store = CustomerCatalogStore.instance;
+    final live = store.branches;
+    if (live.isNotEmpty) return live;
+    return store.usesApi ? const <Branch>[] : _developmentFallback;
   }
 
   static String imageFor(Branch branch) {

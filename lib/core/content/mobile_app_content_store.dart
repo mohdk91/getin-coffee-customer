@@ -23,6 +23,7 @@ class MobileAppContentStore extends ChangeNotifier {
   List<MobileMenuCollection> get menuCollections => _snapshot.menuCollections;
   bool get loading => _loading;
   Object? get lastError => _lastError;
+  bool get usesApi => _repository?.context.usesApi ?? false;
 
   static Future<void> initialize(CustomerRepositoryContext context) async {
     instance._repository = MobileAppContentRepository(context);
@@ -50,7 +51,8 @@ class MobileAppContentStore extends ChangeNotifier {
       );
     } catch (error) {
       _lastError = error;
-      // Keep the last valid snapshot and allow local UI fallbacks.
+      // Keep the last valid server snapshot. API-mode widgets decide how to
+      // render an unavailable content surface without inventing local content.
     } finally {
       _loading = false;
       notifyListeners();

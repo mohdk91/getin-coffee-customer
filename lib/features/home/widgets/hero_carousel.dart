@@ -68,7 +68,11 @@ class _HeroCarouselState extends State<HeroCarousel> {
     return AnimatedBuilder(
       animation: MobileAppContentStore.instance,
       builder: (context, _) {
-        final banners = MobileAppContentStore.instance.heroBanners;
+        final store = MobileAppContentStore.instance;
+        final banners = store.heroBanners;
+        if (banners.isEmpty && store.usesApi) {
+          return const SizedBox.shrink();
+        }
         final count = banners.isEmpty ? _fallbackImages.length : banners.length;
         final safeIndex = _index.clamp(0, count - 1).toInt();
         final active = banners.isEmpty ? null : banners[safeIndex];
