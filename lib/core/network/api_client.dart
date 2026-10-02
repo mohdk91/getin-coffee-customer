@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import '../config/app_config.dart';
 import 'api_exception.dart';
@@ -95,6 +97,7 @@ class ApiClient {
         throw const ApiException(
           'Authentication token is unavailable.',
           statusCode: 401,
+          kind: ApiFailureKind.authentication,
         );
       }
       requestHeaders['Authorization'] = 'Bearer ${token.trim()}';
@@ -134,10 +137,7 @@ class ApiClient {
       }
     }
 
-    throw ApiException(
-      'Unable to reach the GETIN API.',
-      cause: lastTransportError,
-    );
+    throw _transportFailure(lastTransportError);
   }
 
   bool _methodIsSafeToRetry(String method) {
@@ -150,6 +150,28 @@ class ApiClient {
     if (delay > Duration.zero) {
       await Future<void>.delayed(delay);
     }
+  }
+
+  ApiException _transportFailure(Object? error) {
+    if (error is TimeoutException) {
+      return ApiException(
+        'The request timed out. Please try again.',
+        cause: error,
+        kind: ApiFailureKind.timeout,
+      );
+    }
+    if (error is SocketException) {
+      return ApiException(
+        'The network is unavailable. Check your connection and try again.',
+        cause: error,
+        kind: ApiFailureKind.offline,
+      );
+    }
+    return ApiException(
+      'Unable to reach the GETIN API.',
+      cause: error,
+      kind: ApiFailureKind.unknown,
+    );
   }
 
   Map<String, dynamic> _decode(ApiRawResponse response) {
@@ -169,6 +191,7 @@ class ApiClient {
           'The GETIN API returned an invalid JSON response.',
           statusCode: response.statusCode,
           cause: error,
+          kind: ApiFailureKind.invalidResponse,
         );
       }
     }
@@ -181,9 +204,37 @@ class ApiClient {
         errors: rawErrors is Map
             ? Map<String, dynamic>.from(rawErrors)
             : const <String, dynamic>{},
+        kind: _failureKindForStatus(response.statusCode),
+        retryAfter: _retryAfter(response.headers),
       );
     }
 
     return payload;
+  }
+
+  ApiFailureKind _failureKindForStatus(int statusCode) {
+    return switch (statusCode) {
+      401 => ApiFailureKind.authentication,
+      403 => ApiFailureKind.forbidden,
+      404 => ApiFailureKind.notFound,
+      408 => ApiFailureKind.timeout,
+      409 => ApiFailureKind.conflict,
+      422 => ApiFailureKind.validation,
+      429 => ApiFailureKind.rateLimited,
+      >= 500 => ApiFailureKind.server,
+      _ => ApiFailureKind.unknown,
+    };
+  }
+
+  Duration? _retryAfter(Map<String, String> headers) {
+    String? value;
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == 'retry-after') {
+        value = entry.value.trim();
+        break;
+      }
+    }
+    final seconds = int.tryParse(value ?? '');
+    return seconds == null || seconds < 0 ? null : Duration(seconds: seconds);
   }
 }
