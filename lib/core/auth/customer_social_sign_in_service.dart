@@ -3,48 +3,17 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../network/api_exception.dart';
 import 'customer_auth_store.dart';
+import 'customer_firebase_auth_service.dart';
 
 class CustomerSocialSignInService {
   const CustomerSocialSignInService();
 
   Future<void> signInWithGoogle() async {
-    final auth = CustomerAuthStore.instance;
-    final config = auth.context.config;
-    if (!config.googleSignInConfigured) {
-      throw const ApiException(
-        'Google Sign-In is not configured yet. Add GOOGLE_SERVER_CLIENT_ID to the app build.',
-      );
-    }
-
-    final google = GoogleSignIn(
-      scopes: const <String>['email', 'profile'],
-      serverClientId: config.googleServerClientId,
-      clientId: defaultTargetPlatform == TargetPlatform.iOS &&
-              config.googleIosClientId.isNotEmpty
-          ? config.googleIosClientId
-          : null,
-    );
-
-    final account = await google.signIn();
-    if (account == null) {
-      throw const ApiException('Google Sign-In was cancelled.');
-    }
-    final authentication = await account.authentication;
-    final idToken = authentication.idToken?.trim() ?? '';
-    if (idToken.isEmpty) {
-      throw const ApiException('Google did not return an identity token.');
-    }
-
-    await auth.socialLogin(
-      provider: 'google',
-      identityToken: idToken,
-      displayName: account.displayName,
-    );
+    await CustomerFirebaseAuthService.instance.signInWithGoogle();
   }
 
   Future<void> signInWithApple() async {

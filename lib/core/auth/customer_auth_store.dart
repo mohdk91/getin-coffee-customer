@@ -108,6 +108,28 @@ class CustomerAuthStore extends ChangeNotifier {
   }
 
 
+  Future<CustomerAccount> firebaseLogin({
+    required String idToken,
+    String? displayName,
+  }) async {
+    return _runBusy(() async {
+      final result = await repository.firebaseLogin(
+        idToken: idToken,
+        displayName: displayName,
+      );
+      await context.secureStore.write(
+        SecureStoreKeys.accessToken,
+        result.token,
+      );
+      _customer = result.customer;
+      await _persistCustomer();
+      notifyListeners();
+      await _registerDeviceBestEffort();
+      return result.customer;
+    });
+  }
+
+
   Future<CustomerAccount> register({
     required String name,
     required String email,

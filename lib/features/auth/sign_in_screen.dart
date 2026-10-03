@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/auth/customer_auth_store.dart';
 import '../../core/auth/customer_social_sign_in_service.dart';
+import '../../core/config/customer_mobile_app_settings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/getin_logo.dart';
 import 'customer_auth_flow.dart';
@@ -22,6 +23,9 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _hidden = true;
   bool _authenticating = false;
   String? _socialProvider;
+
+  CustomerMobileAppSettings get _settings =>
+      CustomerMobileAppSettingsStore.instance.settings;
 
   @override
   void dispose() {
@@ -75,6 +79,14 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _socialSignIn(String provider) async {
     if (_authenticating || _socialProvider != null) return;
+    if (provider == 'google' && !_settings.googleAuthEnabled) {
+      _showError('Google Sign-In is not enabled yet.');
+      return;
+    }
+    if (provider == 'apple' && !_settings.appleAuthEnabled) {
+      _showError('Apple Sign-In is not enabled yet.');
+      return;
+    }
     setState(() => _socialProvider = provider);
     try {
       if (provider == 'google') {
@@ -99,13 +111,14 @@ class _SignInScreenState extends State<SignInScreen> {
     required String provider,
     required Widget icon,
     required String label,
+    required bool enabled,
   }) {
     final loading = _socialProvider == provider;
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: _authenticating || _socialProvider != null
+        onPressed: !enabled || _authenticating || _socialProvider != null
             ? null
             : () => _socialSignIn(provider),
         icon: loading
@@ -183,7 +196,9 @@ class _SignInScreenState extends State<SignInScreen> {
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
-                  onPressed: _authenticating || _socialProvider != null
+                  onPressed: !_settings.passwordEnabled ||
+                          _authenticating ||
+                          _socialProvider != null
                       ? null
                       : _signIn,
                   style: FilledButton.styleFrom(
@@ -221,19 +236,24 @@ class _SignInScreenState extends State<SignInScreen> {
                 provider: 'google',
                 icon: const _GoogleMark(),
                 label: 'Continue with Google',
+                enabled: _settings.googleAuthEnabled,
               ),
               const SizedBox(height: 12),
               _socialButton(
                 provider: 'apple',
                 icon: const Icon(Icons.apple, size: 23),
                 label: 'Continue with Apple',
+                enabled: _settings.appleAuthEnabled,
               ),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: OutlinedButton.icon(
-                  onPressed: _authenticating || _socialProvider != null
+                  onPressed: (!_settings.phoneAuthEnabled &&
+                              !_settings.passwordEnabled) ||
+                          _authenticating ||
+                          _socialProvider != null
                       ? null
                       : () => Navigator.push(
                             context,

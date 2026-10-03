@@ -97,6 +97,42 @@ class CustomerAccountRepository {
   }
 
 
+  Future<CustomerAuthResult> firebaseLogin({
+    required String idToken,
+    String? displayName,
+  }) async {
+    if (!usesApi) {
+      throw const ApiException(
+        'Firebase sign-in requires the Laravel API.',
+      );
+    }
+
+    final token = idToken.trim();
+    if (token.isEmpty) {
+      throw const ApiException('Firebase identity token is unavailable.');
+    }
+
+    final payload = await context.apiClient.postJson(
+      '/v1/customer/auth/firebase',
+      body: <String, dynamic>{
+        'id_token': token,
+        if (displayName != null && displayName.trim().isNotEmpty)
+          'display_name': displayName.trim(),
+      },
+    );
+    final data = _dataObject(payload);
+    final customer = _mapObject(data['customer'], field: 'customer');
+    final accessToken = data['token']?.toString().trim() ?? '';
+    if (accessToken.isEmpty) {
+      throw const ApiException('The GETIN API did not return an access token.');
+    }
+    return CustomerAuthResult(
+      customer: CustomerAccount.fromJson(customer),
+      token: accessToken,
+    );
+  }
+
+
   Future<CustomerAuthResult> register({
     required String name,
     required String email,

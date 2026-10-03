@@ -4,9 +4,11 @@ import '../addresses/customer_address_repository.dart';
 import '../addresses/customer_address_store.dart';
 import '../auth/customer_account_sync.dart';
 import '../auth/customer_auth_store.dart';
+import '../auth/customer_firebase_auth_service.dart';
 import '../catalog/customer_catalog_store.dart';
 import '../chat/customer_chat_store.dart';
 import '../config/app_config.dart';
+import '../config/customer_mobile_app_settings.dart';
 import '../content/mobile_app_content_store.dart';
 import '../customer/customer_country.dart';
 import '../customer/customer_personal_info_store.dart';
@@ -57,10 +59,14 @@ class CustomerAppBootstrap {
   }
 
   Future<void> _bootstrap(AppConfig config) async {
+    // runApp() is already on-screen before bootstrap starts. Firebase may do
+    // native setup here without reintroducing the old black-launch blocker.
+    await _bestEffort(CustomerFirebaseAuthService.initialize);
     await CustomerAuthStore.initialize(config);
     final context = CustomerAuthStore.instance.context;
 
     await Future.wait<void>([
+      _bestEffort(() => CustomerMobileAppSettingsStore.initialize(context)),
       _bestEffort(() => CustomerCatalogStore.initialize(context)),
       _bestEffort(() => MobileAppContentStore.initialize(context)),
       _bestEffort(CustomerCountryStore.initialize),
