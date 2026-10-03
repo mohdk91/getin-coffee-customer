@@ -44,10 +44,19 @@ class ApiClient {
         ? config.apiBaseUrl.substring(0, config.apiBaseUrl.length - 1)
         : config.apiBaseUrl;
     final cleanPath = path.startsWith('/') ? path : '/$path';
-    // Older Customer repositories use /v1/... while newer commerce routes use
-    // /api/v1/.... Laravel exposes both families under the /api prefix, so
-    // normalize only the legacy /v1 paths at the transport boundary.
-    final apiPath = cleanPath.startsWith('/v1/') ? '/api$cleanPath' : cleanPath;
+
+    // Customer repositories historically use /v1/... while some callers use
+    // /api/v1/.... API_BASE_URL is also supported both as the server root
+    // (https://host) and with the Laravel API prefix (https://host/api).
+    // Compose those forms without ever producing /api/api/v1/....
+    final baseUri = Uri.parse(base);
+    final normalizedBasePath = baseUri.path.endsWith('/')
+        ? baseUri.path.substring(0, baseUri.path.length - 1)
+        : baseUri.path;
+    final baseIncludesApiPrefix = normalizedBasePath.endsWith('/api');
+    final apiPath = baseIncludesApiPrefix
+        ? (cleanPath.startsWith('/api/') ? cleanPath.substring(4) : cleanPath)
+        : (cleanPath.startsWith('/v1/') ? '/api$cleanPath' : cleanPath);
     final uri = Uri.parse('$base$apiPath');
     final queryParameters = <String, String>{};
 

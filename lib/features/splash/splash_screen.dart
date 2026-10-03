@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/auth/customer_auth_store.dart';
+import '../../core/bootstrap/customer_app_bootstrap.dart';
 import '../../core/content/mobile_app_content_models.dart';
 import '../../core/content/mobile_app_content_store.dart';
 import '../../core/theme/app_colors.dart';
@@ -27,6 +28,7 @@ class _SplashScreenState extends State<SplashScreen> {
   bool _ready = false;
   bool _done = false;
   String? _imageUrl;
+  Object? _bootstrapError;
 
   @override
   void initState() {
@@ -106,6 +108,18 @@ class _SplashScreenState extends State<SplashScreen> {
     if (_done) return;
     _done = true;
     _safetyTimer?.cancel();
+    try {
+      await CustomerAppBootstrap.instance.ready;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _done = false;
+          _bootstrapError = error;
+        });
+      }
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final completed =
         kReleaseMode ? (prefs.getBool('onboarding_completed') ?? false) : false;
@@ -141,6 +155,51 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
+    if (_bootstrapError != null) {
+      return Scaffold(
+        backgroundColor: AppColors.green,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Unable to prepare GETIN',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.beige,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Check the API connection and try again.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 22),
+                  FilledButton.tonal(
+                    onPressed: () async {
+                      setState(() => _bootstrapError = null);
+                      try {
+                        await CustomerAppBootstrap.instance.retry();
+                        if (mounted) await _continue();
+                      } catch (error) {
+                        if (mounted) setState(() => _bootstrapError = error);
+                      }
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: AppColors.green,
       body: SizedBox.expand(

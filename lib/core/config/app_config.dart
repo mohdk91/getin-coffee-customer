@@ -6,11 +6,19 @@ class AppConfig {
   final AppEnvironment environment;
   final String apiBaseUrl;
   final Duration requestTimeout;
+  final String googleServerClientId;
+  final String googleIosClientId;
+  final String appleServiceId;
+  final String appleRedirectUri;
 
   const AppConfig({
     required this.environment,
     required this.apiBaseUrl,
     this.requestTimeout = const Duration(seconds: 20),
+    this.googleServerClientId = '',
+    this.googleIosClientId = '',
+    this.appleServiceId = '',
+    this.appleRedirectUri = '',
   });
 
   factory AppConfig.fromEnvironment() {
@@ -26,6 +34,22 @@ class AppConfig {
       'API_TIMEOUT_SECONDS',
       defaultValue: 20,
     );
+    const googleServerClientId = String.fromEnvironment(
+      'GOOGLE_SERVER_CLIENT_ID',
+      defaultValue: '',
+    );
+    const googleIosClientId = String.fromEnvironment(
+      'GOOGLE_IOS_CLIENT_ID',
+      defaultValue: '',
+    );
+    const appleServiceId = String.fromEnvironment(
+      'APPLE_SERVICE_ID',
+      defaultValue: '',
+    );
+    const appleRedirectUri = String.fromEnvironment(
+      'APPLE_REDIRECT_URI',
+      defaultValue: '',
+    );
 
     return AppConfig(
       environment: AppEnvironment.parse(environmentValue),
@@ -33,6 +57,10 @@ class AppConfig {
       requestTimeout: const Duration(
         seconds: timeoutSeconds > 0 ? timeoutSeconds : 20,
       ),
+      googleServerClientId: googleServerClientId.trim(),
+      googleIosClientId: googleIosClientId.trim(),
+      appleServiceId: appleServiceId.trim(),
+      appleRedirectUri: appleRedirectUri.trim(),
     );
   }
 
@@ -40,8 +68,6 @@ class AppConfig {
 
   Uri? get apiUri => isApiConfigured ? Uri.tryParse(apiBaseUrl) : null;
 
-  /// Development/debug builds may use HTTP for local/LAN testing, but any
-  /// staging/production/release configuration must use HTTPS.
   bool get isApiTransportAllowed {
     if (!isApiConfigured) return !requiresApi;
     final uri = apiUri;
@@ -50,15 +76,22 @@ class AppConfig {
     return uri.scheme == 'https';
   }
 
-  /// Demo repositories are a development/test convenience only. A compiled
-  /// release must never silently enter local demo mode when API configuration
-  /// is missing.
   bool get allowsDemo =>
       environment == AppEnvironment.development && !kReleaseMode;
 
   bool get isProduction => environment == AppEnvironment.production;
 
   bool get requiresApi => !allowsDemo;
+
+  bool get googleSignInConfigured => googleServerClientId.isNotEmpty;
+
+  bool get appleAndroidSignInConfigured {
+    final uri = Uri.tryParse(appleRedirectUri);
+    return appleServiceId.isNotEmpty &&
+        uri != null &&
+        uri.scheme == 'https' &&
+        uri.host.isNotEmpty;
+  }
 
   String get environmentBadge => environment.key.toUpperCase();
 }

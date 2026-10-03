@@ -82,6 +82,32 @@ class CustomerAuthStore extends ChangeNotifier {
   }
 
 
+  Future<CustomerAccount> socialLogin({
+    required String provider,
+    required String identityToken,
+    String? nonce,
+    String? displayName,
+  }) async {
+    return _runBusy(() async {
+      final result = await repository.socialLogin(
+        provider: provider,
+        identityToken: identityToken,
+        nonce: nonce,
+        displayName: displayName,
+      );
+      await context.secureStore.write(
+        SecureStoreKeys.accessToken,
+        result.token,
+      );
+      _customer = result.customer;
+      await _persistCustomer();
+      notifyListeners();
+      await _registerDeviceBestEffort();
+      return result.customer;
+    });
+  }
+
+
   Future<CustomerAccount> register({
     required String name,
     required String email,

@@ -61,6 +61,42 @@ class CustomerAccountRepository {
   }
 
 
+  Future<CustomerAuthResult> socialLogin({
+    required String provider,
+    required String identityToken,
+    String? nonce,
+    String? displayName,
+  }) async {
+    if (!usesApi) {
+      throw const ApiException(
+        'Social sign-in requires the Laravel API.',
+      );
+    }
+
+    final body = <String, dynamic>{
+      'provider': provider,
+      'identity_token': identityToken,
+      if (nonce != null && nonce.trim().isNotEmpty) 'nonce': nonce.trim(),
+      if (displayName != null && displayName.trim().isNotEmpty)
+        'display_name': displayName.trim(),
+    };
+    final payload = await context.apiClient.postJson(
+      '/v1/customer/auth/social',
+      body: body,
+    );
+    final data = _dataObject(payload);
+    final customer = _mapObject(data['customer'], field: 'customer');
+    final token = data['token']?.toString().trim() ?? '';
+    if (token.isEmpty) {
+      throw const ApiException('The GETIN API did not return an access token.');
+    }
+    return CustomerAuthResult(
+      customer: CustomerAccount.fromJson(customer),
+      token: token,
+    );
+  }
+
+
   Future<CustomerAuthResult> register({
     required String name,
     required String email,
@@ -166,7 +202,7 @@ class CustomerAccountRepository {
         'purpose': 'phone_verification',
         'destination': '***0000',
         'expires_in_seconds': 300,
-        'resend_after_seconds': 0,
+        'resend_after_seconds': 30,
       };
     }
     final payload = await context.apiClient.postJson(

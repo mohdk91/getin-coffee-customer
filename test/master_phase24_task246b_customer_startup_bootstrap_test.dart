@@ -1,9 +1,6 @@
-import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:getin_coffee/core/bootstrap/customer_app_bootstrap.dart';
 import 'package:getin_coffee/core/config/app_config.dart';
 import 'package:getin_coffee/core/config/app_environment.dart';
 import 'package:getin_coffee/core/network/api_client.dart';
@@ -14,51 +11,52 @@ void main() {
     apiBaseUrl: 'http://127.0.0.1:8000',
   );
 
-  testWidgets('bootstrap paints a branded first frame before work completes',
-      (tester) async {
-    final completer = Completer<void>();
+  test('runApp is invoked before Customer bootstrap starts', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final runAppIndex =
+        source.indexOf('runApp(GetinCoffeeApp(config: config));');
+    final bootstrapIndex =
+        source.indexOf('CustomerAppBootstrap.instance.start(config)');
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CustomerAppBootstrapGate(
-          config: config,
-          bootstrapper: (_) => completer.future,
-          child: const Text('READY'),
-        ),
-      ),
-    );
-
-    expect(find.text('Preparing GETIN…'), findsOneWidget);
-    expect(find.text('READY'), findsNothing);
-
-    completer.complete();
-    await tester.pumpAndSettle();
-
-    expect(find.text('READY'), findsOneWidget);
+    expect(runAppIndex, greaterThanOrEqualTo(0));
+    expect(bootstrapIndex, greaterThan(runAppIndex));
   });
 
-  test('legacy /v1 routes normalize to Laravel /api/v1 routes', () {
-    const client = ApiClient(config);
+  test('video splash waits for Customer bootstrap before navigation', () {
+    final source = File('lib/features/splash/splash_screen.dart').readAsStringSync();
 
     expect(
-      client.endpoint('/v1/system/config').path,
-      '/api/v1/system/config',
+      source,
+      contains(
+        "VideoPlayerController.asset('assets/videos/getin_splash_compat.mp4')",
+      ),
     );
-    expect(
-      client.endpoint('/v1/customer/login').path,
-      '/api/v1/customer/login',
+    expect(source, contains('CustomerAppBootstrap.instance.ready'));
+    expect(source, contains('CustomerAppBootstrap.instance.retry()'));
+  });
+
+  test('legacy /v1 routes normalize without duplicating /api', () {
+    const client = ApiClient(config);
+    const apiBaseConfig = AppConfig(
+      environment: AppEnvironment.development,
+      apiBaseUrl: 'https://api.example.com/api',
     );
+    const apiBaseClient = ApiClient(apiBaseConfig);
+
+    expect(client.endpoint('/v1/system/config').path, '/api/v1/system/config');
+    expect(client.endpoint('/v1/customer/login').path, '/api/v1/customer/login');
     expect(
       client.endpoint('/api/v1/customer/branches').path,
       '/api/v1/customer/branches',
     );
-  });
-
-  test('main no longer performs store bootstrap before runApp', () {
-    final source = File('lib/main.dart').readAsStringSync();
-    expect(source, contains('runApp(GetinCoffeeApp(config: config));'));
-    expect(source, isNot(contains('CustomerAuthStore.initialize')));
-    expect(source, isNot(contains('CustomerCatalogStore.initialize')));
+    expect(
+      apiBaseClient.endpoint('/v1/customer/login').path,
+      '/api/v1/customer/login',
+    );
+    expect(
+      apiBaseClient.endpoint('/api/v1/customer/login').path,
+      '/api/v1/customer/login',
+    );
   });
 
   test('Android native launch window uses GETIN brand background', () {

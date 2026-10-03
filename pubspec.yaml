@@ -27,6 +27,9 @@ dependencies:
   speech_to_text: 6.6.2
   url_launcher: 6.3.1
   flutter_stripe: ^11.5.0
+  google_sign_in: 6.2.2
+  sign_in_with_apple: 6.1.4
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

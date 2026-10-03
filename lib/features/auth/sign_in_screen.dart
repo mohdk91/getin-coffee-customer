@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth/customer_auth_store.dart';
+import '../../core/auth/customer_social_sign_in_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/getin_logo.dart';
 import 'customer_auth_flow.dart';
@@ -17,8 +18,10 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   final _identifier = TextEditingController();
   final _password = TextEditingController();
+  final _social = const CustomerSocialSignInService();
   bool _hidden = true;
   bool _authenticating = false;
+  String? _socialProvider;
 
   @override
   void dispose() {
@@ -46,7 +49,7 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _signIn() async {
-    if (_authenticating) return;
+    if (_authenticating || _socialProvider != null) return;
     final identifier = _identifier.text.trim();
     final password = _password.text;
     if (identifier.isEmpty || password.isEmpty) {
@@ -70,9 +73,50 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
+  Future<void> _socialSignIn(String provider) async {
+    if (_authenticating || _socialProvider != null) return;
+    setState(() => _socialProvider = provider);
+    try {
+      if (provider == 'google') {
+        await _social.signInWithGoogle();
+      } else {
+        await _social.signInWithApple();
+      }
+      if (!mounted) return;
+      await continueAfterCustomerAuthentication(context);
+    } catch (error) {
+      if (mounted) _showError(CustomerAuthStore.instance.userMessage(error));
+    } finally {
+      if (mounted) setState(() => _socialProvider = null);
+    }
+  }
+
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _socialButton({
+    required String provider,
+    required Widget icon,
+    required String label,
+  }) {
+    final loading = _socialProvider == provider;
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: _authenticating || _socialProvider != null
+            ? null
+            : () => _socialSignIn(provider),
+        icon: loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : icon,
+        label: Text(label),
+      ),
     );
   }
 
@@ -101,7 +145,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 'Sign in to continue your Getin Coffee experience.',
                 style: TextStyle(color: AppColors.muted, fontSize: 15),
               ),
-              const SizedBox(height: 38),
+              const SizedBox(height: 34),
               const Text('Email or Mobile Number'),
               const SizedBox(height: 8),
               TextField(
@@ -134,12 +178,14 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 26),
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
-                  onPressed: _authenticating ? null : _signIn,
+                  onPressed: _authenticating || _socialProvider != null
+                      ? null
+                      : _signIn,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.green,
                     foregroundColor: AppColors.beige,
@@ -156,12 +202,38 @@ class _SignInScreenState extends State<SignInScreen> {
                       : const Text('Sign In'),
                 ),
               ),
+              const SizedBox(height: 22),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'or continue with',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
               const SizedBox(height: 18),
+              _socialButton(
+                provider: 'google',
+                icon: const _GoogleMark(),
+                label: 'Continue with Google',
+              ),
+              const SizedBox(height: 12),
+              _socialButton(
+                provider: 'apple',
+                icon: const Icon(Icons.apple, size: 23),
+                label: 'Continue with Apple',
+              ),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: OutlinedButton.icon(
-                  onPressed: _authenticating
+                  onPressed: _authenticating || _socialProvider != null
                       ? null
                       : () => Navigator.push(
                             context,
@@ -170,13 +242,13 @@ class _SignInScreenState extends State<SignInScreen> {
                             ),
                           ),
                   icon: const Icon(Icons.phone_iphone_rounded),
-                  label: const Text('Sign In with Mobile Number'),
+                  label: const Text('Continue with Mobile Number'),
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 28),
               Center(
                 child: TextButton(
-                  onPressed: _authenticating
+                  onPressed: _authenticating || _socialProvider != null
                       ? null
                       : () => Navigator.push(
                             context,
@@ -189,6 +261,32 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        shape: BoxShape.circle,
+      ),
+      child: const Text(
+        'G',
+        style: TextStyle(
+          color: Color(0xFF4285F4),
+          fontWeight: FontWeight.w900,
+          fontSize: 15,
         ),
       ),
     );

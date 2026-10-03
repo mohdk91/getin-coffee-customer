@@ -1,18 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/auth/customer_auth_store.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../location/location_permission_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
   final bool returnAfterVerification;
+  final int initialResendSeconds;
 
   const OtpScreen({
     super.key,
     required this.phoneNumber,
     this.returnAfterVerification = false,
+    this.initialResendSeconds = 30,
   });
 
   @override
@@ -24,9 +29,18 @@ class _OtpScreenState extends State<OtpScreen> {
   final _nodes = List.generate(6, (_) => FocusNode());
   bool _verifying = false;
   bool _resending = false;
+  Timer? _timer;
+  int _remainingSeconds = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCooldown(widget.initialResendSeconds);
+  }
 
   @override
   void dispose() {
+    _timer?.cancel();
     for (final controller in _controllers) {
       controller.dispose();
     }
@@ -34,6 +48,24 @@ class _OtpScreenState extends State<OtpScreen> {
       node.dispose();
     }
     super.dispose();
+  }
+
+  void _startCooldown(int seconds) {
+    _timer?.cancel();
+    final next = seconds < 30 ? 30 : seconds;
+    _remainingSeconds = next;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_remainingSeconds <= 1) {
+        timer.cancel();
+        setState(() => _remainingSeconds = 0);
+      } else {
+        setState(() => _remainingSeconds--);
+      }
+    });
   }
 
   Future<void> _verify() async {
@@ -65,26 +97,40 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> _resend() async {
-    if (_resending) return;
+    if (_resending || _remainingSeconds > 0) return;
     setState(() => _resending = true);
     try {
       final data = await CustomerAuthStore.instance.sendOtp(resend: true);
       if (!mounted) return;
-      final wait = (data['resend_after_seconds'] as num?)?.toInt();
+      final wait = (data['resend_after_seconds'] as num?)?.toInt() ?? 30;
+      _startCooldown(wait);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            wait == null || wait <= 0
-                ? 'A new verification code was sent.'
-                : 'A new code was sent. You can request another in $wait seconds.',
-          ),
-        ),
+        const SnackBar(content: Text('A new verification code was sent.')),
       );
+    } on ApiException catch (error) {
+      final wait = _retryAfter(error);
+      if (wait != null && wait > 0) _startCooldown(wait);
+      if (mounted) _error(CustomerAuthStore.instance.userMessage(error));
     } catch (error) {
       if (mounted) _error(CustomerAuthStore.instance.userMessage(error));
     } finally {
       if (mounted) setState(() => _resending = false);
     }
+  }
+
+  int? _retryAfter(ApiException error) {
+    final value = error.errors['retry_after_seconds'];
+    if (value is List && value.isNotEmpty) {
+      return int.tryParse(value.first.toString());
+    }
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  String get _resendLabel {
+    if (_resending) return 'Sending…';
+    if (_remainingSeconds <= 0) return 'Resend Code';
+    final seconds = _remainingSeconds.toString().padLeft(2, '0');
+    return 'Resend Code in 00:$seconds';
   }
 
   void _error(String message) {
@@ -99,13 +145,20 @@ class _OtpScreenState extends State<OtpScreen> {
       backgroundColor: AppColors.cream,
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.fromLTRB(compact ? 18 : 24, 18, compact ? 18 : 24, 28),
+          padding: EdgeInsets.fromLTRB(
+            compact ? 18 : 24,
+            18,
+            compact ? 18 : 24,
+            28,
+          ),
           children: [
             if (widget.returnAfterVerification)
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
-                  onPressed: _verifying ? null : () => Navigator.pop(context, false),
+                  onPressed: _verifying
+                      ? null
+                      : () => Navigator.pop(context, false),
                   icon: const Icon(Icons.arrow_back_ios_new_rounded),
                 ),
               ),
@@ -174,15 +227,18 @@ class _OtpScreenState extends State<OtpScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.beige),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: AppColors.beige,
+                        ),
                       )
                     : const Text('Verify & Continue'),
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
-              onPressed: _resending ? null : _resend,
-              child: Text(_resending ? 'Sending…' : 'Resend Code'),
+              onPressed: _resending || _remainingSeconds > 0 ? null : _resend,
+              child: Text(_resendLabel),
             ),
           ],
         ),
