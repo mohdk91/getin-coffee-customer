@@ -39,26 +39,23 @@ class NearestBranchesSection extends StatelessWidget {
                 ),
               ),
             ),
-            TextButton(
+            TextButton.icon(
               onPressed: onViewAll,
+              iconAlignment: IconAlignment.end,
+              icon: const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+              ),
+              label: const Text(
+                'View all',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.green,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
-              ),
-              child: const Row(
-                children: [
-                  Text(
-                    'See All',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                  ),
-                ],
               ),
             ),
           ],
@@ -182,14 +179,21 @@ class _BranchCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.branch.name.replaceFirst('Getin ', ''),
-                      maxLines: 2,
-                      overflow: TextOverflow.visible,
-                      style: const TextStyle(
-                        color: AppColors.green,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
+                    SizedBox(
+                      height: 17,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _branchDisplayName(item.branch.name),
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.green,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -222,4 +226,10 @@ class _BranchCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _branchDisplayName(String name) {
+  return name
+      .replaceFirst(RegExp(r'^getin\s+', caseSensitive: false), '')
+      .trim();
 }

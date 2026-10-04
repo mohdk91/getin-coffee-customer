@@ -253,25 +253,32 @@ class _ManagedCollectionGroup extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        for (var index = 0; index < visibleCollections.length; index++) ...[
-          _ManagedProductSection(
-            showSeeAll: false,
-            config: MobileHomeSectionConfig(
-              id: visibleCollections[index].key.id,
-              key: 'collection:${visibleCollections[index].key.slug}',
-              title: visibleCollections[index].key.title,
-              subtitle: visibleCollections[index].key.subtitle,
-              source: 'menu_collection',
-              sortOrder: visibleCollections[index].key.sortOrder,
-            ),
-            products: visibleCollections[index].value,
-            branchId: branchId,
-            branchName: branchName,
-            serviceType: serviceType,
+        SizedBox(
+          height: 214,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: visibleCollections.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final entry = visibleCollections[index];
+              return _OfferCollectionPreviewCard(
+                collection: entry.key,
+                products: entry.value,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => LiveOfferCollectionDetailScreen(
+                      branchId: branchId,
+                      branchName: branchName,
+                      serviceType: serviceType,
+                      collection: entry.key,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
-          if (index != visibleCollections.length - 1)
-            const SizedBox(height: 18),
-        ],
+        ),
       ],
     );
   }
@@ -304,6 +311,7 @@ class _SectionHeading extends StatelessWidget {
             if (onSeeAll != null)
               TextButton.icon(
                 onPressed: onSeeAll,
+                iconAlignment: IconAlignment.end,
                 icon: const Icon(Icons.chevron_right_rounded, size: 18),
                 label: const Text('View all'),
                 style: TextButton.styleFrom(
@@ -335,7 +343,6 @@ class _ManagedProductSection extends StatelessWidget {
   final int branchId;
   final String branchName;
   final String serviceType;
-  final bool showSeeAll;
 
   const _ManagedProductSection({
     required this.config,
@@ -343,7 +350,6 @@ class _ManagedProductSection extends StatelessWidget {
     required this.branchId,
     required this.branchName,
     required this.serviceType,
-    this.showSeeAll = true,
   });
 
   @override
@@ -354,20 +360,18 @@ class _ManagedProductSection extends StatelessWidget {
       children: [
         _SectionHeading(
           config: config,
-          onSeeAll: showSeeAll
-              ? () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => LiveHomeProductListingScreen(
-                        title: config.title,
-                        subtitle: config.subtitle,
-                        products: products,
-                        branchId: branchId,
-                        branchName: branchName,
-                        serviceType: serviceType,
-                      ),
-                    ),
-                  )
-              : null,
+          onSeeAll: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => LiveHomeProductListingScreen(
+                title: config.title,
+                subtitle: config.subtitle,
+                products: products,
+                branchId: branchId,
+                branchName: branchName,
+                serviceType: serviceType,
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -386,7 +390,7 @@ class _ManagedProductSection extends StatelessWidget {
                     builder: (_) => ProductDetailScreen(
                       name: product.name,
                       description: product.shortDescription,
-                      image: product.imageUrl ?? '',
+                      image: _preferredProductImage(product) ?? '',
                       price: product.displayPrice,
                       branchName: branchName,
                       serviceType: serviceType,
@@ -433,14 +437,9 @@ class _CatalogCard extends StatelessWidget {
             children: [
               Expanded(
                 child: SizedBox.expand(
-                  child: product.imageUrl?.isNotEmpty == true
-                      ? Image.network(
-                          product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const ColoredBox(color: AppColors.cream),
-                        )
-                      : const ColoredBox(color: AppColors.cream),
+                  child: _CatalogMedia(
+                    url: _preferredProductImage(product),
+                  ),
                 ),
               ),
               Padding(
@@ -495,6 +494,159 @@ class _CatalogCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OfferCollectionPreviewCard extends StatelessWidget {
+  final MobileMenuCollection collection;
+  final List<CatalogProduct> products;
+  final VoidCallback onTap;
+
+  const _OfferCollectionPreviewCard({
+    required this.collection,
+    required this.products,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lowest = products.reduce((a, b) => a.price <= b.price ? a : b);
+    final imageUrl = _firstCollectionImage(products);
+
+    return SizedBox(
+      width: 210,
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 112,
+                width: double.infinity,
+                child: _CatalogMedia(url: imageUrl),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        collection.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.green,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        collection.subtitle?.trim().isNotEmpty == true
+                            ? collection.subtitle!.trim()
+                            : '${products.length} available picks',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 9.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'From ${lowest.displayPrice}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.gold,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            size: 17,
+                            color: AppColors.green,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String? _preferredProductImage(CatalogProduct product) {
+  final primary = product.imageUrl?.trim();
+  if (primary != null && primary.isNotEmpty) return primary;
+  for (final url in product.gallery) {
+    final candidate = url.trim();
+    if (candidate.isNotEmpty) return candidate;
+  }
+  return null;
+}
+
+String? _firstCollectionImage(List<CatalogProduct> products) {
+  for (final product in products) {
+    final image = _preferredProductImage(product);
+    if (image != null) return image;
+  }
+  return null;
+}
+
+class _CatalogMedia extends StatelessWidget {
+  final String? url;
+
+  const _CatalogMedia({this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = url?.trim();
+    if (value == null || value.isEmpty) return const _CatalogMediaFallback();
+
+    return Image.network(
+      value,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return const _CatalogMediaFallback();
+      },
+      errorBuilder: (_, __, ___) => const _CatalogMediaFallback(),
+    );
+  }
+}
+
+class _CatalogMediaFallback extends StatelessWidget {
+  const _CatalogMediaFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AppColors.cream,
+      child: Center(
+        child: Icon(
+          Icons.local_cafe_rounded,
+          color: AppColors.green,
+          size: 30,
         ),
       ),
     );

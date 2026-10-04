@@ -30,7 +30,7 @@ void main() {
     ).readAsStringSync();
 
     expect(managed, contains('LiveHomeProductListingScreen('));
-    expect(managed, contains('onSeeAll: showSeeAll'));
+    expect(managed, contains('onSeeAll: () => Navigator.of(context).push('));
     expect(managed, contains("label: const Text('View all')"));
     expect(listing, contains('final List<CatalogProduct> products;'));
     expect(listing, contains('catalogProduct: product'));

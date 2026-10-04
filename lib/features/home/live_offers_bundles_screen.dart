@@ -208,7 +208,7 @@ class LiveOfferCollectionDetailScreen extends StatelessWidget {
         builder: (_) => ProductDetailScreen(
           name: product.name,
           description: product.shortDescription,
-          image: product.imageUrl ?? '',
+          image: _preferredProductImage(product) ?? '',
           price: product.displayPrice,
           branchName: branchName,
           serviceType: serviceType,
@@ -233,10 +233,10 @@ class _OfferCollectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final first = products.first;
     final lowest = products.reduce(
       (a, b) => a.price <= b.price ? a : b,
     );
+    final imageUrl = _firstCollectionImage(products);
 
     return Material(
       color: Colors.white,
@@ -249,25 +249,7 @@ class _OfferCollectionCard extends StatelessWidget {
             SizedBox(
               width: 124,
               height: 132,
-              child: first.imageUrl?.isNotEmpty == true
-                  ? Image.network(
-                      first.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const ColoredBox(
-                        color: AppColors.beige,
-                        child: Icon(
-                          Icons.local_cafe_rounded,
-                          color: AppColors.green,
-                        ),
-                      ),
-                    )
-                  : const ColoredBox(
-                      color: AppColors.beige,
-                      child: Icon(
-                        Icons.local_cafe_rounded,
-                        color: AppColors.green,
-                      ),
-                    ),
+              child: _OfferMedia(url: imageUrl),
             ),
             Expanded(
               child: Padding(
@@ -366,18 +348,12 @@ class _OfferProductTile extends StatelessWidget {
               SizedBox(
                 width: 78,
                 height: 78,
-                child: product.imageUrl?.isNotEmpty == true
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.network(
-                          product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const ColoredBox(
-                            color: AppColors.beige,
-                          ),
-                        ),
-                      )
-                    : const ColoredBox(color: AppColors.beige),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: _OfferMedia(
+                    url: _preferredProductImage(product),
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -419,6 +395,64 @@ class _OfferProductTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+String? _preferredProductImage(CatalogProduct product) {
+  final primary = product.imageUrl?.trim();
+  if (primary != null && primary.isNotEmpty) return primary;
+  for (final url in product.gallery) {
+    final candidate = url.trim();
+    if (candidate.isNotEmpty) return candidate;
+  }
+  return null;
+}
+
+String? _firstCollectionImage(List<CatalogProduct> products) {
+  for (final product in products) {
+    final image = _preferredProductImage(product);
+    if (image != null) return image;
+  }
+  return null;
+}
+
+class _OfferMedia extends StatelessWidget {
+  final String? url;
+
+  const _OfferMedia({this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    final value = url?.trim();
+    if (value == null || value.isEmpty) return const _OfferMediaFallback();
+
+    return Image.network(
+      value,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return const _OfferMediaFallback();
+      },
+      errorBuilder: (_, __, ___) => const _OfferMediaFallback(),
+    );
+  }
+}
+
+class _OfferMediaFallback extends StatelessWidget {
+  const _OfferMediaFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AppColors.beige,
+      child: Center(
+        child: Icon(
+          Icons.local_cafe_rounded,
+          color: AppColors.green,
+          size: 28,
         ),
       ),
     );

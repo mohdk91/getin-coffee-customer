@@ -26,7 +26,11 @@ List<MobileMenuCollection> resolveLiveOfferCollections({
       .toList(growable: false)
     ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
-  if (visiblePublished.isNotEmpty) return visiblePublished;
+  // Keep Control Panel collections authoritative when at least two useful
+  // collections resolve for the selected branch. If publishing is partial,
+  // top up the section from the same live branch catalog so Offers & Bundles
+  // never collapses into a single repetitive collection.
+  if (visiblePublished.length >= 2) return visiblePublished;
 
   bool foodLike(CatalogProduct product) {
     final source =
@@ -36,6 +40,20 @@ List<MobileMenuCollection> resolveLiveOfferCollections({
         source.contains('sandwich') ||
         source.contains('croissant') ||
         source.contains('muffin');
+  }
+
+  bool collectionLooksCoffee(MobileMenuCollection collection) {
+    final source = '${collection.slug} ${collection.title}'.toLowerCase();
+    return source.contains('coffee');
+  }
+
+  bool collectionLooksFood(MobileMenuCollection collection) {
+    final source = '${collection.slug} ${collection.title}'.toLowerCase();
+    return source.contains('breakfast') ||
+        source.contains('bite') ||
+        source.contains('bakery') ||
+        source.contains('food') ||
+        source.contains('bundle');
   }
 
   final drinks = products
@@ -50,7 +68,10 @@ List<MobileMenuCollection> resolveLiveOfferCollections({
       .toList(growable: false);
 
   final fallback = <MobileMenuCollection>[];
-  if (drinks.isNotEmpty) {
+  final hasCoffeeCollection = visiblePublished.any(collectionLooksCoffee);
+  final hasFoodCollection = visiblePublished.any(collectionLooksFood);
+
+  if (drinks.isNotEmpty && !hasCoffeeCollection) {
     fallback.add(
       MobileMenuCollection(
         id: -246901,
@@ -63,21 +84,34 @@ List<MobileMenuCollection> resolveLiveOfferCollections({
       ),
     );
   }
-  if (food.isNotEmpty) {
-    fallback.add(
-      MobileMenuCollection(
-        id: -246902,
-        slug: 'coffee-bite-pairings',
-        title: 'Coffee & Bite Pairings',
-        subtitle: 'Easy pairings for your next order.',
-        isFeatured: true,
-        sortOrder: 20,
-        productIds: food,
-      ),
-    );
+
+  if (!hasFoodCollection) {
+    final pairingIds = <int>{
+      if (drinks.isNotEmpty) drinks.first,
+      ...food,
+    }.take(5).toList(growable: false);
+
+    if (pairingIds.isNotEmpty) {
+      fallback.add(
+        MobileMenuCollection(
+          id: -246902,
+          slug: 'coffee-bite-pairings',
+          title: 'Coffee & Bite Pairings',
+          subtitle: 'Coffee and bakery picks for your next order.',
+          isFeatured: true,
+          sortOrder: 20,
+          productIds: pairingIds,
+        ),
+      );
+    }
   }
 
-  if (fallback.isEmpty) {
+  final merged = <MobileMenuCollection>[...visiblePublished, ...fallback]
+    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+  if (merged.length >= 2) return merged;
+
+  if (merged.isEmpty) {
     return <MobileMenuCollection>[
       MobileMenuCollection(
         id: -246903,
@@ -85,7 +119,7 @@ List<MobileMenuCollection> resolveLiveOfferCollections({
         title: 'GETIN Picks',
         subtitle: 'Popular choices available at this branch.',
         isFeatured: true,
-        sortOrder: 10,
+        sortOrder: 30,
         productIds: products
             .take(6)
             .map((product) => product.id)
@@ -94,5 +128,28 @@ List<MobileMenuCollection> resolveLiveOfferCollections({
     ];
   }
 
-  return fallback;
+  final usedIds = merged.expand((collection) => collection.productIds).toSet();
+  var pickIds = products
+      .where((product) => !usedIds.contains(product.id))
+      .take(6)
+      .map((product) => product.id)
+      .toList(growable: false);
+
+  if (pickIds.isEmpty) {
+    pickIds =
+        products.take(6).map((product) => product.id).toList(growable: false);
+  }
+
+  return <MobileMenuCollection>[
+    ...merged,
+    MobileMenuCollection(
+      id: -246903,
+      slug: 'getin-picks',
+      title: 'GETIN Picks',
+      subtitle: 'Popular choices available at this branch.',
+      isFeatured: true,
+      sortOrder: 30,
+      productIds: pickIds,
+    ),
+  ];
 }
