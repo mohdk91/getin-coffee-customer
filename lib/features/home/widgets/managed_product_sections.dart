@@ -10,6 +10,7 @@ import '../../../core/rewards/customer_rewards_store.dart';
 import '../../../core/rewards/customer_stamp_card_store.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../product/product_detail_screen.dart';
+import '../live_offer_collection_resolver.dart';
 import '../live_offers_bundles_screen.dart';
 import 'play_win_card.dart';
 import 'rewards_progress_card.dart';
@@ -44,12 +45,12 @@ class ManagedProductSections extends StatelessWidget {
         final contentStore = MobileAppContentStore.instance;
         final configs = contentStore.homeSections.toList()
           ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-        final collections = MobileAppContentStore.instance.menuCollections
-            .where((collection) => collection.productIds.isNotEmpty)
-            .toList()
-          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
         final products =
             CustomerCatalogStore.instance.productsForBranch(branchId);
+        final collections = resolveLiveOfferCollections(
+          published: MobileAppContentStore.instance.menuCollections,
+          products: products,
+        );
 
         if (configs.isEmpty && collections.isEmpty) {
           return const SizedBox.shrink();

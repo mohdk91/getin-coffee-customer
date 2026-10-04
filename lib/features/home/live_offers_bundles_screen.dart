@@ -6,6 +6,7 @@ import '../../core/content/mobile_app_content_models.dart';
 import '../../core/content/mobile_app_content_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../product/product_detail_screen.dart';
+import 'live_offer_collection_resolver.dart';
 
 class LiveOffersBundlesScreen extends StatelessWidget {
   final int branchId;
@@ -33,7 +34,11 @@ class LiveOffersBundlesScreen extends StatelessWidget {
         final byId = <int, CatalogProduct>{
           for (final product in products) product.id: product,
         };
-        final collections = MobileAppContentStore.instance.menuCollections
+        final resolvedCollections = resolveLiveOfferCollections(
+          published: MobileAppContentStore.instance.menuCollections,
+          products: products,
+        );
+        final collections = resolvedCollections
             .map(
               (collection) => MapEntry(
                 collection,

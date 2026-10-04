@@ -719,9 +719,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget build(BuildContext context) {
     final liveProduct = widget.catalogProduct;
     final liveBranchId = widget.branchId;
+    final hasLiveConfiguration = liveProduct != null &&
+        (liveProduct.variants.isNotEmpty ||
+            liveProduct.optionGroups.isNotEmpty);
+    final editingServerConfiguration = widget.editingItem?.variantId != null ||
+        (widget.editingItem?.optionValueIds.isNotEmpty ?? false);
+
+    // Keep catalog/product identity and branch pricing linked to the API, but
+    // preserve the complete customer demo configurator when the linked
+    // catalog product does not expose variants/options. Products that expose
+    // live configuration keep the API-authoritative configurator.
     if (CustomerCatalogStore.instance.usesApi &&
         liveProduct != null &&
-        liveBranchId != null) {
+        liveBranchId != null &&
+        (hasLiveConfiguration || editingServerConfiguration)) {
       return LiveProductDetailScreen(
         branchId: liveBranchId,
         branchName: widget.branchName,

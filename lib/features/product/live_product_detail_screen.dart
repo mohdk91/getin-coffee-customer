@@ -9,6 +9,7 @@ import '../../core/favorites/customer_favorites_store.dart';
 import '../../core/products/product_type.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
+import '../cart/cart_screen.dart';
 import 'live_product_configuration.dart';
 import 'product_merchandising_preview.dart';
 
@@ -43,6 +44,7 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
   bool _loading = true;
   bool _quoting = false;
   bool _saving = false;
+  bool _addedToCart = false;
   late int _quantity;
   Timer? _quoteTimer;
   int _quoteGeneration = 0;
@@ -94,6 +96,7 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
         _error = null;
         _quote = null;
         _quoteError = null;
+        _addedToCart = false;
       });
     }
 
@@ -202,7 +205,10 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
   void _selectVariant(int id) {
     final configuration = _configuration;
     if (configuration == null) return;
-    setState(() => configuration.selectVariant(id));
+    setState(() {
+      configuration.selectVariant(id);
+      _addedToCart = false;
+    });
     _scheduleQuote();
   }
 
@@ -212,14 +218,20 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
   ) {
     final configuration = _configuration;
     if (configuration == null) return;
-    setState(() => configuration.toggleValue(group, value));
+    setState(() {
+      configuration.toggleValue(group, value);
+      _addedToCart = false;
+    });
     _scheduleQuote();
   }
 
   void _changeQuantity(int delta) {
     final next = (_quantity + delta).clamp(1, 99).toInt();
     if (next == _quantity) return;
-    setState(() => _quantity = next);
+    setState(() {
+      _quantity = next;
+      _addedToCart = false;
+    });
     _scheduleQuote();
   }
 
@@ -229,6 +241,13 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
       return product.money(quote.lineTotal);
     }
     return product.money(product.price * _quantity);
+  }
+
+  Future<void> _openCart() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const CartScreen()),
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _saveToCart() async {
@@ -331,8 +350,9 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
       setState(() {
         _availability = freshAvailability;
         _quote = freshQuote;
+        _addedToCart = true;
       });
-      _showMessage('Added to cart with live branch pricing.');
+      _showMessage('${product.name} added to cart.');
     } catch (_) {
       if (mounted) {
         _showMessage(
@@ -561,19 +581,24 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
             _LiveProductBottomBar(
               quantity: _quantity,
               total: _lineTotal(product),
-              enabled: configuration.complete &&
-                  _quote != null &&
-                  !_quoting &&
-                  !_saving,
-              message: configuration.complete
-                  ? (_quote != null ? 'Price confirmed' : 'Updating price')
-                  : 'Choose required options',
+              enabled: !_saving &&
+                  (_addedToCart ||
+                      (configuration.complete && _quote != null && !_quoting)),
+              message: _addedToCart
+                  ? 'Added to cart'
+                  : configuration.complete
+                      ? (_quote != null ? 'Price confirmed' : 'Updating price')
+                      : 'Choose required options',
               primaryLabel: widget.editingItem == null
-                  ? (_saving ? 'Checking…' : 'Add to cart')
+                  ? (_addedToCart
+                      ? 'View cart'
+                      : (_saving ? 'Checking…' : 'Add to cart'))
                   : (_saving ? 'Checking…' : 'Update item'),
               onDecrease: () => _changeQuantity(-1),
               onIncrease: () => _changeQuantity(1),
-              onPrimary: _saveToCart,
+              onPrimary: widget.editingItem == null && _addedToCart
+                  ? _openCart
+                  : _saveToCart,
             ),
         ],
       ),
