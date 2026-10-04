@@ -12,6 +12,10 @@ void main() {
     expect(source, contains('repository.load(orderId)'));
     expect(source, contains('!next.shouldPoll'));
     expect(source, contains('_timer?.cancel()'));
-    expect(source, contains('latest server state'));
+
+    // Keep the failure fallback customer-ready while preserving the same
+    // authoritative polling mechanics.
+    expect(source, contains('latest available location'));
+    expect(source, isNot(contains('latest server state')));
   });
 }
