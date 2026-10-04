@@ -21,7 +21,6 @@ void main() {
       contains(
           'You can rate your delivery driver or pickup employee when available.'),
     );
-    expect(
-        orders, contains('onRate: (!controller.usesApi || !authenticated) &&'));
+    expect(orders, contains('onRate: order.apiOrderId == null &&'));
   });
 }

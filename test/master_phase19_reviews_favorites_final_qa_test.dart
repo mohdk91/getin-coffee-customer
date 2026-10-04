@@ -34,8 +34,7 @@ void main() {
 
     expect(liveOrder, contains('_reviewStatus!.delivery.eligible'));
     expect(liveOrder, contains('_reviewStatus!.employee.eligible'));
-    expect(
-        orders, contains('onRate: (!controller.usesApi || !authenticated) &&'));
+    expect(orders, contains('onRate: order.apiOrderId == null &&'));
     expect(
       reviewScreens,
       contains('This review option is not available for this order.'),

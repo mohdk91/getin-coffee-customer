@@ -55,6 +55,7 @@ class GetinOrder {
   final double? deliveryLongitude;
   final String? deliveryCode;
   final String? deliveryQrAsset;
+  final String? cancellationReason;
 
   const GetinOrder({
     this.apiOrderId,
@@ -75,6 +76,7 @@ class GetinOrder {
     this.deliveryLongitude,
     this.deliveryCode,
     this.deliveryQrAsset,
+    this.cancellationReason,
   });
 
   bool get isActive {
@@ -186,6 +188,7 @@ class GetinOrder {
       deliveryLongitude: (json['deliveryLongitude'] as num?)?.toDouble(),
       deliveryCode: json['deliveryCode'] as String?,
       deliveryQrAsset: json['deliveryQrAsset'] as String?,
+      cancellationReason: json['cancellationReason'] as String?,
     );
   }
 
@@ -217,6 +220,7 @@ class GetinOrder {
         'deliveryLongitude': deliveryLongitude,
         'deliveryCode': deliveryCode,
         'deliveryQrAsset': deliveryQrAsset,
+        'cancellationReason': cancellationReason,
       };
 }
 
@@ -431,6 +435,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       String? deliveryAddress,
       String? deliveryCode,
       String? deliveryQrAsset,
+      String? cancellationReason,
     }) {
       final currency = items.first.currency;
       final total = items.fold<double>(0, (sum, item) => sum + item.price);
@@ -458,6 +463,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         deliveryLongitude: fulfillment == 'Delivery' ? 29.9668 : null,
         deliveryCode: deliveryCode,
         deliveryQrAsset: deliveryQrAsset,
+        cancellationReason: cancellationReason,
       );
     }
 
@@ -483,6 +489,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
         employeeName: 'Mariam Adel',
       ),
       order(
+        id: 'GC-10566',
+        age: const Duration(hours: 1, minutes: 18),
+        fulfillment: 'Pickup',
+        status: GetinOrderStatus.ready,
+        items: uniqueProducts(<int>[0, 6]),
+        employeeName: 'Nour Khaled',
+        eta: 'Ready now',
+      ),
+      order(
         id: 'GC-10540',
         age: const Duration(days: 1, hours: 3),
         fulfillment: 'Delivery',
@@ -498,6 +513,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         status: GetinOrderStatus.cancelled,
         items: uniqueProducts(<int>[0]),
         deliveryAddress: 'San Stefano, Alexandria',
+        cancellationReason:
+            'Customer changed delivery plans before preparation started.',
       ),
     ];
   }
@@ -529,7 +546,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<GetinOrder> get _allOrders {
     final controller = CustomerOrdersController.instance;
     if (controller.usesApi) {
-      if (CustomerAuthStore.instance.isAuthenticated) {
+      if (CustomerAuthStore.instance.isAuthenticated &&
+          controller.createdOrders.isNotEmpty) {
         return controller.createdOrders;
       }
       return _previewLoggedIn ? _previewOrders : const <GetinOrder>[];
@@ -569,15 +587,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return const _LoggedOutOrders();
     }
 
+    final hasPreviewFallback = _previewLoggedIn && _previewOrders.isNotEmpty;
+
     if (controller.usesApi &&
         controller.loading &&
-        controller.createdOrders.isEmpty) {
+        controller.createdOrders.isEmpty &&
+        !hasPreviewFallback) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (controller.usesApi &&
         controller.errorMessage != null &&
-        controller.createdOrders.isEmpty) {
+        controller.createdOrders.isEmpty &&
+        !hasPreviewFallback) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -684,7 +706,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               ),
                             );
                           },
-                          onRate: (!controller.usesApi || !authenticated) &&
+                          onRate: order.apiOrderId == null &&
                                   order.status == GetinOrderStatus.delivered
                               ? () {
                                   Navigator.push(

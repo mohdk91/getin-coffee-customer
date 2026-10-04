@@ -37,7 +37,7 @@ class OrderDetailScreen extends StatelessWidget {
           children: [
             _OrderSummary(order: order),
             const SizedBox(height: 14),
-            _OrderTimeline(status: order.status),
+            _OrderTimeline(order: order),
             if (order.status == GetinOrderStatus.outForDelivery) ...[
               const SizedBox(height: 14),
               _DriverCard(order: order),
@@ -141,11 +141,13 @@ class _OrderSummary extends StatelessWidget {
 }
 
 class _OrderTimeline extends StatelessWidget {
-  final GetinOrderStatus status;
+  final GetinOrder order;
 
   const _OrderTimeline({
-    required this.status,
+    required this.order,
   });
+
+  GetinOrderStatus get status => order.status;
 
   static const _steps = [
     _TimelineStep(
@@ -177,21 +179,38 @@ class _OrderTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (status == GetinOrderStatus.cancelled) {
-      return const _SimpleCard(
+      return _SimpleCard(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
+            const Icon(
               Icons.cancel_outlined,
               color: Color(0xFFB84242),
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                'This order was cancelled.',
-                style: TextStyle(
-                  color: AppColors.green,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This order was cancelled.',
+                    style: TextStyle(
+                      color: AppColors.green,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (order.cancellationReason?.isNotEmpty == true) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      order.cancellationReason!,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 10.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
