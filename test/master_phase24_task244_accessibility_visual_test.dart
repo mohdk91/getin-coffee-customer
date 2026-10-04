@@ -34,7 +34,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byType(FilledButton), findsOneWidget);
-    expect(tester.getSize(find.byType(FilledButton)).height, greaterThanOrEqualTo(56));
+    expect(tester.getSize(find.byType(FilledButton)).height,
+        greaterThanOrEqualTo(56));
   });
 
   test('Task 244 bottom navigation exposes explicit selected semantics', () {
@@ -44,7 +45,12 @@ void main() {
     expect(source, contains('button: true'));
     expect(source, contains('selected: selected'));
     expect(source, contains('excludeFromSemantics: true'));
-    expect(source, contains('BoxConstraints(minHeight: 64)'));
+    expect(source, contains('child: SizedBox('));
+    expect(source, contains('height: 68'));
+    expect(
+      source,
+      isNot(contains('constraints: const BoxConstraints(minHeight: 64)')),
+    );
     expect(source, isNot(contains('height: 15')));
   });
 }

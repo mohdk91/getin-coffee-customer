@@ -22,11 +22,13 @@ void main() {
     );
     expect(
       voucherPicker,
-      contains('Laravel will verify this voucher and calculate the final saving.'),
+      contains(
+          'Laravel will verify this voucher and calculate the final saving.'),
     );
     expect(
       rewardPicker,
-      contains('Laravel will confirm it against this checkout.'),
+      contains('Eligibility is confirmed at checkout.'),
     );
+    expect(rewardPicker, isNot(contains('Laravel will confirm')));
   });
 }
