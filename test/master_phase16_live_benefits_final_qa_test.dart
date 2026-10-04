@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Task 176 keeps live promotions server authoritative end to end', () {
-    final mainSource = File('lib/main.dart').readAsStringSync();
+    final mainSource = File('lib/core/bootstrap/customer_app_bootstrap.dart')
+        .readAsStringSync();
     final engagement = File(
       'lib/core/engagement/customer_engagement_api_repository.dart',
     ).readAsStringSync();
@@ -29,10 +30,11 @@ void main() {
 
     expect(
       mainSource,
-      contains('CustomerVoucherStore.initialize(CustomerAuthStore.instance.context)'),
+      contains('CustomerVoucherStore.initialize(context)'),
     );
     expect(engagement, contains("'/v1/customer/vouchers'"));
-    expect(engagement, contains("'/v1/customer/vouchers/\$voucherId/validate'"));
+    expect(
+        engagement, contains("'/v1/customer/vouchers/\$voucherId/validate'"));
     expect(rewards, contains("voucher['voucher_code']"));
     expect(rewards, isNot(contains("'REWARD-\${item['id']}'")));
 

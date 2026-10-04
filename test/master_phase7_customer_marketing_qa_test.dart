@@ -4,7 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Master Phase 7 production engagement wiring is present', () {
-    final main = File('lib/main.dart').readAsStringSync();
+    final main = File('lib/core/bootstrap/customer_app_bootstrap.dart')
+        .readAsStringSync();
     final repository = File(
       'lib/core/engagement/customer_engagement_api_repository.dart',
     ).readAsStringSync();

@@ -5,7 +5,8 @@ import 'package:getin_coffee/core/vouchers/customer_voucher_store.dart';
 
 void main() {
   test('Task 168 keeps vouchers server-backed in API mode', () {
-    final mainSource = File('lib/main.dart').readAsStringSync();
+    final mainSource = File('lib/core/bootstrap/customer_app_bootstrap.dart')
+        .readAsStringSync();
     final repository = File(
       'lib/core/engagement/customer_engagement_api_repository.dart',
     ).readAsStringSync();
@@ -15,7 +16,7 @@ void main() {
 
     expect(
       mainSource,
-      contains('CustomerVoucherStore.initialize(CustomerAuthStore.instance.context)'),
+      contains('CustomerVoucherStore.initialize(context)'),
     );
     expect(repository, contains("_getItems('/v1/customer/vouchers')"));
     expect(repository, contains("/v1/customer/vouchers/\$voucherId/validate"));

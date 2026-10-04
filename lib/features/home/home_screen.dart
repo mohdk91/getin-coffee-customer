@@ -243,14 +243,17 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(
                         height: 18,
                       ),
-                      SecondaryBannerCard(onDestination: openContentDestination),
+                      SecondaryBannerCard(
+                          onDestination: openContentDestination),
                       const SizedBox(
                         height: 18,
                       ),
                       InkWell(
                         onTap: openMenu,
                         borderRadius: BorderRadius.circular(18),
-                        child: const MenuCategoriesSection(),
+                        child: MenuCategoriesSection(
+                          branchId: branch.id,
+                        ),
                       ),
                       const SizedBox(
                         height: 18,

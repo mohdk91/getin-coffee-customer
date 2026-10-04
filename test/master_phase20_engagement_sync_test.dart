@@ -7,7 +7,8 @@ void main() {
     final sync = File(
       'lib/core/auth/customer_account_sync.dart',
     ).readAsStringSync();
-    final main = File('lib/main.dart').readAsStringSync();
+    final main = File('lib/core/bootstrap/customer_app_bootstrap.dart')
+        .readAsStringSync();
 
     expect(sync, contains('CustomerMembershipStore.instance.refresh'));
     expect(sync, contains('CustomerRewardsStore.instance.refresh'));
@@ -15,7 +16,7 @@ void main() {
     expect(sync, contains('CustomerPlayStore.instance.refresh'));
     expect(sync, contains('CustomerReferralStore.instance.refresh'));
     expect(
-      main.indexOf('CustomerReferralStore.initialize'),
+      main.indexOf('CustomerReferralStore.initialize(context)'),
       lessThan(main.indexOf('CustomerAccountSync.refreshAfterAuthentication')),
     );
   });
