@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/customer_auth_store.dart';
 import '../data/customer_repository.dart';
 import '../engagement/customer_engagement_api_repository.dart';
 
@@ -16,7 +17,6 @@ class StampEarnResult {
     required this.currentStamps,
   });
 }
-
 
 @immutable
 class CustomerStampCardSnapshot {
@@ -79,7 +79,9 @@ class CustomerStampCardSnapshot {
       return '$rewardPoints Stars';
     }
     if (rewardType.contains('voucher')) return 'voucher reward';
-    return rewardType.isEmpty ? 'GETIN reward' : rewardType.replaceAll('_', ' ');
+    return rewardType.isEmpty
+        ? 'GETIN reward'
+        : rewardType.replaceAll('_', ' ');
   }
 }
 
@@ -88,25 +90,28 @@ class CustomerStampCardStore extends ChangeNotifier {
   static final CustomerStampCardStore instance = CustomerStampCardStore._();
 
   static const int stampsPerFreeDrink = 7;
-  static const String _currentKey = 'getin_demo_stamp_current_v1';
-  static const String _completedKey = 'getin_demo_stamp_completed_v1';
-  static const String _totalKey = 'getin_demo_stamp_total_v1';
+  static const String _currentKey = 'getin_demo_stamp_current_v2';
+  static const String _completedKey = 'getin_demo_stamp_completed_v2';
+  static const String _totalKey = 'getin_demo_stamp_total_v2';
 
   SharedPreferences? _preferences;
   CustomerEngagementApiRepository? _repository;
   int _requiredStamps = stampsPerFreeDrink;
-  int _currentStamps = 4;
+  int _currentStamps = 3;
   int _completedCards = 0;
-  int _totalStamps = 4;
+  int _totalStamps = 3;
   List<CustomerStampCardSnapshot> _cards = const <CustomerStampCardSnapshot>[];
 
-  bool get usesApi => _repository?.usesApi ?? false;
+  bool get usesApi =>
+      (_repository?.usesApi ?? false) &&
+      CustomerAuthStore.instance.isAuthenticated;
   int get requiredStamps => _requiredStamps;
   int get currentStamps => _currentStamps;
   int get completedCards => _completedCards;
   int get totalStamps => _totalStamps;
   List<CustomerStampCardSnapshot> get cards => List.unmodifiable(_cards);
-  CustomerStampCardSnapshot? get activeCard => _cards.isEmpty ? null : _cards.first;
+  CustomerStampCardSnapshot? get activeCard =>
+      _cards.isEmpty ? null : _cards.first;
   String get campaignName => activeCard?.campaignName ?? '7 Cups, 1 On Us';
   String get campaignDescription => activeCard?.description.isNotEmpty == true
       ? activeCard!.description
@@ -122,26 +127,45 @@ class CustomerStampCardStore extends ChangeNotifier {
     if (context != null) {
       store._repository = CustomerEngagementApiRepository(context);
     }
+    store._preferences = await SharedPreferences.getInstance();
+    CustomerAuthStore.instance.removeListener(store._handleAuthChanged);
+    CustomerAuthStore.instance.addListener(store._handleAuthChanged);
     if (store.usesApi) {
       await store.refresh();
       return;
     }
-    store._preferences = await SharedPreferences.getInstance();
-    store._currentStamps =
-        store._preferences?.getInt(_currentKey)?.clamp(0, 6).toInt() ?? 4;
-    store._completedCards = store._preferences?.getInt(_completedKey) ?? 0;
-    store._totalStamps = store._preferences?.getInt(_totalKey) ?? 4;
+    store._loadGuestPreview();
+  }
+
+  void _handleAuthChanged() {
+    if (usesApi) {
+      unawaited(refresh());
+      return;
+    }
+    _loadGuestPreview();
+  }
+
+  void _loadGuestPreview() {
+    _requiredStamps = stampsPerFreeDrink;
+    _currentStamps =
+        _preferences?.getInt(_currentKey)?.clamp(0, 6).toInt() ?? 3;
+    _completedCards = _preferences?.getInt(_completedKey) ?? 0;
+    _totalStamps = _preferences?.getInt(_totalKey) ?? 3;
+    _cards = const <CustomerStampCardSnapshot>[];
+    notifyListeners();
   }
 
   Future<void> refresh() async {
     final repository = _repository;
-    if (repository == null || !repository.usesApi) {
+    if (repository == null || !usesApi) {
+      if (!CustomerAuthStore.instance.isAuthenticated) {
+        _loadGuestPreview();
+      }
       return;
     }
     final items = await repository.stampCards();
-    _cards = items
-        .map(CustomerStampCardSnapshot.fromApi)
-        .toList(growable: false);
+    _cards =
+        items.map(CustomerStampCardSnapshot.fromApi).toList(growable: false);
     if (_cards.isEmpty) {
       _currentStamps = 0;
       _completedCards = 0;

@@ -9,6 +9,7 @@ import '../../../core/rewards/customer_rewards_store.dart';
 import '../../../core/rewards/customer_stamp_card_store.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../product/product_detail_screen.dart';
+import '../live_offers_bundles_screen.dart';
 import 'play_win_card.dart';
 import 'rewards_progress_card.dart';
 
@@ -218,7 +219,18 @@ class _ManagedCollectionGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeading(config: config),
+        _SectionHeading(
+          config: config,
+          onSeeAll: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => LiveOffersBundlesScreen(
+                branchId: branchId,
+                branchName: branchName,
+                serviceType: serviceType,
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         for (var index = 0; index < visibleCollections.length; index++) ...[
           _ManagedProductSection(
@@ -245,22 +257,43 @@ class _ManagedCollectionGroup extends StatelessWidget {
 
 class _SectionHeading extends StatelessWidget {
   final MobileHomeSectionConfig config;
+  final VoidCallback? onSeeAll;
 
-  const _SectionHeading({required this.config});
+  const _SectionHeading({required this.config, this.onSeeAll});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          config.title,
-          style: const TextStyle(
-            color: AppColors.green,
-            fontSize: 19,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.35,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                config.title,
+                style: const TextStyle(
+                  color: AppColors.green,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.35,
+                ),
+              ),
+            ),
+            if (onSeeAll != null)
+              TextButton.icon(
+                onPressed: onSeeAll,
+                icon: const Icon(Icons.chevron_right_rounded, size: 18),
+                label: const Text('See all'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.green,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+          ],
         ),
         if (config.subtitle?.isNotEmpty == true) ...[
           const SizedBox(height: 2),

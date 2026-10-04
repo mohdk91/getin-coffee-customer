@@ -15,6 +15,15 @@ class NotificationsScreen extends StatelessWidget {
     if (value.contains('loyal') || value.contains('reward')) {
       return Icons.star_rounded;
     }
+    if (value.contains('stamp')) {
+      return Icons.local_cafe_outlined;
+    }
+    if (value.contains('member')) {
+      return Icons.workspace_premium_outlined;
+    }
+    if (value.contains('offer') || value.contains('promotion')) {
+      return Icons.local_offer_outlined;
+    }
     if (value.contains('voucher') || value.contains('coupon')) {
       return Icons.confirmation_number_outlined;
     }

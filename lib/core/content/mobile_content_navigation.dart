@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../catalog/customer_catalog_store.dart';
+import '../content/mobile_app_content_store.dart';
 import '../navigation/app_navigation_controller.dart';
 import '../../features/location/models/branch.dart';
+import '../../features/home/live_offers_bundles_screen.dart';
 import '../../features/play/getin_play_screen.dart';
 import '../../features/product/product_detail_screen.dart';
 import '../../features/rewards/rewards_screen.dart';
@@ -23,8 +25,29 @@ class MobileContentNavigation {
       case 'home':
         AppNavigationController.instance.openHome();
         return;
-      case 'category':
       case 'collection':
+        final collectionId = int.tryParse(destination.value ?? '');
+        if (collectionId != null) {
+          final matches = MobileAppContentStore.instance.menuCollections.where(
+            (collection) => collection.id == collectionId,
+          );
+          if (matches.isNotEmpty) {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => LiveOfferCollectionDetailScreen(
+                  branchId: branch.id,
+                  branchName: branch.name,
+                  serviceType: serviceType,
+                  collection: matches.first,
+                ),
+              ),
+            );
+            return;
+          }
+        }
+        AppNavigationController.instance.openMenu();
+        return;
+      case 'category':
       case 'promotion':
         AppNavigationController.instance.openMenu();
         return;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/content/mobile_content_navigation.dart';
 import '../../core/navigation/app_navigation_controller.dart';
+import '../../core/notifications/customer_notifications_store.dart';
 import '../../core/rewards/customer_rewards_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../location/branch_list_screen.dart';
@@ -93,7 +94,10 @@ class HomeScreen extends StatelessWidget {
     }
 
     return AnimatedBuilder(
-      animation: CustomerRewardsStore.instance,
+      animation: Listenable.merge([
+        CustomerRewardsStore.instance,
+        CustomerNotificationsStore.instance,
+      ]),
       builder: (context, _) => Scaffold(
         backgroundColor: AppColors.cream,
         body: SafeArea(
@@ -107,6 +111,8 @@ class HomeScreen extends StatelessWidget {
                   distanceKm: selectedDistance,
                   serviceType: serviceType,
                   stars: CustomerRewardsStore.instance.stars,
+                  unreadNotifications:
+                      CustomerNotificationsStore.instance.unreadCount,
                   onNotification: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(

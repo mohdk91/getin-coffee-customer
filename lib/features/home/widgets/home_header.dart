@@ -9,6 +9,7 @@ class HomeHeader extends StatelessWidget {
   final double distanceKm;
   final String serviceType;
   final int stars;
+  final int unreadNotifications;
   final VoidCallback onNotification;
   final VoidCallback onRewards;
   final VoidCallback onSearch;
@@ -21,6 +22,7 @@ class HomeHeader extends StatelessWidget {
     required this.distanceKm,
     required this.serviceType,
     required this.stars,
+    required this.unreadNotifications,
     required this.onNotification,
     required this.onRewards,
     required this.onSearch,
@@ -73,18 +75,33 @@ class HomeHeader extends StatelessWidget {
                       Icons.notifications_none_rounded,
                       color: AppColors.beige,
                     ),
-                    Positioned(
-                      right: -1,
-                      top: -1,
-                      child: Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF07A77),
-                          shape: BoxShape.circle,
+                    if (unreadNotifications > 0)
+                      Positioned(
+                        right: -7,
+                        top: -8,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 17,
+                            minHeight: 17,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF07A77),
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            unreadNotifications > 9
+                                ? '9+'
+                                : '$unreadNotifications',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),

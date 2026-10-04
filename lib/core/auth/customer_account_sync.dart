@@ -2,6 +2,7 @@ import '../addresses/customer_address_store.dart';
 import '../customer/customer_country.dart';
 import '../customer/customer_personal_info_store.dart';
 import '../membership/customer_membership_store.dart';
+import '../notifications/customer_notifications_store.dart';
 import '../payments/customer_payment_method_store.dart';
 import '../referrals/customer_referral_store.dart';
 import '../rewards/customer_play_store.dart';
@@ -37,6 +38,7 @@ abstract final class CustomerAccountSync {
       _bestEffort(CustomerSettingsStore.instance.refreshFromApi),
       _bestEffort(CustomerMembershipStore.instance.refresh),
       _bestEffort(CustomerPaymentMethodStore.instance.refresh),
+      _bestEffort(CustomerNotificationsStore.instance.refresh),
       _bestEffort(CustomerRewardsStore.instance.refresh),
       _bestEffort(CustomerStampCardStore.instance.refresh),
       _bestEffort(CustomerPlayStore.instance.refresh),

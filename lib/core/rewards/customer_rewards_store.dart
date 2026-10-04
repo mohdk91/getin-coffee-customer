@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/customer_auth_store.dart';
 import '../data/customer_repository.dart';
 import '../engagement/customer_engagement_api_repository.dart';
 
@@ -166,11 +167,11 @@ class CustomerRewardsStore extends ChangeNotifier {
 
   static final CustomerRewardsStore instance = CustomerRewardsStore._();
 
-  static const String _starsKey = 'getin_demo_rewards_stars_v1';
-  static const String _redeemedKey = 'getin_demo_redeemed_rewards_v1';
-  static const String _historyKey = 'getin_demo_rewards_history_v1';
+  static const String _starsKey = 'getin_demo_rewards_stars_v2';
+  static const String _redeemedKey = 'getin_demo_redeemed_rewards_v2';
+  static const String _historyKey = 'getin_demo_rewards_history_v2';
 
-  static List<RewardDefinition> catalog = const [
+  static const List<RewardDefinition> _guestCatalog = [
     RewardDefinition(
       id: 'free-size-upgrade',
       title: 'Free Size Upgrade',
@@ -178,7 +179,7 @@ class CustomerRewardsStore extends ChangeNotifier {
       starsRequired: 80,
       benefitType: RewardBenefitType.freeSizeUpgrade,
       usageText:
-          'Use on one eligible Large drink in Cart or Checkout. The demo applies up to EGP 10 for the size upgrade.',
+          'Use on one eligible Large drink in Cart or Checkout. Applies up to EGP 10 toward the eligible size upgrade.',
       maximumSaving: 10,
     ),
     RewardDefinition(
@@ -189,10 +190,12 @@ class CustomerRewardsStore extends ChangeNotifier {
       starsRequired: 150,
       benefitType: RewardBenefitType.freeDrink,
       usageText:
-          'Use on one eligible drink in Cart or Checkout. The demo covers up to EGP 85; paid add-ons above the eligible value remain chargeable.',
+          'Use on one eligible drink in Cart or Checkout. Covers up to EGP 85; paid add-ons above the eligible value remain chargeable.',
       maximumSaving: 85,
     ),
   ];
+
+  static List<RewardDefinition> catalog = _guestCatalog;
 
   CustomerEngagementApiRepository? _repository;
   SharedPreferences? _preferences;
@@ -200,7 +203,9 @@ class CustomerRewardsStore extends ChangeNotifier {
   List<RedeemedReward> _redeemedRewards = <RedeemedReward>[];
   List<RewardHistoryEntry> _history = <RewardHistoryEntry>[];
 
-  bool get usesApi => _repository?.usesApi ?? false;
+  bool get usesApi =>
+      (_repository?.usesApi ?? false) &&
+      CustomerAuthStore.instance.isAuthenticated;
   int get stars => _stars;
   List<RedeemedReward> get redeemedRewards =>
       List.unmodifiable(_redeemedRewards);
@@ -246,12 +251,22 @@ class CustomerRewardsStore extends ChangeNotifier {
     if (context != null) {
       store._repository = CustomerEngagementApiRepository(context);
     }
+    store._preferences = await SharedPreferences.getInstance();
+    CustomerAuthStore.instance.removeListener(store._handleAuthChanged);
+    CustomerAuthStore.instance.addListener(store._handleAuthChanged);
     if (store.usesApi) {
       await store.refresh();
       return;
     }
-    store._preferences = await SharedPreferences.getInstance();
     store._load();
+  }
+
+  void _handleAuthChanged() {
+    if (usesApi) {
+      unawaited(refresh());
+      return;
+    }
+    _load();
   }
 
   Future<void> refresh() async {
@@ -444,7 +459,7 @@ class CustomerRewardsStore extends ChangeNotifier {
     );
     if (redemption.code.trim().isEmpty) {
       throw StateError(
-        'Laravel redeemed the reward without returning its issued voucher code.',
+        'GETIN could not issue the reward code. Please try again.',
       );
     }
 
@@ -557,6 +572,7 @@ class CustomerRewardsStore extends ChangeNotifier {
 
   void _setDemoDefaults() {
     final now = DateTime.now();
+    catalog = _guestCatalog;
     _stars = 120;
     _redeemedRewards = [
       RedeemedReward(

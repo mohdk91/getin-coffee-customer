@@ -1052,13 +1052,14 @@ class _RewardsAuthorityNotice extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline_rounded, color: AppColors.green, size: 18),
+          const Icon(Icons.info_outline_rounded,
+              color: AppColors.green, size: 18),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
               live
                   ? 'Stars, reward availability and redeemed vouchers are confirmed by your GETIN account.'
-                  : 'Demo rewards are stored locally on this device.',
+                  : 'Explore Stars, rewards and stamp benefits available with GETIN.',
               style: const TextStyle(
                 color: AppColors.green,
                 fontSize: 9.5,
