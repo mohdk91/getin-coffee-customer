@@ -65,6 +65,7 @@ class HomeScreen extends StatelessWidget {
       latitude: userLatitude,
       longitude: userLongitude,
       serviceType: serviceType,
+      countryCode: branch.countryCode,
     );
 
     final selectedDistance = branchService.distanceKm(

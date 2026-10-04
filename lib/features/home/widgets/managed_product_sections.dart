@@ -382,7 +382,7 @@ class _CatalogCard extends StatelessWidget {
                     Text(
                       product.displayPrice,
                       style: const TextStyle(
-                        color: AppColors.green,
+                        color: AppColors.gold,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),

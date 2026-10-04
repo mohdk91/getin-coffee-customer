@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../location/models/branch.dart';
 import '../../location/services/branch_service.dart';
+import '../../location/widgets/branch_image.dart';
 
 class NearestBranchesSection extends StatelessWidget {
   final List<BranchDistance> branches;
@@ -145,8 +146,6 @@ class _BranchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = BranchService.imageFor(item.branch);
-
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(15),
@@ -164,26 +163,12 @@ class _BranchCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(14),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 1.45,
-                  child: Image.asset(
-                    image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) {
-                      return Container(
-                        color: AppColors.beige,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.storefront_rounded,
-                          color: AppColors.green,
-                          size: 28,
-                        ),
-                      );
-                    },
+              AspectRatio(
+                aspectRatio: 1.45,
+                child: BranchImage(
+                  branch: item.branch,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(14),
                   ),
                 ),
               ),

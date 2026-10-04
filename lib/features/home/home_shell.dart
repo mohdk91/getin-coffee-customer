@@ -112,6 +112,7 @@ class _HomeShellState extends State<HomeShell> {
       latitude: widget.userLatitude,
       longitude: widget.userLongitude,
       serviceType: value,
+      countryCode: _branch.countryCode,
     );
 
     setState(() {

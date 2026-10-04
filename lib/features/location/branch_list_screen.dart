@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import 'models/branch.dart';
 import 'services/branch_service.dart';
+import 'widgets/branch_image.dart';
 
 class BranchListScreen extends StatelessWidget {
   final double userLatitude;
@@ -23,6 +24,7 @@ class BranchListScreen extends StatelessWidget {
       latitude: userLatitude,
       longitude: userLongitude,
       serviceType: serviceType,
+      countryCode: selectedBranch.countryCode,
     );
 
     return Scaffold(
@@ -51,17 +53,11 @@ class BranchListScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Container(
+                    BranchImage(
+                      branch: item.branch,
                       width: 62,
                       height: 62,
-                      decoration: BoxDecoration(
-                        color: selected ? AppColors.green : AppColors.beige,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        Icons.storefront_rounded,
-                        color: selected ? AppColors.beige : AppColors.green,
-                      ),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     const SizedBox(width: 14),
                     Expanded(

@@ -66,11 +66,13 @@ class BranchService {
     required double latitude,
     required double longitude,
     required String serviceType,
+    String? countryCode,
   }) {
     final list = nearbyBranches(
       latitude: latitude,
       longitude: longitude,
       serviceType: serviceType,
+      countryCode: countryCode,
     );
     return list.isEmpty ? null : list.first.branch;
   }
@@ -79,11 +81,20 @@ class BranchService {
     required double latitude,
     required double longitude,
     required String serviceType,
+    String? countryCode,
   }) {
+    final normalizedCountry = countryCode?.trim().toUpperCase();
     final result = branches
-        .where((branch) => serviceType == 'delivery'
-            ? branch.deliveryEnabled
-            : branch.pickupEnabled)
+        .where((branch) {
+          final supportsService = serviceType == 'delivery'
+              ? branch.deliveryEnabled
+              : branch.pickupEnabled;
+          if (!supportsService) return false;
+          if (normalizedCountry == null || normalizedCountry.isEmpty) {
+            return true;
+          }
+          return branch.countryCode?.trim().toUpperCase() == normalizedCountry;
+        })
         .map((branch) => BranchDistance(
               branch: branch,
               distanceKm: distanceKm(

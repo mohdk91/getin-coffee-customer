@@ -445,6 +445,41 @@ class _CartHeader extends StatelessWidget {
   }
 }
 
+class _CartProductImage extends StatelessWidget {
+  final String image;
+
+  const _CartProductImage({required this.image});
+
+  @override
+  Widget build(BuildContext context) {
+    final path = image.trim();
+    Widget fallback() => Container(
+          color: AppColors.beige.withOpacity(0.35),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.local_cafe_rounded,
+            color: AppColors.green,
+          ),
+        );
+
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      );
+    }
+    if (path.isNotEmpty) {
+      return Image.asset(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      );
+    }
+    return fallback();
+  }
+}
+
 class _CartItemCard extends StatelessWidget {
   final CartItem item;
   final VoidCallback? onEdit;
@@ -488,9 +523,8 @@ class _CartItemCard extends StatelessWidget {
               width: 96,
               height: 96,
               color: AppColors.cream,
-              child: Image.asset(
-                item.image,
-                fit: BoxFit.cover,
+              child: _CartProductImage(
+                image: item.image,
               ),
             ),
           ),
@@ -550,7 +584,7 @@ class _CartItemCard extends StatelessWidget {
                             item.lineTotal,
                           ),
                           style: const TextStyle(
-                            color: AppColors.green,
+                            color: AppColors.gold,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
@@ -718,11 +752,10 @@ class _Recommendations extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.asset(
-                        item.image,
+                      child: SizedBox(
                         width: double.infinity,
                         height: 82,
-                        fit: BoxFit.cover,
+                        child: _CartProductImage(image: item.image),
                       ),
                     ),
                     const SizedBox(height: 6),

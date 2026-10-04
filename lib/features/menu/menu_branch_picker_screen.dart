@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/theme/app_colors.dart';
 import '../location/models/branch.dart';
 import '../location/services/branch_service.dart';
+import '../location/widgets/branch_image.dart';
 
 class MenuBranchSelection {
   final Branch branch;
@@ -48,6 +49,7 @@ class _MenuBranchPickerScreenState extends State<MenuBranchPickerScreen> {
       latitude: widget.userLatitude,
       longitude: widget.userLongitude,
       serviceType: _serviceType,
+      countryCode: widget.currentBranch.countryCode,
     );
   }
 
@@ -402,21 +404,11 @@ class _BranchCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              ClipRRect(
+              BranchImage(
+                branch: branch,
+                width: 58,
+                height: 58,
                 borderRadius: BorderRadius.circular(15),
-                child: Image.asset(
-                  BranchService.imageFor(branch),
-                  width: 58,
-                  height: 58,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 58,
-                    height: 58,
-                    color: AppColors.beige.withOpacity(0.5),
-                    child: const Icon(Icons.storefront_rounded,
-                        color: AppColors.green),
-                  ),
-                ),
               ),
               const SizedBox(width: 12),
               Expanded(

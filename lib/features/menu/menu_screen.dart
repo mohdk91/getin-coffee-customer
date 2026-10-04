@@ -40,13 +40,15 @@ class _MenuScreenState extends State<MenuScreen> {
           image: 'assets/images/getin_logo_mark.png',
           tag: 'TOP',
         ),
-        ...CustomerCatalogStore.instance.categoriesForBranch(widget.branch.id).map(
-          (category) => _MenuCategory(
-            title: category.name,
-            icon: Icons.local_cafe_rounded,
-            image: category.imageUrl ?? 'assets/images/getin_logo_mark.png',
-          ),
-        ),
+        ...CustomerCatalogStore.instance
+            .categoriesForBranch(widget.branch.id)
+            .map(
+              (category) => _MenuCategory(
+                title: category.name,
+                icon: Icons.local_cafe_rounded,
+                image: category.imageUrl ?? 'assets/images/getin_logo_mark.png',
+              ),
+            ),
       ];
 
   List<_MenuProduct> get _products => CustomerCatalogStore.instance
@@ -744,9 +746,9 @@ class _ReferenceProductCard extends StatelessWidget {
                                   final favorite = CustomerFavoritesStore
                                       .instance
                                       .containsProduct(
-                                        serverProductId: product.id,
-                                        name: product.name,
-                                      );
+                                    serverProductId: product.id,
+                                    name: product.name,
+                                  );
                                   return InkResponse(
                                     onTap: () => CustomerFavoritesStore.instance
                                         .toggle(_favoriteProduct),
@@ -793,7 +795,7 @@ class _ReferenceProductCard extends StatelessWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        color: AppColors.green,
+                                        color: AppColors.gold,
                                         fontSize: veryCompact ? 9.8 : 10.8,
                                         fontWeight: FontWeight.w900,
                                       ),
