@@ -2,6 +2,7 @@ import 'dart:math';
 
 import '../../../core/catalog/customer_catalog_store.dart';
 import '../../../core/constants/app_images.dart';
+import '../../../core/customer/customer_country.dart';
 import '../models/branch.dart';
 
 class BranchDistance {
@@ -42,8 +43,32 @@ class BranchService {
   static List<Branch> get branches {
     final store = CustomerCatalogStore.instance;
     final live = store.branches;
-    if (live.isNotEmpty) return live;
+    if (live.isNotEmpty) {
+      return scopeToCountry(
+        live,
+        CustomerCountryStore.current.value.normalizedIsoCode,
+      );
+    }
     return store.usesApi ? const <Branch>[] : _developmentFallback;
+  }
+
+  static List<Branch> scopeToCountry(
+    Iterable<Branch> source,
+    String? countryCode,
+  ) {
+    final rows = source.toList(growable: false);
+    final normalized = countryCode?.trim().toUpperCase();
+    if (rows.isEmpty || normalized == null || normalized.isEmpty) return rows;
+
+    final matching = rows
+        .where(
+          (branch) => branch.countryCode?.trim().toUpperCase() == normalized,
+        )
+        .toList(growable: false);
+
+    // Older APIs did not always return country metadata. Preserve the live
+    // list in that case instead of making branch selection unexpectedly empty.
+    return matching.isNotEmpty ? matching : rows;
   }
 
   static String imageFor(Branch branch) {
@@ -95,14 +120,16 @@ class BranchService {
           }
           return branch.countryCode?.trim().toUpperCase() == normalizedCountry;
         })
-        .map((branch) => BranchDistance(
+        .map(
+          (branch) => BranchDistance(
+            branch: branch,
+            distanceKm: distanceKm(
+              latitude: latitude,
+              longitude: longitude,
               branch: branch,
-              distanceKm: distanceKm(
-                latitude: latitude,
-                longitude: longitude,
-                branch: branch,
-              ),
-            ))
+            ),
+          ),
+        )
         .toList();
     result.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
     return result;

@@ -53,6 +53,8 @@ class CustomerMembershipStore extends ChangeNotifier {
 
   static const String _activeKey = 'getin_demo_membership_active_v1';
   static const String _cycleKey = 'getin_demo_membership_cycle_v1';
+  static const String demoMemberEmail = 'member.demo@getin.coffee';
+  static const String demoStandardEmail = 'standard.demo@getin.coffee';
   static const bool _previewMember = bool.fromEnvironment(
     'GETIN_PREVIEW_MEMBER',
     defaultValue: false,
@@ -72,8 +74,24 @@ class CustomerMembershipStore extends ChangeNotifier {
   bool get usesApi =>
       (_repository?.usesApi ?? false) &&
       CustomerAuthStore.instance.isAuthenticated;
-  bool get isActive => _active || _previewMember;
-  String get billingCycle => _billingCycle;
+
+  static bool isDemoMemberEmail(String? email) =>
+      email?.trim().toLowerCase() == demoMemberEmail;
+
+  static bool isDemoStandardEmail(String? email) =>
+      email?.trim().toLowerCase() == demoStandardEmail;
+
+  String? get _authenticatedEmail => CustomerAuthStore.instance.customer?.email;
+
+  bool get isActive {
+    final email = _authenticatedEmail;
+    if (isDemoStandardEmail(email)) return false;
+    if (isDemoMemberEmail(email)) return true;
+    return _active || _previewMember;
+  }
+
+  String get billingCycle =>
+      isDemoMemberEmail(_authenticatedEmail) ? 'annual' : _billingCycle;
   String? get tierName => _currentTier?.name;
   String? get nextTierName => _nextTier?.name;
   CustomerMembershipTier? get currentTier => _currentTier;

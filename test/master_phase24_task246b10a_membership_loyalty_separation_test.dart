@@ -46,7 +46,13 @@ void main() {
       'lib/core/membership/customer_membership_store.dart',
     ).readAsStringSync();
 
-    expect(store, contains('bool get isActive => _active || _previewMember;'));
+    // Task 246B-10D extends the paid-membership getter with two explicit
+    // demo personas. Keep the original guest/preview fallback contract while
+    // accepting the persona-aware implementation.
+    expect(store, contains('bool get isActive {'));
+    expect(store, contains('if (isDemoStandardEmail(email)) return false;'));
+    expect(store, contains('if (isDemoMemberEmail(email)) return true;'));
+    expect(store, contains('return _active || _previewMember;'));
     expect(
         store, contains('double get earningMultiplier => isActive ? 2 : 1;'));
     expect(store, contains('double get loyaltyEarningMultiplier'));
