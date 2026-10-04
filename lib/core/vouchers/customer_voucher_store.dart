@@ -138,7 +138,8 @@ class CustomerVoucher {
       status: statuses.first,
       usedAt: DateTime.tryParse(json['usedAt'] as String? ?? ''),
       discountType: json['discountType']?.toString() ?? 'fixed',
-      discountValue: (json['discountValue'] as num?)?.toDouble() ?? discountAmount,
+      discountValue:
+          (json['discountValue'] as num?)?.toDouble() ?? discountAmount,
       currency: json['currency']?.toString(),
       maximumDiscount: (json['maximumDiscount'] as num?)?.toDouble(),
       serverManaged: json['serverManaged'] == true,
@@ -239,7 +240,8 @@ class CustomerVoucherStore extends ChangeNotifier {
     final discountType = template['discount_type']?.toString() ?? 'fixed';
     final value = double.tryParse(template['value']?.toString() ?? '') ?? 0;
     final minimumSpend =
-        double.tryParse(template['minimum_order_amount']?.toString() ?? '') ?? 0;
+        double.tryParse(template['minimum_order_amount']?.toString() ?? '') ??
+            0;
     final maximumDiscount =
         double.tryParse(template['maximum_discount_amount']?.toString() ?? '');
     final expiresAt = DateTime.tryParse(json['expires_at']?.toString() ?? '') ??
@@ -256,7 +258,7 @@ class CustomerVoucherStore extends ChangeNotifier {
       discountAmount: discountAmount,
       minimumSpend: minimumSpend,
       expiresAt: expiresAt,
-      terms: 'Server-managed voucher. Final eligibility and saving are confirmed by Laravel at checkout.',
+      terms: 'Final eligibility and saving are confirmed at checkout.',
       status: status,
       usedAt: DateTime.tryParse(json['redeemed_at']?.toString() ?? ''),
       discountType: discountType,
@@ -389,7 +391,7 @@ class CustomerVoucherStore extends ChangeNotifier {
         id: 'demo-welcome10-used',
         code: 'WELCOME10',
         title: 'EGP 10 OFF',
-        description: 'Welcome voucher used on a previous demo order.',
+        description: 'Welcome voucher used on a previous order.',
         discountAmount: 10,
         minimumSpend: 50,
         expiresAt: now.add(const Duration(days: 20)),

@@ -103,7 +103,7 @@ class SavedAddressesScreen extends StatelessWidget {
         builder: (dialogContext) => AlertDialog(
           title: const Text('Delete this address?'),
           content: Text(
-            '${address.labelUpper} · ${address.title} will be removed from this local demo.',
+            '${address.labelUpper} · ${address.title} will be removed from your saved addresses.',
           ),
           actions: [
             TextButton(
@@ -313,7 +313,7 @@ class _AddressEditorScreenState extends State<AddressEditorScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Tap anywhere on the map to move the demo delivery pin.',
+                      'Tap anywhere on the map to move the delivery pin.',
                       style: TextStyle(
                         color: AppColors.muted.withOpacity(0.95),
                         fontSize: 11,

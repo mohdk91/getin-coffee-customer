@@ -11,7 +11,7 @@ void main() {
 
     expect(
       reviews,
-      contains('GETIN does not expose this review type in the production API.'),
+      contains('This review option is not available for this order.'),
     );
     expect(
       reviews,

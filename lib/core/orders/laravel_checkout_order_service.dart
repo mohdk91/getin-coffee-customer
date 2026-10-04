@@ -22,7 +22,7 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
       final branchId = draft.branchId;
       if (branchId == null || branchId <= 0) {
         return const CheckoutOrderResult.failure(
-          'The selected branch is missing its server identity. Refresh the menu and try again.',
+          'The selected branch could not be verified. Refresh the menu and try again.',
         );
       }
 
@@ -39,7 +39,7 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
             .toList(growable: false);
         return CheckoutOrderResult.failure(
           reasons.isEmpty
-              ? 'Laravel could not confirm that this checkout is ready.'
+              ? 'We couldn’t confirm that this checkout is ready.'
               : 'Checkout is not ready: ${reasons.join(', ')}.',
         );
       }
@@ -67,7 +67,7 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
           status == null ||
           paymentStatus == null) {
         return const CheckoutOrderResult.failure(
-          'Laravel created an order response that the app could not verify. Refresh Orders before retrying.',
+          'We couldn’t verify the new order. Refresh Orders before retrying.',
         );
       }
 
@@ -79,7 +79,8 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
         status: status,
         paymentStatus: paymentStatus,
         placedAt: DateTime.tryParse(order['placed_at']?.toString() ?? ''),
-        message: createResponse['message']?.toString() ?? 'Order created successfully.',
+        message: createResponse['message']?.toString() ??
+            'Order created successfully.',
       );
     } on ApiException catch (error) {
       return CheckoutOrderResult.failure(error.message);
@@ -127,7 +128,7 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
       final addressId = int.tryParse(draft.deliveryAddress?.id ?? '');
       if (addressId == null || addressId <= 0) {
         throw StateError(
-          'A server-backed saved address is required for live delivery checkout.',
+          'Choose a saved delivery address before continuing.',
         );
       }
       payload['address_id'] = addressId;
@@ -135,7 +136,8 @@ class LaravelCheckoutOrderService implements CheckoutOrderService {
 
     if (includePayment) {
       payload['payment_method'] = 'card';
-      if (draft.paymentSessionId != null && draft.paymentSessionId!.isNotEmpty) {
+      if (draft.paymentSessionId != null &&
+          draft.paymentSessionId!.isNotEmpty) {
         payload['payment_session_id'] = draft.paymentSessionId;
       }
       if (draft.specialRequest.trim().isNotEmpty) {

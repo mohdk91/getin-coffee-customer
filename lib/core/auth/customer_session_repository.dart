@@ -64,8 +64,7 @@ class CustomerSessionInfo {
       id: (json['id'] as num?)?.toInt() ?? 0,
       name: json['name']?.toString() ?? 'Customer session',
       isCurrent: json['is_current'] == true,
-      lastActiveAt:
-          DateTime.tryParse(json['last_active_at']?.toString() ?? ''),
+      lastActiveAt: DateTime.tryParse(json['last_active_at']?.toString() ?? ''),
       expiresAt: DateTime.tryParse(json['expires_at']?.toString() ?? ''),
       device: rawDevice is Map
           ? CustomerDeviceInfo.fromJson(Map<String, dynamic>.from(rawDevice))
@@ -90,7 +89,8 @@ class CustomerSessionRepository {
     if (runtime.platform != 'ios' && runtime.platform != 'android') return;
     var deviceId = await context.secureStore.read(SecureStoreKeys.deviceId);
     if (deviceId == null || deviceId.trim().length < 8) {
-      deviceId = 'getin-${runtime.platform}-${DateTime.now().microsecondsSinceEpoch}';
+      deviceId =
+          'getin-${runtime.platform}-${DateTime.now().microsecondsSinceEpoch}';
       await context.secureStore.write(SecureStoreKeys.deviceId, deviceId);
     }
     await context.apiClient.requestJson(
@@ -119,7 +119,8 @@ class CustomerSessionRepository {
     );
     final data = payload['data'];
     if (data is! List) {
-      throw const ApiException('The GETIN API returned invalid session data.');
+      throw const ApiException(
+          'We couldn’t load your active sessions. Please try again.');
     }
     return data
         .whereType<Map>()

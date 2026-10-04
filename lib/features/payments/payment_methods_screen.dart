@@ -135,7 +135,9 @@ Future<void> _managePaymentMethod(
                   _SheetAction(
                     icon: Icons.check_circle_outline_rounded,
                     title: 'Set as default',
-                    subtitle: store.usesApi ? 'Make this the default Stripe card' : 'Use this card first at checkout',
+                    subtitle: store.usesApi
+                        ? 'Make this the default Stripe card'
+                        : 'Use this card first at checkout',
                     onTap: () async {
                       await store.setDefault(method.id);
                       if (sheetContext.mounted) {
@@ -147,7 +149,9 @@ Future<void> _managePaymentMethod(
                   _SheetAction(
                     icon: Icons.shopping_bag_outlined,
                     title: 'Use for checkout',
-                    subtitle: store.usesApi ? 'Prefer this saved Stripe card' : 'Select this saved payment token',
+                    subtitle: store.usesApi
+                        ? 'Prefer this saved Stripe card'
+                        : 'Select this saved payment token',
                     onTap: () async {
                       await store.selectForCheckout(method.id);
                       if (sheetContext.mounted) {
@@ -168,7 +172,7 @@ Future<void> _managePaymentMethod(
                         content: Text(
                           store.usesApi
                               ? '${method.maskedLabel} will be detached from your Stripe payment profile.'
-                              : '${method.maskedLabel} will be removed from this local demo.',
+                              : '${method.maskedLabel} will be removed from your saved payment methods.',
                         ),
                         actions: [
                           TextButton(
@@ -207,7 +211,8 @@ Future<void> _managePaymentMethod(
 Future<void> _addLiveStripeCard(BuildContext context) async {
   final store = CustomerPaymentMethodStore.instance;
   try {
-    final stripe = CustomerStripePaymentService(CustomerAuthStore.instance.context);
+    final stripe =
+        CustomerStripePaymentService(CustomerAuthStore.instance.context);
     final session = await stripe.createSetupSession();
     await stripe.presentSetupSheet(session);
     await store.refresh();
@@ -219,7 +224,8 @@ Future<void> _addLiveStripeCard(BuildContext context) async {
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('ApiException: ', ''))),
+        SnackBar(
+            content: Text(error.toString().replaceFirst('ApiException: ', ''))),
       );
     }
   }
@@ -472,7 +478,7 @@ class _AddDemoCardSheetState extends State<_AddDemoCardSheet> {
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            'Visa and Mastercard are supported in this demo.',
+                            'Visa and Mastercard are supported.',
                             style: TextStyle(
                               color: AppColors.muted,
                               fontSize: 11,
@@ -1012,7 +1018,7 @@ class _SecurityNote extends StatelessWidget {
           Expanded(
             child: Text(
               live
-                  ? 'Live card details are collected directly by Stripe PaymentSheet. GETIN stores only Stripe references and masked card metadata; raw card number and CVC never pass through the GETIN API.'
+                  ? 'Card details are securely collected by Stripe. GETIN stores only the information needed to identify your saved card and never receives your full card number or CVC.'
                   : 'Demo only: full card number and CVV may be entered to test the UI, but they are never persisted. Getin stores only a simulated provider token reference plus masked card metadata.',
               style: const TextStyle(
                 color: AppColors.muted,

@@ -15,15 +15,16 @@ void main() {
       voucherPicker,
       contains('if (!vouchers.usesApi && eligible.isNotEmpty)'),
     );
-    expect(voucherPicker, contains('serverManaged: vouchers.usesApi'));
+    expect(voucherPicker, contains('serverManaged:'));
     expect(
       voucherPicker,
-      contains('Laravel will confirm eligibility and the final saving.'),
+      contains('vouchers.usesApi || voucher.serverManaged'),
     );
+    expect(voucherPicker, isNot(contains('Laravel will confirm')));
     expect(
       voucherPicker,
       contains(
-          'Laravel will verify this voucher and calculate the final saving.'),
+          'Eligible for this cart. Final saving is confirmed at checkout.'),
     );
     expect(
       rewardPicker,

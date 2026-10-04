@@ -190,7 +190,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _liveQuoteError = quote.checkoutReady
             ? null
             : quote.reasons.isEmpty
-                ? 'Laravel could not confirm this checkout.'
+                ? 'We couldn’t confirm this checkout.'
                 : quote.reasons.join(', ');
       });
       return quote.checkoutReady;
@@ -264,7 +264,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           SnackBar(
             content: Text(
               _liveQuoteError ??
-                  'Laravel could not confirm that this checkout is ready.',
+                  'We couldn’t confirm that this checkout is ready.',
             ),
           ),
         );
@@ -291,7 +291,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Choose an active saved card before placing this demo order.',
+              'Choose an active saved card before placing your order.',
             ),
           ),
         );
@@ -307,7 +307,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final fulfilmentEstimate = delivery ? _deliveryEta : _pickupReadyTime;
 
     var draft = CheckoutOrderDraft(
-      clientRequestId: '${_usesApi ? 'getin-order' : 'getin-demo'}-${DateTime.now().microsecondsSinceEpoch}',
+      clientRequestId:
+          '${_usesApi ? 'getin-order' : 'getin-demo'}-${DateTime.now().microsecondsSinceEpoch}',
       createdAt: DateTime.now(),
       branchId: _cart.cartBranchId ?? _cart.currentBranchId,
       branchName: branchName,
@@ -405,7 +406,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // unchanged and no order creation request is sent.
     if (_usesApi && _total > 0) {
       try {
-        final stripe = CustomerStripePaymentService(CustomerAuthStore.instance.context);
+        final stripe =
+            CustomerStripePaymentService(CustomerAuthStore.instance.context);
         final branchId = draft.branchId!;
         final session = await stripe.createCheckoutSession(
           branchId: branchId,
@@ -698,31 +700,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   if (!_usesApi)
                     SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        12,
-                        16,
-                        0,
-                      ),
-                      child: _CheckoutMembershipCard(
-                        isMember: CartController.previewMember,
-                        delivery: delivery,
-                        deliveryFee: _cart.deliveryFee,
-                        currency: _cart.currency,
-                        onTap: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const MembershipScreen(
-                                showBackButton: true,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          12,
+                          16,
+                          0,
+                        ),
+                        child: _CheckoutMembershipCard(
+                          isMember: CartController.previewMember,
+                          delivery: delivery,
+                          deliveryFee: _cart.deliveryFee,
+                          currency: _cart.currency,
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const MembershipScreen(
+                                  showBackButton: true,
+                                ),
                               ),
-                            ),
-                          );
-                          if (mounted) setState(() {});
-                        },
+                            );
+                            if (mounted) setState(() {});
+                          },
+                        ),
                       ),
                     ),
-                  ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
@@ -853,50 +855,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   if (!_usesApi)
                     SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        12,
-                        16,
-                        0,
-                      ),
-                      child: _PaymentMethodCard(
-                        selectedTender: _paymentTender,
-                        selectedCard:
-                            CustomerPaymentMethodStore.instance.checkoutMethod,
-                        showCash: CartController.previewCashAllowed,
-                        onSelectCard: () async {
-                          final selected =
-                              await showSavedPaymentMethodPicker(context);
-                          if (!mounted || selected == null) {
-                            return;
-                          }
-                          setState(() {
-                            _paymentTender = 'card';
-                          });
-                        },
-                        onAddCard: () async {
-                          final added = await showAddDemoCardSheet(context);
-                          if (!mounted || added == null) {
-                            return;
-                          }
-                          await CustomerPaymentMethodStore.instance
-                              .selectForCheckout(added.id);
-                          if (!mounted) {
-                            return;
-                          }
-                          setState(() {
-                            _paymentTender = 'card';
-                          });
-                        },
-                        onSelectCash: () {
-                          setState(() {
-                            _paymentTender = 'cash';
-                          });
-                        },
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          12,
+                          16,
+                          0,
+                        ),
+                        child: _PaymentMethodCard(
+                          selectedTender: _paymentTender,
+                          selectedCard: CustomerPaymentMethodStore
+                              .instance.checkoutMethod,
+                          showCash: CartController.previewCashAllowed,
+                          onSelectCard: () async {
+                            final selected =
+                                await showSavedPaymentMethodPicker(context);
+                            if (!mounted || selected == null) {
+                              return;
+                            }
+                            setState(() {
+                              _paymentTender = 'card';
+                            });
+                          },
+                          onAddCard: () async {
+                            final added = await showAddDemoCardSheet(context);
+                            if (!mounted || added == null) {
+                              return;
+                            }
+                            await CustomerPaymentMethodStore.instance
+                                .selectForCheckout(added.id);
+                            if (!mounted) {
+                              return;
+                            }
+                            setState(() {
+                              _paymentTender = 'card';
+                            });
+                          },
+                          onSelectCash: () {
+                            setState(() {
+                              _paymentTender = 'cash';
+                            });
+                          },
+                        ),
                       ),
                     ),
-                  ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
@@ -1835,7 +1837,7 @@ class _LivePaymentNotice extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Laravel calculates the authoritative amount due, then Stripe PaymentSheet securely confirms Visa/Mastercard before the order is created. Raw card number and CVC never pass through GETIN.',
+              'Your total is confirmed before payment, then Stripe securely processes Visa/Mastercard. GETIN never receives or stores your full card number or CVC.',
               style: TextStyle(
                 color: AppColors.green,
                 fontSize: 10.5,
@@ -1872,7 +1874,7 @@ class _PaymentMethodCard extends StatelessWidget {
     final card = selectedCard;
     final cardTitle = card?.maskedLabel ?? 'Choose a saved card';
     final cardSubtitle = card == null
-        ? 'Add or select a tokenized demo card'
+        ? 'Add or select a saved card'
         : '${card.isDefault ? 'Default · ' : ''}Expires ${card.expiryLabel}';
 
     return _CheckoutCard(
@@ -1902,7 +1904,7 @@ class _PaymentMethodCard extends StatelessWidget {
           _PaymentOption(
             icon: Icons.add_circle_outline_rounded,
             title: 'Add new card',
-            subtitle: 'Secure provider-style demo setup',
+            subtitle: 'Secure card setup',
             selected: false,
             onTap: onAddCard,
             showRadio: false,
@@ -2056,7 +2058,7 @@ class _LiveCheckoutSummary extends StatelessWidget {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Confirming live pricing with Laravel…',
+                'Confirming latest pricing…',
                 style: TextStyle(
                   color: AppColors.green,
                   fontWeight: FontWeight.w700,
@@ -2073,7 +2075,7 @@ class _LiveCheckoutSummary extends StatelessWidget {
       return _CheckoutCard(
         child: Text(
           error ??
-              'Choose a saved delivery address to load the authoritative checkout total.',
+              'Choose a saved delivery address to calculate your checkout total.',
           style: const TextStyle(
             color: AppColors.muted,
             fontSize: 10.5,

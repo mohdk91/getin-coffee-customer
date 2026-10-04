@@ -40,7 +40,7 @@ class CustomerRepositoryContext {
       return CustomerDataSource.demo;
     }
     throw StateError(
-      'API_BASE_URL must be configured for staging and production builds.',
+      'GETIN is temporarily unavailable. Please try again later.',
     );
   }
 

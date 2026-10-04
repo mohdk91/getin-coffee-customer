@@ -20,7 +20,8 @@ class LiveOrderLifecycleService {
     final payload = await _repository.timeline(orderId);
     final data = payload['data'];
     if (data is! List) {
-      throw const ApiException('The GETIN API returned invalid timeline data.');
+      throw const ApiException(
+          'We couldn’t load the order timeline. Please try again.');
     }
     return data
         .whereType<Map>()
@@ -74,7 +75,7 @@ class LiveOrderLifecycleService {
     final data = payload['data'];
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
-    throw const ApiException('The GETIN API returned invalid order data.');
+    throw const ApiException('We couldn’t load this order. Please try again.');
   }
 
   String _idempotencyKey(String action, int orderId) {

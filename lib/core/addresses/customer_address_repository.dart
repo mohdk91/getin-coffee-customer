@@ -18,7 +18,8 @@ class CustomerAddressRepository {
     );
     final data = payload['data'];
     if (data is! List) {
-      throw const ApiException('The GETIN API returned invalid address data.');
+      throw const ApiException(
+          'We couldn’t load your saved addresses. Please try again.');
     }
     return data
         .whereType<Map>()
@@ -77,9 +78,12 @@ class CustomerAddressRepository {
   }) {
     return <String, dynamic>{
       'label': address.label.trim().isEmpty ? 'Home' : address.label.trim(),
-      'recipient_name': account.name.trim().isEmpty ? 'GETIN Customer' : account.name.trim(),
+      'recipient_name':
+          account.name.trim().isEmpty ? 'GETIN Customer' : account.name.trim(),
       'phone': account.phone.trim(),
-      'address_line_1': address.building.trim().isEmpty ? address.title : address.building.trim(),
+      'address_line_1': address.building.trim().isEmpty
+          ? address.title
+          : address.building.trim(),
       'address_line_2': _encodeDetails(address),
       'city': address.city.trim(),
       'area': address.area.trim().isEmpty ? null : address.area.trim(),
@@ -93,7 +97,8 @@ class CustomerAddressRepository {
   String? _encodeDetails(CustomerAddress address) {
     final parts = <String>[
       if (address.floor.trim().isNotEmpty) 'Floor ${address.floor.trim()}',
-      if (address.apartment.trim().isNotEmpty) 'Apt ${address.apartment.trim()}',
+      if (address.apartment.trim().isNotEmpty)
+        'Apt ${address.apartment.trim()}',
       if (address.deliveryInstructions.trim().isNotEmpty)
         'Note ${address.deliveryInstructions.trim()}',
     ];
@@ -128,6 +133,7 @@ class CustomerAddressRepository {
     final data = payload['data'];
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
-    throw const ApiException('The GETIN API returned invalid address data.');
+    throw const ApiException(
+        'We couldn’t load your saved addresses. Please try again.');
   }
 }

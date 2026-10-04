@@ -238,9 +238,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     final last = lastName.text.trim();
     final normalizedEmail = email.text.trim().toLowerCase();
     final localPhone = phone.text.trim();
-    final normalizedPhone = _phoneCode.isEmpty
-        ? localPhone
-        : '$_phoneCode $localPhone'.trim();
+    final normalizedPhone =
+        _phoneCode.isEmpty ? localPhone : '$_phoneCode $localPhone'.trim();
     if (first.isEmpty || normalizedEmail.isEmpty || normalizedPhone.isEmpty) {
       _snack(context, 'Name, email and phone number are required.');
       return;
@@ -254,7 +253,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         'email': normalizedEmail,
         'phone': normalizedPhone,
         'gender': _genderApiValue(CustomerPersonalInfoStore.gender.value),
-        'date_of_birth': _dateOfBirth == null ? null : _formatDate(_dateOfBirth),
+        'date_of_birth':
+            _dateOfBirth == null ? null : _formatDate(_dateOfBirth),
         'country_code': CustomerCountryStore.current.value.normalizedIsoCode,
       });
       await CustomerPersonalInfoStore.setGender(_genderLabel(account.gender));
@@ -311,7 +311,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           _LabeledField(label: 'First name', controller: firstName),
           _LabeledField(label: 'Last name', controller: lastName),
           _VerifiedField(
-            label: account?.emailVerified == true ? 'Email · Verified' : 'Email',
+            label:
+                account?.emailVerified == true ? 'Email · Verified' : 'Email',
             controller: email,
           ),
           _VerifiedPhoneField(
@@ -1469,7 +1470,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
             title: 'Change Password',
             onTap: () => _snack(
               context,
-              'Password reset will connect to authentication API.',
+              'Password reset instructions will be sent to your registered email or phone.',
             ),
           ),
           const SizedBox(height: 8),

@@ -204,7 +204,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         : '$_currency ${value.toStringAsFixed(2)}';
   }
 
-
   int? get _serverVariantId {
     final editing = widget.editingItem;
     final product = widget.catalogProduct;
@@ -213,7 +212,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final selected = _variant?.trim().toLowerCase();
     if (selected != null && selected.isNotEmpty) {
       for (final variant in product.variants) {
-        if (variant.isAvailable && variant.name.trim().toLowerCase() == selected) {
+        if (variant.isAvailable &&
+            variant.name.trim().toLowerCase() == selected) {
           return variant.id;
         }
       }
@@ -227,16 +227,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   List<int> get _serverOptionValueIds {
     final product = widget.catalogProduct;
-    if (product == null) return widget.editingItem?.optionValueIds ?? const <int>[];
+    if (product == null) {
+      return widget.editingItem?.optionValueIds ?? const <int>[];
+    }
 
     final selectedLabels = <String>{
       if (_size?.trim().isNotEmpty == true) _size!.trim().toLowerCase(),
-      if (_temperature?.trim().isNotEmpty == true) _temperature!.trim().toLowerCase(),
+      if (_temperature?.trim().isNotEmpty == true)
+        _temperature!.trim().toLowerCase(),
       if (_milk?.trim().isNotEmpty == true) _milk!.trim().toLowerCase(),
       if (_strength != 'Regular') _strength.trim().toLowerCase(),
       if (_sweetness != 'Regular') _sweetness.trim().toLowerCase(),
       if (_warming?.trim().isNotEmpty == true) _warming!.trim().toLowerCase(),
-      if (_sauce?.trim().isNotEmpty == true && _sauce != 'No Sauce') _sauce!.trim().toLowerCase(),
+      if (_sauce?.trim().isNotEmpty == true && _sauce != 'No Sauce')
+        _sauce!.trim().toLowerCase(),
       if (_color?.trim().isNotEmpty == true) _color!.trim().toLowerCase(),
       ..._addOns.map((value) => value.trim().toLowerCase()),
     };
@@ -245,8 +249,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     for (final group in product.optionGroups) {
       for (final value in group.values) {
         if (selectedLabels.contains(value.name.trim().toLowerCase()) ||
-            (value.isDefault && group.isRequired && group.minSelect > 0 &&
-                !group.values.any((candidate) => selectedLabels.contains(candidate.name.trim().toLowerCase())))) {
+            (value.isDefault &&
+                group.isRequired &&
+                group.minSelect > 0 &&
+                !group.values.any((candidate) => selectedLabels
+                    .contains(candidate.name.trim().toLowerCase())))) {
           ids.add(value.id);
         }
       }
@@ -740,12 +747,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: AnimatedBuilder(
                       animation: CustomerFavoritesStore.instance,
                       builder: (context, _) {
-                        final isFavorite = CustomerFavoritesStore.instance
-                            .containsProduct(
-                              serverProductId: widget.catalogProduct?.id ??
-                                  widget.editingItem?.productId,
-                              name: widget.name,
-                            );
+                        final isFavorite =
+                            CustomerFavoritesStore.instance.containsProduct(
+                          serverProductId: widget.catalogProduct?.id ??
+                              widget.editingItem?.productId,
+                          name: widget.name,
+                        );
                         return _HeroSection(
                           image: widget.image,
                           name: widget.name,
@@ -844,7 +851,7 @@ class _MerchandiseGallery extends StatelessWidget {
                 ),
               ),
               Text(
-                '1 image in demo',
+                '1 image available',
                 style: TextStyle(color: AppColors.muted, fontSize: 9),
               ),
             ],
@@ -863,7 +870,7 @@ class _MerchandiseGallery extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Gallery structure is ready for multiple Laravel/CMS product images later.',
+            'Swipe to explore available product images.',
             style:
                 TextStyle(color: AppColors.muted, fontSize: 9.5, height: 1.35),
           ),
@@ -2037,8 +2044,7 @@ class _ProductInformation extends StatelessWidget {
           ),
           _InfoTile(
             title: 'Availability',
-            preview:
-                'Stock is branch-specific and will be supplied by the Laravel inventory API later.',
+            preview: 'Availability can vary by branch.',
             last: true,
           ),
         ]);
@@ -2339,7 +2345,6 @@ class _PairingItem {
     required this.image,
   });
 }
-
 
 class _ProductRemoteAwareImage extends StatelessWidget {
   final String image;

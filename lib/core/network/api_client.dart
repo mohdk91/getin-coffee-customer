@@ -30,13 +30,13 @@ class ApiClient {
   Uri endpoint(String path, {Map<String, Object?> query = const {}}) {
     if (!config.isApiConfigured) {
       throw StateError(
-        'API_BASE_URL is not configured. Pass it with --dart-define.',
+        'GETIN is temporarily unavailable. Please try again later.',
       );
     }
 
     if (!config.isApiTransportAllowed) {
       throw StateError(
-        'API_BASE_URL must use HTTPS outside development/debug builds.',
+        'GETIN is temporarily unavailable. Please try again later.',
       );
     }
 
@@ -197,7 +197,7 @@ class ApiClient {
       );
     }
     return ApiException(
-      'Unable to reach the GETIN API.',
+      'Unable to reach GETIN. Check your connection and try again.',
       cause: error,
       kind: ApiFailureKind.unknown,
       requestId: requestId,
@@ -221,7 +221,7 @@ class ApiClient {
         }
       } catch (error) {
         throw ApiException(
-          'The GETIN API returned an invalid JSON response.',
+          'We received an unexpected response. Please try again.',
           statusCode: response.statusCode,
           cause: error,
           kind: ApiFailureKind.invalidResponse,
@@ -233,7 +233,8 @@ class ApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final rawErrors = payload['errors'];
       throw ApiException(
-        payload['message']?.toString() ?? 'The GETIN API request failed.',
+        payload['message']?.toString() ??
+            'Something went wrong. Please try again.',
         statusCode: response.statusCode,
         errors: rawErrors is Map
             ? Map<String, dynamic>.from(rawErrors)
@@ -246,7 +247,6 @@ class ApiClient {
 
     return payload;
   }
-
 
   String _newRequestId() {
     final provided = requestIdProvider?.call().trim();

@@ -170,7 +170,7 @@ class HomeOfferDetailScreen extends StatelessWidget {
                   SizedBox(width: 9),
                   Expanded(
                     child: Text(
-                      'Demo offer details are local for now. Live availability, branch eligibility and final offer rules will come from the Laravel backend later.',
+                      'Offer availability, branch eligibility and final terms may vary by location.',
                       style: TextStyle(
                         color: AppColors.muted,
                         fontSize: 11.5,

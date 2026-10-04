@@ -21,8 +21,7 @@ void main() {
         contains('Live cards must be added through Stripe PaymentSheet.'));
     expect(screen, contains('createSetupSession()'));
     expect(screen, contains('presentSetupSheet(session)'));
-    expect(screen,
-        contains('raw card number and CVC never pass through the GETIN API'));
+    expect(screen, contains('never receives your full card number or CVC'));
     expect(main, contains('CustomerPaymentMethodStore.initialize(context)'));
     expect(sync, contains('CustomerPaymentMethodStore.instance.refresh'));
   });

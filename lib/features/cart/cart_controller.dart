@@ -579,8 +579,8 @@ class CartController extends ChangeNotifier {
     }
     if (CustomerRewardsStore.instance.usesApi) {
       return reward.code.trim().isEmpty
-          ? 'This reward has no active Laravel voucher to apply.'
-          : 'Laravel will verify this reward against the current checkout.';
+          ? 'This reward isn’t available for this checkout.'
+          : 'This reward will be validated at checkout.';
     }
 
     final definition = CustomerRewardsStore.instance.definitionFor(
@@ -616,8 +616,8 @@ class CartController extends ChangeNotifier {
     }
     if (CustomerVoucherStore.instance.usesApi) {
       return voucher.code.trim().isEmpty
-          ? 'This server voucher has no usable code.'
-          : 'Laravel will verify this voucher against the current checkout.';
+          ? 'This voucher has no usable code.'
+          : 'This voucher will be validated at checkout.';
     }
     if (voucher.status == VoucherStatus.expired ||
         voucher.expiresAt.isBefore(DateTime.now())) {
@@ -854,8 +854,8 @@ class CartController extends ChangeNotifier {
   }
 
   void completeServerOrder() {
-    // Server-side loyalty/voucher/gift-card state must be refreshed from Laravel.
-    // Never mark local demo benefits as consumed for a production order.
+    // Loyalty, voucher, and gift-card state is refreshed after the order.
+    // Never consume preview benefits locally for an authoritative order.
     _items.clear();
     _specialRequest = '';
     _appliedRewardId = null;

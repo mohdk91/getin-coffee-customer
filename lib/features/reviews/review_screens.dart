@@ -298,7 +298,7 @@ class OrderReviewScreen extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               const Text(
-                'Only products from completed orders are eligible in this demo.',
+                'Only products from completed orders are eligible for review.',
                 style: TextStyle(
                   color: AppColors.muted,
                   fontSize: 11,
@@ -560,7 +560,7 @@ class _ReviewComposerScreenState extends State<ReviewComposerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'GETIN does not expose this review type in the production API.',
+              'This review option is not available for this order.',
             ),
           ),
         );

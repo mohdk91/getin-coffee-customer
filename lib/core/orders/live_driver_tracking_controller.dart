@@ -64,7 +64,7 @@ class LiveDriverTrackingController extends ChangeNotifier {
     } catch (_) {
       if (_disposed) return;
       _errorMessage =
-          'Live driver GPS could not be refreshed. Showing the latest server state when available.';
+          'Driver location could not be refreshed. Showing the latest available location.';
     } finally {
       if (!_disposed) {
         _loading = false;
@@ -74,7 +74,10 @@ class LiveDriverTrackingController extends ChangeNotifier {
   }
 
   void _schedule() {
-    if (_disposed || !_active || _snapshot?.shouldPoll == false || _timer != null) {
+    if (_disposed ||
+        !_active ||
+        _snapshot?.shouldPoll == false ||
+        _timer != null) {
       return;
     }
     _timer = Timer.periodic(interval, (_) {

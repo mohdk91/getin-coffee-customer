@@ -66,7 +66,8 @@ class _MobileStartupGateState extends State<MobileStartupGate> {
       setState(() {
         _loading = false;
         _error = widget.appConfig.requiresApi
-            ? StateError('API_BASE_URL is required outside development.')
+            ? StateError(
+                'GETIN is temporarily unavailable. Please try again later.')
             : null;
       });
       return;

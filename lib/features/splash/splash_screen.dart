@@ -98,7 +98,8 @@ class _SplashScreenState extends State<SplashScreen> {
       _continue();
       return;
     }
-    if (value.isInitialized && value.duration.inMilliseconds > 0 &&
+    if (value.isInitialized &&
+        value.duration.inMilliseconds > 0 &&
         value.position.inMilliseconds >= value.duration.inMilliseconds - 120) {
       _continue();
     }
@@ -176,7 +177,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Check the API connection and try again.',
+                    'Check your connection and try again.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white),
                   ),

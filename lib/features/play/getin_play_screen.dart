@@ -377,7 +377,7 @@ class _PlayRulesCard extends StatelessWidget {
           SizedBox(width: 9),
           Expanded(
             child: Text(
-              'Demo rules: one attempt per game per day. Prizes are Getin rewards only and cannot be withdrawn as cash. Production eligibility, reset times and prize inventory will be controlled by the backend.',
+              'One attempt per game per day. Prizes are GETIN rewards only and cannot be withdrawn as cash. Eligibility, reset times and prize availability may vary.',
               style: TextStyle(
                 color: AppColors.green,
                 fontSize: 9.5,
@@ -609,7 +609,7 @@ class _SpinWinScreenState extends State<SpinWinScreen>
               Text(
                 CustomerPlayStore.instance.usesApi
                     ? 'The wheel is visual only. Eligibility, prize selection and rewards are decided by GETIN.'
-                    : 'Prizes in this local demo are applied immediately after the wheel stops.',
+                    : 'Your prize is added to Rewards after the wheel stops.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.muted,
@@ -792,9 +792,8 @@ class _StopTimerScreenState extends State<StopTimerScreen> {
       _resultTitle = CustomerPlayStore.instance.usesApi
           ? result.resultTitle
           : '$title ${elapsed.toStringAsFixed(2)}s';
-      _rewardText = CustomerPlayStore.instance.usesApi
-          ? result.rewardText
-          : reward;
+      _rewardText =
+          CustomerPlayStore.instance.usesApi ? result.rewardText : reward;
     });
   }
 

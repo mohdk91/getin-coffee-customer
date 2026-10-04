@@ -101,10 +101,10 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
   String _demoReply(String input) {
     final text = input.toLowerCase();
     if (text.contains('where') || text.contains('order')) {
-      return 'Your latest demo delivery can be checked from Orders. If you open a specific order, Getin support can attach that order context automatically.';
+      return 'Your latest delivery can be checked from Orders. Open a specific order to include its details when contacting support.';
     }
     if (text.contains('payment') || text.contains('charged')) {
-      return 'For a payment problem, open Help & Support → Payment Issue and choose the affected order or saved payment method. The demo request will keep that context.';
+      return 'For a payment problem, open Help & Support → Payment Issue and choose the affected order or saved payment method.';
     }
     if (text.contains('missing') || text.contains('wrong item')) {
       return 'For a missing or wrong item, choose Help & Support → Order Issue, select the order, then choose Missing item or Wrong item.';
@@ -112,12 +112,12 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
     if (text.contains('reward') ||
         text.contains('star') ||
         text.contains('voucher')) {
-      return 'I can help with Stars, rewards and vouchers. In this demo, open Help & Support → Rewards & Membership to attach the exact benefit that has a problem.';
+      return 'I can help with Stars, rewards and vouchers. Open Help & Support → Rewards & Membership to include the benefit you need help with.';
     }
     if (text.contains('agent') || text.contains('human')) {
-      return 'A Getin support agent would join this thread in production. For the demo, you can continue typing here or create a structured support request.';
+      return 'A GETIN support agent can join this conversation. You can keep typing here or create a support request.';
     }
-    return 'Thanks — I saved your message in this local demo chat. In production, this thread will be handled by Getin Customer Service and can carry your authenticated account/order context.';
+    return 'Thanks — your message has been saved. GETIN Customer Service can use your account and order details to help you.';
   }
 
   @override
@@ -130,16 +130,16 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
         foregroundColor: AppColors.green,
         elevation: 0,
         titleSpacing: 0,
-        title: Column(
+        title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Chat with Getin',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             Text(
-              _store.usesApi ? 'GETIN customer service' : 'Demo customer service',
-              style: const TextStyle(
+              'GETIN customer service',
+              style: TextStyle(
                 color: AppColors.muted,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -160,33 +160,31 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: AppColors.border),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     backgroundColor: AppColors.green,
                     child: Icon(
                       Icons.support_agent_rounded,
                       color: AppColors.beige,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Getin Customer Service',
                           style: TextStyle(
                             color: AppColors.green,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
-                          _store.usesApi
-                              ? 'Live conversation · synced with GETIN'
-                              : 'Local demo chat · messages stay on this device',
-                          style: const TextStyle(
+                          'Here to help with your account and orders',
+                          style: TextStyle(
                             color: AppColors.muted,
                             fontSize: 11,
                           ),
@@ -229,7 +227,7 @@ class _CustomerSupportChatScreenState extends State<CustomerSupportChatScreen> {
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                itemCount: messages.length,
+                  itemCount: messages.length,
                   itemBuilder: (context, index) =>
                       _ChatBubble(message: messages[index]),
                 ),

@@ -18,7 +18,7 @@ void main() {
     );
     expect(source, contains('vouchers.usesApi && appliedReward != null'));
     expect(source, contains('rewards.usesApi && appliedVoucher != null'));
-    expect(source, contains('Laravel will verify this voucher'));
-    expect(source, contains('Laravel will verify this reward'));
+    expect(source, contains('This voucher will be validated at checkout.'));
+    expect(source, contains('This reward will be validated at checkout.'));
   });
 }

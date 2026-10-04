@@ -211,7 +211,7 @@ class CustomerFavoritesStore extends ChangeNotifier {
 
     if (apiMutation && serverId == null) {
       _lastError = StateError(
-        'Live favorites require the Laravel product id.',
+        'This item can’t be updated in Favorites right now. Refresh the menu and try again.',
       );
       notifyListeners();
       return false;
@@ -274,7 +274,7 @@ class CustomerFavoritesStore extends ChangeNotifier {
     if (serverId == null) {
       _products.insert(index, removed);
       _lastError = StateError(
-        'Live favorites require the Laravel product id.',
+        'This item can’t be updated in Favorites right now. Refresh the menu and try again.',
       );
       notifyListeners();
       return;

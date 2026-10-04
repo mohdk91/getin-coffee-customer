@@ -77,7 +77,7 @@ Future<void> showVoucherPickerSheet(
                               const SizedBox(height: 4),
                               Text(
                                 vouchers.usesApi
-                                    ? 'Choose a server voucher. Laravel will confirm eligibility and the final saving.'
+                                    ? 'Choose a voucher. Eligibility and the final saving are confirmed at checkout.'
                                     : 'Choose a saved voucher, or automatically apply the best eligible saving.',
                                 style: const TextStyle(
                                   color: AppColors.muted,
@@ -128,7 +128,8 @@ Future<void> showVoucherPickerSheet(
 
                               return _VoucherOption(
                                 voucher: voucher,
-                                serverManaged: vouchers.usesApi || voucher.serverManaged,
+                                serverManaged:
+                                    vouchers.usesApi || voucher.serverManaged,
                                 eligible: isEligible,
                                 selected: selected,
                                 reason: isEligible
@@ -312,7 +313,7 @@ class _VoucherOption extends StatelessWidget {
     );
     final serverDetail = voucher.description.trim().isNotEmpty
         ? voucher.description.trim()
-        : 'Final saving confirmed by Laravel at checkout.';
+        : 'Final saving is confirmed at checkout.';
 
     return Material(
       color: selected ? const Color(0xFFF0E8D4) : Colors.white,
@@ -405,7 +406,7 @@ class _VoucherOption extends StatelessWidget {
                     Text(
                       eligible
                           ? serverManaged
-                              ? 'Laravel will verify this voucher and calculate the final saving.'
+                              ? 'Eligible for this cart. Final saving is confirmed at checkout.'
                               : 'Eligible for your current cart.'
                           : reason ?? 'Not eligible for this cart.',
                       style: TextStyle(

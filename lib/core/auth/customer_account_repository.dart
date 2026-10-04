@@ -51,7 +51,8 @@ class CustomerAccountRepository {
     final customer = _mapObject(data['customer'], field: 'customer');
     final token = data['token']?.toString().trim() ?? '';
     if (token.isEmpty) {
-      throw const ApiException('The GETIN API did not return an access token.');
+      throw const ApiException(
+          'Sign-in could not be completed. Please try again.');
     }
 
     return CustomerAuthResult(
@@ -59,7 +60,6 @@ class CustomerAccountRepository {
       token: token,
     );
   }
-
 
   Future<CustomerAuthResult> socialLogin({
     required String provider,
@@ -69,7 +69,7 @@ class CustomerAccountRepository {
   }) async {
     if (!usesApi) {
       throw const ApiException(
-        'Social sign-in requires the Laravel API.',
+        'Social sign-in is unavailable right now. Please try again.',
       );
     }
 
@@ -88,7 +88,8 @@ class CustomerAccountRepository {
     final customer = _mapObject(data['customer'], field: 'customer');
     final token = data['token']?.toString().trim() ?? '';
     if (token.isEmpty) {
-      throw const ApiException('The GETIN API did not return an access token.');
+      throw const ApiException(
+          'Sign-in could not be completed. Please try again.');
     }
     return CustomerAuthResult(
       customer: CustomerAccount.fromJson(customer),
@@ -96,14 +97,13 @@ class CustomerAccountRepository {
     );
   }
 
-
   Future<CustomerAuthResult> firebaseLogin({
     required String idToken,
     String? displayName,
   }) async {
     if (!usesApi) {
       throw const ApiException(
-        'Firebase sign-in requires the Laravel API.',
+        'This sign-in method is unavailable right now. Please try again.',
       );
     }
 
@@ -124,14 +124,14 @@ class CustomerAccountRepository {
     final customer = _mapObject(data['customer'], field: 'customer');
     final accessToken = data['token']?.toString().trim() ?? '';
     if (accessToken.isEmpty) {
-      throw const ApiException('The GETIN API did not return an access token.');
+      throw const ApiException(
+          'Sign-in could not be completed. Please try again.');
     }
     return CustomerAuthResult(
       customer: CustomerAccount.fromJson(customer),
       token: accessToken,
     );
   }
-
 
   Future<CustomerAuthResult> register({
     required String name,
@@ -178,7 +178,8 @@ class CustomerAccountRepository {
     final customer = _mapObject(data['customer'], field: 'customer');
     final token = data['token']?.toString().trim() ?? '';
     if (token.isEmpty) {
-      throw const ApiException('The GETIN API did not return an access token.');
+      throw const ApiException(
+          'Sign-in could not be completed. Please try again.');
     }
     return CustomerAuthResult(
       customer: CustomerAccount.fromJson(customer),
@@ -186,12 +187,11 @@ class CustomerAccountRepository {
     );
   }
 
-
   Future<CustomerAccount> fetchProfile() async {
     if (!usesApi) {
       final current = _demoCustomer;
       if (current == null) {
-        throw const ApiException('No demo customer is signed in.');
+        throw const ApiException('Please sign in to continue.');
       }
       return current;
     }
@@ -211,7 +211,7 @@ class CustomerAccountRepository {
     if (!usesApi) {
       final current = _demoCustomer;
       if (current == null) {
-        throw const ApiException('No demo customer is signed in.');
+        throw const ApiException('Please sign in to continue.');
       }
       final merged = <String, dynamic>{...current.toJson(), ...changes};
       _demoCustomer = CustomerAccount.fromJson(merged);
@@ -253,7 +253,7 @@ class CustomerAccountRepository {
     if (!usesApi) {
       final current = _demoCustomer;
       if (current == null) {
-        throw const ApiException('No demo customer is signed in.');
+        throw const ApiException('Please sign in to continue.');
       }
       if (code.trim().length != 6) {
         throw const ApiException('Enter the complete 6-digit code.');
@@ -281,6 +281,7 @@ class CustomerAccountRepository {
   Map<String, dynamic> _mapObject(Object? value, {required String field}) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) return Map<String, dynamic>.from(value);
-    throw ApiException('The GETIN API returned invalid $field data.');
+    throw const ApiException(
+        'We couldn’t load your account details. Please try again.');
   }
 }

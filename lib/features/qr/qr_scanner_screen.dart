@@ -54,7 +54,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 ),
                 const SizedBox(height: 18),
                 const Text(
-                  'Payment / reward validation will be connected to the Laravel API later.',
+                  'Use this scanner for supported GETIN payment, reward, or order QR codes.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.muted,

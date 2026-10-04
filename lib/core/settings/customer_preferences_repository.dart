@@ -20,8 +20,7 @@ class CustomerPreferences {
       marketingNotificationsEnabled:
           json['marketing_notifications_enabled'] == true,
       pushNotificationsEnabled: json['push_notifications_enabled'] == true,
-      inAppNotificationsEnabled:
-          json['in_app_notifications_enabled'] == true,
+      inAppNotificationsEnabled: json['in_app_notifications_enabled'] == true,
     );
   }
 }
@@ -74,6 +73,7 @@ class CustomerPreferencesRepository {
     final data = payload['data'];
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
-    throw const ApiException('The GETIN API returned invalid preference data.');
+    throw const ApiException(
+        'We couldn’t load your preferences. Please try again.');
   }
 }

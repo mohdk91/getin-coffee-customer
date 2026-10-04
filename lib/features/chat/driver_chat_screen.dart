@@ -190,8 +190,8 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
                         const SizedBox(height: 2),
                         Text(
                           _store.usesApi
-                              ? 'Live driver chat · GPS remains server-authoritative in Order Details'
-                              : 'Demo driver chat · available during delivery',
+                              ? 'Driver chat · live location is available in Order Details'
+                              : 'Driver chat · available during delivery',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
@@ -235,54 +235,54 @@ class _DriverChatScreenState extends State<DriverChatScreen> {
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  final mine = message.author == CustomerChatAuthor.customer;
-                  if (message.author == CustomerChatAuthor.system) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Text(
-                        message.text,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 10.5,
-                          height: 1.35,
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final mine = message.author == CustomerChatAuthor.customer;
+                    if (message.author == CustomerChatAuthor.system) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text(
+                          message.text,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 10.5,
+                            height: 1.35,
+                          ),
+                        ),
+                      );
+                    }
+                    return Align(
+                      alignment:
+                          mine ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.sizeOf(context).width * .78,
+                        ),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: mine ? AppColors.green : Colors.white,
+                          borderRadius: BorderRadius.circular(18).copyWith(
+                            bottomRight: mine ? const Radius.circular(5) : null,
+                            bottomLeft: mine ? null : const Radius.circular(5),
+                          ),
+                          border:
+                              mine ? null : Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          message.text,
+                          style: TextStyle(
+                            color: mine ? Colors.white : AppColors.green,
+                            height: 1.35,
+                          ),
                         ),
                       ),
                     );
-                  }
-                  return Align(
-                    alignment:
-                        mine ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.sizeOf(context).width * .78,
-                      ),
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: mine ? AppColors.green : Colors.white,
-                        borderRadius: BorderRadius.circular(18).copyWith(
-                          bottomRight: mine ? const Radius.circular(5) : null,
-                          bottomLeft: mine ? null : const Radius.circular(5),
-                        ),
-                        border:
-                            mine ? null : Border.all(color: AppColors.border),
-                      ),
-                      child: Text(
-                        message.text,
-                        style: TextStyle(
-                          color: mine ? Colors.white : AppColors.green,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  );
                   },
                 ),
               ),

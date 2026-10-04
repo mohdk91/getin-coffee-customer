@@ -128,7 +128,7 @@ class _GiftCardsScreenState extends State<GiftCardsScreen> {
     if (payment == null || payment.isExpired) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Choose an active saved card for this demo purchase.'),
+          content: Text('Choose an active saved card for this purchase.'),
         ),
       );
       return;
@@ -150,7 +150,7 @@ class _GiftCardsScreenState extends State<GiftCardsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'The gift card could not be created. Try again; no demo purchase was completed.',
+            'The gift card could not be created. Try again; no purchase was completed.',
           ),
         ),
       );
@@ -763,15 +763,16 @@ class _GiftCardWalletScreenState extends State<GiftCardWalletScreen> {
                 for (final card in cards) ...[
                   _GiftCardTile(
                     card: card,
-                    onRedeem: !store.usesApi &&
-                            card.status == GiftCardStatus.received
-                        ? () => _redeem(card.code)
-                        : null,
+                    onRedeem:
+                        !store.usesApi && card.status == GiftCardStatus.received
+                            ? () => _redeem(card.code)
+                            : null,
                     onActivity: store.usesApi
                         ? () => showModalBottomSheet<void>(
                               context: context,
                               showDragHandle: true,
-                              builder: (_) => _GiftCardActivitySheet(card: card),
+                              builder: (_) =>
+                                  _GiftCardActivitySheet(card: card),
                             )
                         : null,
                   ),
@@ -902,8 +903,7 @@ class _GiftCardActivitySheet extends StatefulWidget {
   const _GiftCardActivitySheet({required this.card});
 
   @override
-  State<_GiftCardActivitySheet> createState() =>
-      _GiftCardActivitySheetState();
+  State<_GiftCardActivitySheet> createState() => _GiftCardActivitySheetState();
 }
 
 class _GiftCardActivitySheetState extends State<_GiftCardActivitySheet> {
@@ -912,8 +912,8 @@ class _GiftCardActivitySheetState extends State<_GiftCardActivitySheet> {
   @override
   void initState() {
     super.initState();
-    _future = CustomerGiftCardStore.instance
-        .refreshTransactions(widget.card.id);
+    _future =
+        CustomerGiftCardStore.instance.refreshTransactions(widget.card.id);
   }
 
   @override
@@ -949,7 +949,8 @@ class _GiftCardActivitySheetState extends State<_GiftCardActivitySheet> {
                   if (snapshot.hasError) {
                     return const Text('Could not load gift-card activity.');
                   }
-                  final items = snapshot.data ?? const <CustomerGiftCardTransaction>[];
+                  final items =
+                      snapshot.data ?? const <CustomerGiftCardTransaction>[];
                   if (items.isEmpty) {
                     return const Text('No gift-card activity yet.');
                   }

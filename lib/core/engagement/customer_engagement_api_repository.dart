@@ -246,14 +246,16 @@ class CustomerEngagementApiRepository {
           .toList(growable: false);
     }
     if (data.isEmpty) return const <Map<String, dynamic>>[];
-    throw const ApiException('The GETIN API returned invalid list data.');
+    throw const ApiException(
+        'We couldn’t load this information. Please try again.');
   }
 
   Map<String, dynamic> _dataMap(Map<String, dynamic> payload) {
     final data = payload['data'];
     if (data is Map<String, dynamic>) return data;
     if (data is Map) return Map<String, dynamic>.from(data);
-    throw const ApiException('The GETIN API returned invalid engagement data.');
+    throw const ApiException(
+        'We couldn’t load your rewards activity. Please try again.');
   }
 
   Map<String, String> _idempotencyHeaders(String scope) => <String, String>{

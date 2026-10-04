@@ -85,9 +85,8 @@ class GetinProductCatalog {
     return GetinProductDefinition(
       type: type,
       badge: resolvedBadge,
-      stockLabel: type == ProductType.merchandise
-          ? '12 in stock at this demo branch'
-          : '',
+      stockLabel:
+          type == ProductType.merchandise ? '12 in stock at this branch' : '',
     );
   }
 
