@@ -8,6 +8,7 @@ import '../../core/rewards/customer_stamp_card_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
 import '../cart/cart_screen.dart';
+import 'loyalty_tiers_screen.dart';
 
 class RewardsScreen extends StatelessWidget {
   const RewardsScreen({super.key});
@@ -378,6 +379,21 @@ class RewardsScreen extends StatelessWidget {
                     CustomerMembershipStore.instance.earningMultiplierLabel,
               ),
               const SizedBox(height: 12),
+              _LoyaltyTierSummaryCard(
+                tierName: CustomerMembershipStore.instance.tierName,
+                multiplier: CustomerMembershipStore
+                    .instance.loyaltyEarningMultiplierLabel,
+                pointsToNext: CustomerMembershipStore.instance.pointsToNext,
+                nextTierName: CustomerMembershipStore.instance.nextTierName,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LoyaltyTiersScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
               _StampCard(
                 current: CustomerStampCardStore.instance.currentStamps,
                 completed: CustomerStampCardStore.instance.completedCards,
@@ -449,6 +465,87 @@ class RewardsScreen extends StatelessWidget {
   }
 }
 
+class _LoyaltyTierSummaryCard extends StatelessWidget {
+  final String? tierName;
+  final String multiplier;
+  final int pointsToNext;
+  final String? nextTierName;
+  final VoidCallback onTap;
+
+  const _LoyaltyTierSummaryCard({
+    required this.tierName,
+    required this.multiplier,
+    required this.pointsToNext,
+    required this.nextTierName,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = tierName ?? 'Green';
+    final progressCopy = nextTierName == null
+        ? 'View loyalty tier details'
+        : '$pointsToNext Stars to $nextTierName';
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: AppColors.green,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.stars_rounded,
+                  color: AppColors.gold,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$name Loyalty Tier',
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$multiplier loyalty earning · $progressCopy',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 9.7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.green),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MembershipEarningCard extends StatelessWidget {
   final bool active;
   final String multiplier;
@@ -488,7 +585,7 @@ class _MembershipEarningCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  active ? 'Green Member' : 'GETIN Membership',
+                  active ? 'GETIN Member' : 'GETIN Membership',
                   style: const TextStyle(
                     color: AppColors.green,
                     fontSize: 12.5,
@@ -499,7 +596,7 @@ class _MembershipEarningCard extends StatelessWidget {
                 Text(
                   active
                       ? '$multiplier Stars earning is active'
-                      : 'Join to earn 1.5× Stars on eligible orders',
+                      : 'Join to earn 2× Stars on eligible orders',
                   style: const TextStyle(
                     color: AppColors.muted,
                     fontSize: 9.7,

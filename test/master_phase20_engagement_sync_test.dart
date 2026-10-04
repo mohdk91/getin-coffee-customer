@@ -29,10 +29,14 @@ void main() {
       'lib/features/home/widgets/rewards_progress_card.dart',
     ).readAsStringSync();
 
-    expect(membership, contains('return _LiveMembershipScreen'));
-    expect(membership, contains('store.earningMultiplierLabel'));
-    expect(membership, contains('store.pointsToNext'));
-    expect(membership, contains('...store.tiers.map'));
+    expect(membership, contains('MembershipJoinedPreview('));
+    expect(membership, isNot(contains('_LiveMembershipScreen')));
+    final loyaltyTiers = File(
+      'lib/features/rewards/loyalty_tiers_screen.dart',
+    ).readAsStringSync();
+    expect(loyaltyTiers, contains('store.loyaltyEarningMultiplierLabel'));
+    expect(loyaltyTiers, contains('store.pointsToNext'));
+    expect(loyaltyTiers, contains('...store.tiers.map'));
     expect(rewardsCard, contains('earningMultiplierLabel'));
   });
 }

@@ -42,9 +42,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
     return AnimatedBuilder(
       animation: membership,
       builder: (context, _) {
-        if (CustomerMembershipStore.instance.usesApi) {
-          return _LiveMembershipScreen(showBackButton: widget.showBackButton);
-        }
         if (membership.isActive) {
           return MembershipJoinedPreview(
             showBackButton: widget.showBackButton,
@@ -116,204 +113,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
           ),
         );
       },
-    );
-  }
-}
-
-class _LiveMembershipScreen extends StatelessWidget {
-  final bool showBackButton;
-
-  const _LiveMembershipScreen({required this.showBackButton});
-
-  @override
-  Widget build(BuildContext context) {
-    final store = CustomerMembershipStore.instance;
-    return AnimatedBuilder(
-      animation: store,
-      builder: (context, _) {
-        final current = store.currentTier;
-        final next = store.nextTier;
-        return Scaffold(
-          backgroundColor: AppColors.cream,
-          appBar: AppBar(
-            automaticallyImplyLeading: showBackButton,
-            backgroundColor: AppColors.cream,
-            surfaceTintColor: AppColors.cream,
-            foregroundColor: AppColors.green,
-            elevation: 0,
-            title: const Text(
-              'GETIN Membership',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-          body: RefreshIndicator(
-            onRefresh: store.refresh,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.green,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'YOUR TIER',
-                        style: TextStyle(
-                          color: AppColors.gold,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        current?.name ?? 'GETIN',
-                        style: const TextStyle(
-                          color: AppColors.beige,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        '${store.earningMultiplierLabel} Stars earning · ${store.lifetimePoints} lifetime Stars',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: LinearProgressIndicator(
-                          value: store.progress,
-                          minHeight: 8,
-                          backgroundColor: Colors.white24,
-                          valueColor:
-                              const AlwaysStoppedAnimation(AppColors.gold),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        next == null
-                            ? 'Highest tier reached'
-                            : '${store.pointsToNext} Stars to ${next.name}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'TIERS',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...store.tiers.map(
-                  (tier) => _LiveTierCard(
-                    tier: tier,
-                    current: current?.id == tier.id,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Tier status, Stars multipliers and benefits are managed by GETIN and update automatically from your account.',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 9.5,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LiveTierCard extends StatelessWidget {
-  final CustomerMembershipTier tier;
-  final bool current;
-
-  const _LiveTierCard({required this.tier, required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    final benefits = tier.benefits.entries
-        .where(
-            (entry) => entry.value == true || entry.value.toString().isNotEmpty)
-        .map((entry) => entry.key.replaceAll('_', ' '))
-        .toList(growable: false);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: current ? AppColors.green : AppColors.border,
-          width: current ? 1.5 : 1,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tier.name,
-                  style: const TextStyle(
-                    color: AppColors.green,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${tier.minimumLifetimePoints} lifetime Stars · ${tier.multiplierLabel} earning',
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 10,
-                  ),
-                ),
-                if (benefits.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    benefits.join(' · '),
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 9.5,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (current)
-            const Chip(
-              label: Text('CURRENT'),
-              visualDensity: VisualDensity.compact,
-            ),
-        ],
-      ),
     );
   }
 }
@@ -662,8 +461,8 @@ class _BenefitSection extends StatelessWidget {
     ),
     _MembershipBenefit(
       icon: Icons.star_rounded,
-      title: '1.5× Stars',
-      subtitle: 'Members earn 50% more Stars on every eligible order.',
+      title: '2× Stars',
+      subtitle: 'Members earn double Stars on every eligible order.',
     ),
     _MembershipBenefit(
       icon: Icons.local_shipping_outlined,
@@ -1248,22 +1047,8 @@ class _StickyMembershipAction extends StatelessWidget {
             width: double.infinity,
             height: 50,
             child: FilledButton(
-              onPressed: () async {
+              onPressed: () {
                 final store = CustomerMembershipStore.instance;
-                if (store.usesApi) {
-                  await store.refresh();
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        store.tierName == null
-                            ? 'Your GETIN membership tier is based on your loyalty activity.'
-                            : 'Current GETIN tier: ${store.tierName}.',
-                      ),
-                    ),
-                  );
-                  return;
-                }
                 if (!active) {
                   store.activate(billingCycle: billingCycle);
                 }
@@ -1271,8 +1056,8 @@ class _StickyMembershipAction extends StatelessWidget {
                   SnackBar(
                     content: Text(
                       active
-                          ? 'Getin Membership is active.'
-                          : 'Membership activated. You now earn 1.5× Stars on eligible orders.',
+                          ? 'GETIN Membership is active.'
+                          : 'Membership activated. You now earn 2× Stars on eligible orders.',
                     ),
                   ),
                 );

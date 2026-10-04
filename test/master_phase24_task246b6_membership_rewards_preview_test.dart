@@ -15,8 +15,8 @@ void main() {
     expect(store, contains('store._handleAuthChanged'));
     expect(store, contains('_loadGuestMembership()'));
     expect(store, contains('repository.membershipTiers()'));
-    expect(screen, contains('if (CustomerMembershipStore.instance.usesApi)'));
-    expect(screen, contains('return _LiveMembershipScreen'));
+    expect(screen, isNot(contains('_LiveMembershipScreen')));
+    expect(screen, contains('MembershipJoinedPreview('));
   });
 
   test('Task 246B-6 supports both join and joined membership states', () {
@@ -31,9 +31,9 @@ void main() {
     expect(screen, contains('MembershipJoinedPreview('));
     expect(screen, contains('store.activate(billingCycle: billingCycle)'));
     expect(screen, isNot(contains('Demo membership activated')));
-    expect(joined, contains("'Green Member'"));
+    expect(joined, contains("'GETIN Member'"));
     expect(joined, contains("'Membership active'"));
-    expect(joined, contains("'1.5× Stars'"));
+    expect(joined, contains("'2× Stars'"));
     expect(joined, contains('CustomerRewardsStore.instance'));
     expect(joined, contains('CustomerStampCardStore.instance'));
   });

@@ -72,8 +72,7 @@ class CustomerMembershipStore extends ChangeNotifier {
   bool get usesApi =>
       (_repository?.usesApi ?? false) &&
       CustomerAuthStore.instance.isAuthenticated;
-  bool get isActive =>
-      usesApi ? _currentTier != null : _active || _previewMember;
+  bool get isActive => _active || _previewMember;
   String get billingCycle => _billingCycle;
   String? get tierName => _currentTier?.name;
   String? get nextTierName => _nextTier?.name;
@@ -83,11 +82,18 @@ class CustomerMembershipStore extends ChangeNotifier {
   int get lifetimePoints => _lifetimePoints;
   int get pointsToNext => _pointsToNext;
   double get progress => _progress;
-  double get earningMultiplier =>
-      usesApi ? (_currentTier?.pointsMultiplier ?? 1) : (isActive ? 1.5 : 1);
+  double get earningMultiplier => isActive ? 2 : 1;
+  double get loyaltyEarningMultiplier =>
+      usesApi ? (_currentTier?.pointsMultiplier ?? 1) : 1;
   bool get hasBonusMultiplier => earningMultiplier > 1.0001;
   String get earningMultiplierLabel => '${earningMultiplier.toStringAsFixed(
         earningMultiplier.truncateToDouble() == earningMultiplier ? 0 : 2,
+      )}×';
+  String get loyaltyEarningMultiplierLabel =>
+      '${loyaltyEarningMultiplier.toStringAsFixed(
+        loyaltyEarningMultiplier.truncateToDouble() == loyaltyEarningMultiplier
+            ? 0
+            : 2,
       )}×';
 
   static Future<void> initialize([CustomerRepositoryContext? context]) async {
@@ -98,24 +104,30 @@ class CustomerMembershipStore extends ChangeNotifier {
     store._preferences = await SharedPreferences.getInstance();
     CustomerAuthStore.instance.removeListener(store._handleAuthChanged);
     CustomerAuthStore.instance.addListener(store._handleAuthChanged);
+    store._loadGuestMembership();
     if (store.usesApi) {
       await store.refresh();
       return;
     }
-    store._loadGuestMembership();
+    store._clearLoyaltyState();
   }
 
   void _handleAuthChanged() {
+    _loadGuestMembership();
     if (usesApi) {
       unawaited(refresh());
       return;
     }
-    _loadGuestMembership();
+    _clearLoyaltyState();
   }
 
   void _loadGuestMembership() {
     _active = _preferences?.getBool(_activeKey) ?? false;
     _billingCycle = _preferences?.getString(_cycleKey) ?? 'monthly';
+    notifyListeners();
+  }
+
+  void _clearLoyaltyState() {
     _currentTier = null;
     _nextTier = null;
     _tiers = const <CustomerMembershipTier>[];
@@ -164,7 +176,6 @@ class CustomerMembershipStore extends ChangeNotifier {
   }
 
   void activate({required String billingCycle}) {
-    if (usesApi) return;
     _active = true;
     _billingCycle = billingCycle;
     notifyListeners();
@@ -172,7 +183,6 @@ class CustomerMembershipStore extends ChangeNotifier {
   }
 
   void deactivateForTesting() {
-    if (usesApi) return;
     _active = false;
     notifyListeners();
     unawaited(_persist());

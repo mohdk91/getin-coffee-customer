@@ -43,23 +43,21 @@ void main() {
 
     expect(play, contains('final authoritative = _fromApi(attempt'));
     expect(play, contains('await refresh();'));
-    expect(playScreen, contains('prize selection and rewards are decided by GETIN'));
-    expect(playScreen, contains('await CustomerRewardsStore.instance.refresh();'));
-    expect(playScreen, contains('await CustomerVoucherStore.instance.refresh();'));
+    expect(playScreen,
+        contains('prize selection and rewards are decided by GETIN'));
+    expect(
+        playScreen, contains('await CustomerRewardsStore.instance.refresh();'));
+    expect(
+        playScreen, contains('await CustomerVoucherStore.instance.refresh();'));
 
-    expect(membershipScreen, contains('return _LiveMembershipScreen'));
-    expect(membershipScreen, contains('store.earningMultiplierLabel'));
-    final apiGate = membershipScreen.indexOf(
-      'if (CustomerMembershipStore.instance.usesApi)',
-    );
-    final liveReturn = membershipScreen.indexOf(
-      'return _LiveMembershipScreen',
-      apiGate,
-    );
-    final demoActivation = membershipScreen.indexOf('store.activate(', liveReturn);
-    expect(apiGate, greaterThanOrEqualTo(0));
-    expect(liveReturn, greaterThan(apiGate));
-    expect(demoActivation, greaterThan(liveReturn));
+    expect(membershipScreen, contains('MembershipJoinedPreview('));
+    expect(membershipScreen, isNot(contains('_LiveMembershipScreen')));
+    final loyaltyTiers = File(
+      'lib/features/rewards/loyalty_tiers_screen.dart',
+    ).readAsStringSync();
+    expect(loyaltyTiers, contains('store.loyaltyEarningMultiplierLabel'));
+    expect(loyaltyTiers, contains('...store.tiers.map'));
+    expect(membershipScreen, contains('store.activate('));
 
     expect(sync, contains('CustomerMembershipStore.instance.refresh'));
     expect(sync, contains('CustomerReferralStore.instance.refresh'));

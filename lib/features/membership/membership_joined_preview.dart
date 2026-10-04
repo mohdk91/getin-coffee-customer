@@ -19,10 +19,6 @@ class MembershipJoinedPreview extends StatelessWidget {
     final membership = CustomerMembershipStore.instance;
     final rewards = CustomerRewardsStore.instance;
     final stamps = CustomerStampCardStore.instance;
-    final stars = rewards.stars;
-    const goldThreshold = 300;
-    final progress = (stars / goldThreshold).clamp(0.0, 1.0).toDouble();
-    final toGold = (goldThreshold - stars).clamp(0, goldThreshold).toInt();
 
     return AnimatedBuilder(
       animation: Listenable.merge([membership, rewards, stamps]),
@@ -44,12 +40,7 @@ class MembershipJoinedPreview extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
             children: [
-              _MemberHero(
-                stars: rewards.stars,
-                multiplier: membership.earningMultiplierLabel,
-                progress: progress,
-                toGold: toGold,
-              ),
+              const _MemberHero(),
               const SizedBox(height: 14),
               _MembershipStatusCard(
                 billingCycle: membership.billingCycle,
@@ -69,7 +60,7 @@ class MembershipJoinedPreview extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               const Text(
-                'YOUR BENEFITS',
+                'YOUR MEMBER BENEFITS',
                 style: TextStyle(
                   color: AppColors.muted,
                   fontSize: 10,
@@ -79,12 +70,8 @@ class MembershipJoinedPreview extends StatelessWidget {
               ),
               const SizedBox(height: 9),
               const _BenefitsGrid(),
-              const SizedBox(height: 18),
-              _TierJourneyCard(
-                stars: rewards.stars,
-                progress: progress,
-                toGold: toGold,
-              ),
+              const SizedBox(height: 16),
+              const _MembershipAndLoyaltyNote(),
             ],
           ),
         );
@@ -94,17 +81,7 @@ class MembershipJoinedPreview extends StatelessWidget {
 }
 
 class _MemberHero extends StatelessWidget {
-  final int stars;
-  final String multiplier;
-  final double progress;
-  final int toGold;
-
-  const _MemberHero({
-    required this.stars,
-    required this.multiplier,
-    required this.progress,
-    required this.toGold,
-  });
+  const _MemberHero();
 
   @override
   Widget build(BuildContext context) {
@@ -114,41 +91,23 @@ class _MemberHero extends StatelessWidget {
         color: AppColors.green,
         borderRadius: BorderRadius.circular(26),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.gold,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Text(
-                  'ACTIVE',
-                  style: TextStyle(
-                    color: AppColors.greenDark,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              const Icon(
+              _ActivePill(),
+              Spacer(),
+              Icon(
                 Icons.workspace_premium_rounded,
                 color: AppColors.gold,
                 size: 28,
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Green Member',
+          SizedBox(height: 16),
+          Text(
+            'GETIN Member',
             style: TextStyle(
               color: AppColors.beige,
               fontSize: 30,
@@ -156,30 +115,26 @@ class _MemberHero extends StatelessWidget {
               letterSpacing: -0.7,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
-            '$multiplier Stars on eligible orders',
-            style: const TextStyle(
+            '2× Stars · member prices · monthly perks',
+            style: TextStyle(
               color: Colors.white70,
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           Row(
             children: [
               Expanded(
                 child: _HeroMetric(
-                  label: 'STARS',
-                  value: '$stars',
+                  label: 'STARS EARNING',
+                  value: '2×',
                 ),
               ),
-              Container(
-                width: 1,
-                height: 38,
-                color: Colors.white24,
-              ),
-              const Expanded(
+              _HeroDivider(),
+              Expanded(
                 child: _HeroMetric(
                   label: 'MEMBER PRICE',
                   value: 'Active',
@@ -187,47 +142,33 @@ class _MemberHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          const Row(
-            children: [
-              Text(
-                'Green',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Spacer(),
-              Text(
-                'Gold',
-                style: TextStyle(
-                  color: AppColors.gold,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.white24,
-              valueColor: const AlwaysStoppedAnimation(AppColors.gold),
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            toGold == 0 ? 'Gold unlocked' : '$toGold Stars to Gold',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 9.5,
-            ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActivePill extends StatelessWidget {
+  const _ActivePill();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.gold,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          'ACTIVE',
+          style: TextStyle(
+            color: AppColors.greenDark,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.6,
+          ),
+        ),
       ),
     );
   }
@@ -267,6 +208,15 @@ class _HeroMetric extends StatelessWidget {
   }
 }
 
+class _HeroDivider extends StatelessWidget {
+  const _HeroDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 38, color: Colors.white24);
+  }
+}
+
 class _MembershipStatusCard extends StatelessWidget {
   final String billingCycle;
 
@@ -291,10 +241,7 @@ class _MembershipStatusCard extends StatelessWidget {
               color: AppColors.cream,
               borderRadius: BorderRadius.circular(15),
             ),
-            child: const Icon(
-              Icons.verified_rounded,
-              color: AppColors.green,
-            ),
+            child: const Icon(Icons.verified_rounded, color: AppColors.green),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -322,10 +269,7 @@ class _MembershipStatusCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.check_circle_rounded,
-            color: AppColors.gold,
-          ),
+          const Icon(Icons.check_circle_rounded, color: AppColors.gold),
         ],
       ),
     );
@@ -362,67 +306,57 @@ class _RewardsAndStampCard extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Rewards',
-                      style: TextStyle(
-                        color: AppColors.green,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$stars Stars available',
-                      style: const TextStyle(
-                        color: AppColors.gold,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                child: _RewardMetric(
+                  title: 'Rewards',
+                  value: '$stars Stars available',
                 ),
               ),
-              Container(
-                width: 1,
-                height: 40,
-                color: AppColors.border,
-              ),
+              Container(width: 1, height: 40, color: AppColors.border),
               const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Stamp Card',
-                      style: TextStyle(
-                        color: AppColors.green,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$currentStamps / $requiredStamps collected',
-                      style: const TextStyle(
-                        color: AppColors.gold,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                child: _RewardMetric(
+                  title: 'Stamp Card',
+                  value: '$currentStamps / $requiredStamps collected',
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.green,
-              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.green),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RewardMetric extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _RewardMetric({required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.green,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.gold,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -433,14 +367,24 @@ class _BenefitsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const benefits = <(IconData, String, String)>[
-      (Icons.star_rounded, '1.5× Stars', 'Earn faster on eligible orders'),
+      (Icons.star_rounded, '2× Stars', 'Earn double Stars on eligible orders'),
       (Icons.sell_rounded, 'Member Prices', 'Special prices on selected items'),
+      (Icons.local_shipping_outlined, 'Free Delivery', 'On qualifying orders'),
+      (
+        Icons.local_cafe_rounded,
+        'Monthly Free Drink',
+        'One drink reward each month'
+      ),
       (
         Icons.card_giftcard_rounded,
         'Monthly Perks',
-        'New benefits throughout the month'
+        'Fresh member benefits every month'
       ),
-      (Icons.cake_rounded, 'Birthday Treat', 'A little extra on your birthday'),
+      (
+        Icons.cake_rounded,
+        'Birthday Reward',
+        'A little extra on your birthday'
+      ),
     ];
 
     return Wrap(
@@ -488,95 +432,34 @@ class _BenefitsGrid extends StatelessWidget {
   }
 }
 
-class _TierJourneyCard extends StatelessWidget {
-  final int stars;
-  final double progress;
-  final int toGold;
-
-  const _TierJourneyCard({
-    required this.stars,
-    required this.progress,
-    required this.toGold,
-  });
+class _MembershipAndLoyaltyNote extends StatelessWidget {
+  const _MembershipAndLoyaltyNote();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(17),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFF0E8D4),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
+      child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Your tier journey',
-            style: TextStyle(
-              color: AppColors.green,
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
+          Icon(Icons.stars_rounded, color: AppColors.green),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Your Green, Gold or Black loyalty tier is tracked separately in Rewards. GETIN Membership adds paid member benefits on top.',
+              style: TextStyle(
+                color: AppColors.green,
+                fontSize: 10.5,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            '$stars lifetime Stars · ${toGold == 0 ? 'Gold unlocked' : '$toGold more to Gold'}',
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 10.5,
-            ),
-          ),
-          const SizedBox(height: 13),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.white,
-              valueColor: const AlwaysStoppedAnimation(AppColors.gold),
-            ),
-          ),
-          const SizedBox(height: 13),
-          const Row(
-            children: [
-              _TierPill(label: 'GREEN', active: true),
-              SizedBox(width: 7),
-              _TierPill(label: 'GOLD', active: false),
-              SizedBox(width: 7),
-              _TierPill(label: 'BLACK', active: false),
-            ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TierPill extends StatelessWidget {
-  final String label;
-  final bool active;
-
-  const _TierPill({required this.label, required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: active ? AppColors.green : Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: active ? AppColors.green : AppColors.border,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: active ? AppColors.beige : AppColors.muted,
-          fontSize: 8.5,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.5,
-        ),
       ),
     );
   }
