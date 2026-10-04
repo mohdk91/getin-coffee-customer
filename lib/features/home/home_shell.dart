@@ -314,8 +314,8 @@ class _GetinBottomNavigationBar extends StatelessWidget {
       shadowColor: Colors.black12,
       child: SafeArea(
         top: false,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
+        child: SizedBox(
+          height: 68,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: List.generate(
