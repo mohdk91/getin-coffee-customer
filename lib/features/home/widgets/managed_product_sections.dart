@@ -7,9 +7,11 @@ import '../../../core/content/mobile_app_content_models.dart';
 import '../../../core/content/mobile_app_content_store.dart';
 import '../../../core/membership/customer_membership_store.dart';
 import '../../../core/rewards/customer_rewards_store.dart';
+import '../../../core/rewards/reward_earning_policy.dart';
 import '../../../core/rewards/customer_stamp_card_store.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../product/product_detail_screen.dart';
+import '../live_home_product_listing_screen.dart';
 import '../live_offer_collection_resolver.dart';
 import '../live_offers_bundles_screen.dart';
 import 'play_win_card.dart';
@@ -253,6 +255,7 @@ class _ManagedCollectionGroup extends StatelessWidget {
         const SizedBox(height: 12),
         for (var index = 0; index < visibleCollections.length; index++) ...[
           _ManagedProductSection(
+            showSeeAll: false,
             config: MobileHomeSectionConfig(
               id: visibleCollections[index].key.id,
               key: 'collection:${visibleCollections[index].key.slug}',
@@ -302,7 +305,7 @@ class _SectionHeading extends StatelessWidget {
               TextButton.icon(
                 onPressed: onSeeAll,
                 icon: const Icon(Icons.chevron_right_rounded, size: 18),
-                label: const Text('See all'),
+                label: const Text('View all'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.green,
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -332,6 +335,7 @@ class _ManagedProductSection extends StatelessWidget {
   final int branchId;
   final String branchName;
   final String serviceType;
+  final bool showSeeAll;
 
   const _ManagedProductSection({
     required this.config,
@@ -339,6 +343,7 @@ class _ManagedProductSection extends StatelessWidget {
     required this.branchId,
     required this.branchName,
     required this.serviceType,
+    this.showSeeAll = true,
   });
 
   @override
@@ -347,10 +352,26 @@ class _ManagedProductSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionHeading(config: config),
+        _SectionHeading(
+          config: config,
+          onSeeAll: showSeeAll
+              ? () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => LiveHomeProductListingScreen(
+                        title: config.title,
+                        subtitle: config.subtitle,
+                        products: products,
+                        branchId: branchId,
+                        branchName: branchName,
+                        serviceType: serviceType,
+                      ),
+                    ),
+                  )
+              : null,
+        ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 220,
+          height: 236,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -391,6 +412,13 @@ class _CatalogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final membership = CustomerMembershipStore.instance;
+    final earnedStars = RewardEarningPolicy.starsForPrice(
+      product.displayPrice,
+      isMember: membership.isActive,
+      multiplier: membership.earningMultiplier,
+    );
+
     return SizedBox(
       width: 172,
       child: InkWell(
@@ -438,6 +466,29 @@ class _CatalogCard extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          color: AppColors.gold,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            '+$earnedStars Stars${membership.hasBonusMultiplier ? ' · ${membership.earningMultiplierLabel}' : ''}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.green,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

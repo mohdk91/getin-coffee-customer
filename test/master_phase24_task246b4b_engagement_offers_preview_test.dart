@@ -63,7 +63,7 @@ void main() {
     expect(offers, contains('Image.network('));
     expect(offers, contains('product.displayPrice'));
     expect(managed, contains('LiveOffersBundlesScreen('));
-    expect(managed, contains("label: const Text('See all')"));
+    expect(managed, contains("label: const Text('View all')"));
     expect(navigation, contains("case 'collection':"));
     expect(navigation, contains('LiveOfferCollectionDetailScreen('));
   });

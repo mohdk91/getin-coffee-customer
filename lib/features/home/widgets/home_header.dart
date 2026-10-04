@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../cart/cart_controller.dart';
 import '../../cart/cart_screen.dart';
 import '../../location/models/branch.dart';
+import '../home_greeting.dart';
 
 class HomeHeader extends StatelessWidget {
   final Branch branch;
@@ -54,10 +55,10 @@ class HomeHeader extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Good morning',
-                  style: TextStyle(
+                  homeGreetingForHour(DateTime.now().hour),
+                  style: const TextStyle(
                     color: AppColors.beige,
                     fontSize: 27,
                     height: 1,
