@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../auth/customer_auth_store.dart';
 import '../data/customer_repository.dart';
 import '../engagement/customer_engagement_api_repository.dart';
 
@@ -68,8 +69,11 @@ class CustomerMembershipStore extends ChangeNotifier {
   int _pointsToNext = 0;
   double _progress = 0;
 
-  bool get usesApi => _repository?.usesApi ?? false;
-  bool get isActive => usesApi ? _currentTier != null : _active || _previewMember;
+  bool get usesApi =>
+      (_repository?.usesApi ?? false) &&
+      CustomerAuthStore.instance.isAuthenticated;
+  bool get isActive =>
+      usesApi ? _currentTier != null : _active || _previewMember;
   String get billingCycle => _billingCycle;
   String? get tierName => _currentTier?.name;
   String? get nextTierName => _nextTier?.name;
@@ -79,9 +83,8 @@ class CustomerMembershipStore extends ChangeNotifier {
   int get lifetimePoints => _lifetimePoints;
   int get pointsToNext => _pointsToNext;
   double get progress => _progress;
-  double get earningMultiplier => usesApi
-      ? (_currentTier?.pointsMultiplier ?? 1)
-      : (isActive ? 1.5 : 1);
+  double get earningMultiplier =>
+      usesApi ? (_currentTier?.pointsMultiplier ?? 1) : (isActive ? 1.5 : 1);
   bool get hasBonusMultiplier => earningMultiplier > 1.0001;
   String get earningMultiplierLabel => '${earningMultiplier.toStringAsFixed(
         earningMultiplier.truncateToDouble() == earningMultiplier ? 0 : 2,
@@ -92,18 +95,39 @@ class CustomerMembershipStore extends ChangeNotifier {
     if (context != null) {
       store._repository = CustomerEngagementApiRepository(context);
     }
+    store._preferences = await SharedPreferences.getInstance();
+    CustomerAuthStore.instance.removeListener(store._handleAuthChanged);
+    CustomerAuthStore.instance.addListener(store._handleAuthChanged);
     if (store.usesApi) {
       await store.refresh();
       return;
     }
-    store._preferences = await SharedPreferences.getInstance();
-    store._active = store._preferences?.getBool(_activeKey) ?? false;
-    store._billingCycle = store._preferences?.getString(_cycleKey) ?? 'monthly';
+    store._loadGuestMembership();
+  }
+
+  void _handleAuthChanged() {
+    if (usesApi) {
+      unawaited(refresh());
+      return;
+    }
+    _loadGuestMembership();
+  }
+
+  void _loadGuestMembership() {
+    _active = _preferences?.getBool(_activeKey) ?? false;
+    _billingCycle = _preferences?.getString(_cycleKey) ?? 'monthly';
+    _currentTier = null;
+    _nextTier = null;
+    _tiers = const <CustomerMembershipTier>[];
+    _lifetimePoints = 0;
+    _pointsToNext = 0;
+    _progress = 0;
+    notifyListeners();
   }
 
   Future<void> refresh() async {
     final repository = _repository;
-    if (repository == null || !repository.usesApi) return;
+    if (repository == null || !usesApi) return;
 
     final data = await repository.membership();
     final current = data['current_tier'];
@@ -116,14 +140,12 @@ class CustomerMembershipStore extends ChangeNotifier {
     _nextTier = next is Map
         ? CustomerMembershipTier.fromApi(Map<String, dynamic>.from(next))
         : null;
-    _tiers = tierItems
-        .map(CustomerMembershipTier.fromApi)
-        .toList(growable: false);
+    _tiers =
+        tierItems.map(CustomerMembershipTier.fromApi).toList(growable: false);
 
     final progress = data['progress'];
     if (progress is Map) {
-      _lifetimePoints =
-          (progress['lifetime_points'] as num?)?.toInt() ?? 0;
+      _lifetimePoints = (progress['lifetime_points'] as num?)?.toInt() ?? 0;
       _pointsToNext = (progress['points_to_next'] as num?)?.toInt() ?? 0;
       final rawPercent =
           progress['percent_to_next'] ?? progress['progress_percent'];

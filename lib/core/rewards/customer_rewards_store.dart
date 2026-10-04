@@ -458,6 +458,8 @@ class CustomerRewardsStore extends ChangeNotifier {
       },
     );
     if (redemption.code.trim().isEmpty) {
+      // Compatibility contract: a successful redemption must never finish
+      // without returning its issued voucher code.
       throw StateError(
         'GETIN could not issue the reward code. Please try again.',
       );
@@ -590,24 +592,31 @@ class CustomerRewardsStore extends ChangeNotifier {
     final reference = now ?? DateTime.now();
     return [
       RewardHistoryEntry(
-        id: 'history-order-10583',
-        title: 'Order #10583',
-        starsDelta: 18,
+        id: 'history-order-gc-10540',
+        title: 'Order GC-10540 completed',
+        starsDelta: 30,
         occurredAt: reference.subtract(const Duration(days: 1)),
-        subtitle: 'Stars earned from an eligible order',
+        subtitle: 'Stars added after your completed order',
       ),
       RewardHistoryEntry(
-        id: 'history-double-stars',
-        title: 'Bonus Stars promotion',
-        starsDelta: 10,
-        occurredAt: reference.subtract(const Duration(days: 2)),
-        subtitle: 'Promotion bonus',
+        id: 'history-order-gc-10496',
+        title: 'Order GC-10496 completed',
+        starsDelta: 22,
+        occurredAt: reference.subtract(const Duration(days: 4)),
+        subtitle: 'Stars added after your completed order',
+      ),
+      RewardHistoryEntry(
+        id: 'history-birthday',
+        title: 'Birthday Stars',
+        starsDelta: 20,
+        occurredAt: reference.subtract(const Duration(days: 8)),
+        subtitle: 'Membership birthday benefit',
       ),
       RewardHistoryEntry(
         id: 'history-free-drink',
         title: 'Free Drink redeemed',
         starsDelta: -150,
-        occurredAt: reference.subtract(const Duration(days: 3)),
+        occurredAt: reference.subtract(const Duration(days: 12)),
         subtitle: 'GETIN-FREE-001',
       ),
     ];

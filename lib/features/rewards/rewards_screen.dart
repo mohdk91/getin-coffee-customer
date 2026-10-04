@@ -372,6 +372,12 @@ class RewardsScreen extends StatelessWidget {
                 remaining: _rewards.starsUntilNextReward,
               ),
               const SizedBox(height: 12),
+              _MembershipEarningCard(
+                active: CustomerMembershipStore.instance.isActive,
+                multiplier:
+                    CustomerMembershipStore.instance.earningMultiplierLabel,
+              ),
+              const SizedBox(height: 12),
               _StampCard(
                 current: CustomerStampCardStore.instance.currentStamps,
                 completed: CustomerStampCardStore.instance.completedCards,
@@ -443,6 +449,77 @@ class RewardsScreen extends StatelessWidget {
   }
 }
 
+class _MembershipEarningCard extends StatelessWidget {
+  final bool active;
+  final String multiplier;
+
+  const _MembershipEarningCard({
+    required this.active,
+    required this.multiplier,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFF0E8D4) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: active ? AppColors.green : AppColors.cream,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.workspace_premium_rounded,
+              color: active ? AppColors.gold : AppColors.green,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  active ? 'Green Member' : 'GETIN Membership',
+                  style: const TextStyle(
+                    color: AppColors.green,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  active
+                      ? '$multiplier Stars earning is active'
+                      : 'Join to earn 1.5× Stars on eligible orders',
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 9.7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (active)
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.gold,
+              size: 20,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StampCard extends StatelessWidget {
   final int current;
   final int completed;
@@ -509,6 +586,24 @@ class _StampCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0E8D4),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$current / ${stampStore.requiredStamps}',
+                  style: const TextStyle(
+                    color: AppColors.green,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],

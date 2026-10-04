@@ -64,7 +64,7 @@ Future<void> showRewardPickerSheet(
                               const SizedBox(height: 4),
                               Text(
                                 rewards.usesApi
-                                    ? 'Choose a redeemed reward. Laravel will confirm it against this checkout.'
+                                    ? 'Choose a redeemed reward. Eligibility is confirmed at checkout.'
                                     : 'Only rewards eligible for this cart can be applied.',
                                 style: const TextStyle(
                                   color: AppColors.muted,

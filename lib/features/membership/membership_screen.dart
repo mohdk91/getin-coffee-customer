@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/membership/customer_membership_store.dart';
 import '../../core/theme/app_colors.dart';
+import 'membership_joined_preview.dart';
 
 enum MembershipBillingCycle {
   monthly,
@@ -37,107 +38,87 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (CustomerMembershipStore.instance.usesApi) {
-      return _LiveMembershipScreen(showBackButton: widget.showBackButton);
-    }
-    return Scaffold(
-      backgroundColor: AppColors.cream,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: _MembershipHeader(
-                      price: _heroPrice,
-                      showBackButton: widget.showBackButton,
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        12,
-                        16,
-                        0,
+    final membership = CustomerMembershipStore.instance;
+    return AnimatedBuilder(
+      animation: membership,
+      builder: (context, _) {
+        if (CustomerMembershipStore.instance.usesApi) {
+          return _LiveMembershipScreen(showBackButton: widget.showBackButton);
+        }
+        if (membership.isActive) {
+          return MembershipJoinedPreview(
+            showBackButton: widget.showBackButton,
+          );
+        }
+        return Scaffold(
+          backgroundColor: AppColors.cream,
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _MembershipHeader(
+                          price: _heroPrice,
+                          showBackButton: widget.showBackButton,
+                        ),
                       ),
-                      child: _BillingSelector(
-                        selected: _billingCycle,
-                        onChanged: (value) {
-                          setState(() {
-                            _billingCycle = value;
-                          });
-                        },
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: _BillingSelector(
+                            selected: _billingCycle,
+                            onChanged: (value) {
+                              setState(() {
+                                _billingCycle = value;
+                              });
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        22,
-                        16,
-                        0,
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
+                          child: _BenefitSection(),
+                        ),
                       ),
-                      child: _BenefitSection(),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        22,
-                        16,
-                        0,
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
+                          child: _MonthlyPerksSection(),
+                        ),
                       ),
-                      child: _MonthlyPerksSection(),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        22,
-                        16,
-                        0,
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
+                          child: _MemberPricesSection(),
+                        ),
                       ),
-                      child: _MemberPricesSection(),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        18,
-                        16,
-                        22,
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16, 18, 16, 22),
+                          child: _WhyJoinCard(),
+                        ),
                       ),
-                      child: _WhyJoinCard(),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                _StickyMembershipAction(
+                  label: _ctaLabel,
+                  billingCycle: _billingCycle.name,
+                  active: false,
+                ),
+              ],
             ),
-            AnimatedBuilder(
-              animation: CustomerMembershipStore.instance,
-              builder: (context, _) => _StickyMembershipAction(
-                label: CustomerMembershipStore.instance.isActive
-                    ? 'Membership Active · 1.5× Stars'
-                    : _ctaLabel,
-                billingCycle: _billingCycle.name,
-                active: CustomerMembershipStore.instance.isActive,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
-
 
 class _LiveMembershipScreen extends StatelessWidget {
   final bool showBackButton;
@@ -213,7 +194,8 @@ class _LiveMembershipScreen extends StatelessWidget {
                           value: store.progress,
                           minHeight: 8,
                           backgroundColor: Colors.white24,
-                          valueColor: const AlwaysStoppedAnimation(AppColors.gold),
+                          valueColor:
+                              const AlwaysStoppedAnimation(AppColors.gold),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -274,7 +256,8 @@ class _LiveTierCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final benefits = tier.benefits.entries
-        .where((entry) => entry.value == true || entry.value.toString().isNotEmpty)
+        .where(
+            (entry) => entry.value == true || entry.value.toString().isNotEmpty)
         .map((entry) => entry.key.replaceAll('_', ' '))
         .toList(growable: false);
     return Container(
@@ -1289,7 +1272,7 @@ class _StickyMembershipAction extends StatelessWidget {
                     content: Text(
                       active
                           ? 'Getin Membership is active.'
-                          : 'Demo membership activated. You now earn 1.5× Stars on eligible orders.',
+                          : 'Membership activated. You now earn 1.5× Stars on eligible orders.',
                     ),
                   ),
                 );
