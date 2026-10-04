@@ -413,6 +413,13 @@ Branch branchFromApi(Map<String, dynamic> json) {
       ? Map<String, dynamic>.from(json['status'] as Map)
       : const <String, dynamic>{};
 
+  final hasOpenStatus =
+      status.containsKey('is_open_now') || status.containsKey('is_open');
+  final bool? isOpen = hasOpenStatus
+      ? status['is_open_now'] == true || status['is_open'] == true
+      : null;
+  final explicitStatusLabel = status['label']?.toString().trim();
+
   return Branch(
     id: (json['id'] as num).toInt(),
     name: json['name']?.toString() ?? '',
@@ -424,8 +431,15 @@ Branch branchFromApi(Map<String, dynamic> json) {
     address: location['address']?.toString(),
     city: location['city']?.toString(),
     countryCode: location['country_code']?.toString(),
+    currency: json['currency']?.toString(),
     imageUrl: json['image_url']?.toString(),
-    isOpen: status['is_open'] == true,
-    statusLabel: status['label']?.toString(),
+    isOpen: isOpen,
+    statusLabel: explicitStatusLabel?.isNotEmpty == true
+        ? explicitStatusLabel
+        : isOpen == null
+            ? null
+            : isOpen
+                ? 'Open'
+                : 'Closed',
   );
 }

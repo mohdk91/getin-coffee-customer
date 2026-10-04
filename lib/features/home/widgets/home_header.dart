@@ -30,6 +30,15 @@ class HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final branchContext = <String>[
+      if (branch.city?.trim().isNotEmpty == true) branch.city!.trim(),
+      if (branch.countryCode?.trim().isNotEmpty == true)
+        branch.countryCode!.trim().toUpperCase(),
+      if (branch.currency?.trim().isNotEmpty == true)
+        branch.currency!.trim().toUpperCase(),
+      '${distanceKm.toStringAsFixed(1)} km',
+    ].join(' · ');
+
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.green,
@@ -172,13 +181,31 @@ class HomeHeader extends StatelessWidget {
               ),
               const SizedBox(width: 5),
               Expanded(
-                child: Text(
-                  '${branch.name} • ${distanceKm.toStringAsFixed(1)} km',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      branch.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      branchContext,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.beige,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Icon(

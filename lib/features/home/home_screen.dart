@@ -3,10 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/content/mobile_content_navigation.dart';
-import '../../core/membership/customer_membership_store.dart';
 import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/rewards/customer_rewards_store.dart';
-import '../../core/rewards/customer_stamp_card_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../location/branch_list_screen.dart';
 import '../location/branch_map_screen.dart';
@@ -22,10 +20,8 @@ import 'widgets/home_header.dart';
 import 'widgets/menu_categories_section.dart';
 import 'widgets/managed_product_sections.dart';
 import 'widgets/nearest_branches_section.dart';
-import 'widgets/play_win_card.dart';
 import 'widgets/qr_map_row.dart';
 import 'widgets/secondary_banner_card.dart';
-import 'widgets/rewards_progress_card.dart';
 
 class HomeScreen extends StatelessWidget {
   final Branch branch;
@@ -96,11 +92,7 @@ class HomeScreen extends StatelessWidget {
     }
 
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        CustomerRewardsStore.instance,
-        CustomerStampCardStore.instance,
-        CustomerMembershipStore.instance,
-      ]),
+      animation: CustomerRewardsStore.instance,
       builder: (context, _) => Scaffold(
         backgroundColor: AppColors.cream,
         body: SafeArea(
@@ -171,36 +163,6 @@ class HomeScreen extends StatelessWidget {
                       const SizedBox(
                         height: 15,
                       ),
-                      RewardsProgressCard(
-                        stars: CustomerRewardsStore.instance.stars,
-                        targetStars:
-                            CustomerRewardsStore.instance.nextRewardTarget,
-                        currentStamps:
-                            CustomerStampCardStore.instance.currentStamps,
-                        memberActive: CustomerMembershipStore.instance.isActive,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const RewardsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(
-                        height: 15,
-                      ),
-                      PlayWinCard(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const GetinPlayScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(
-                        height: 15,
-                      ),
                       QrMapRow(
                         branch: branch,
                         distanceKm: selectedDistance,
@@ -262,6 +224,20 @@ class HomeScreen extends StatelessWidget {
                         branchId: branch.id,
                         branchName: branch.name,
                         serviceType: serviceType,
+                        onRewards: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const RewardsScreen(),
+                            ),
+                          );
+                        },
+                        onPlay: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const GetinPlayScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
