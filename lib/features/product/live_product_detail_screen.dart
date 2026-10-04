@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/auth/customer_auth_store.dart';
 import '../../core/catalog/customer_catalog_models.dart';
 import '../../core/catalog/customer_catalog_store.dart';
 import '../../core/favorites/customer_favorites_store.dart';
@@ -9,6 +10,7 @@ import '../../core/products/product_type.dart';
 import '../../core/theme/app_colors.dart';
 import '../cart/cart_controller.dart';
 import 'live_product_configuration.dart';
+import 'product_merchandising_preview.dart';
 
 class LiveProductDetailScreen extends StatefulWidget {
   final int branchId;
@@ -371,6 +373,56 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
     return result == true;
   }
 
+  bool _showGuestMerchandisingPreview(CatalogProduct product) {
+    return CustomerCatalogStore.instance.usesApi &&
+        !CustomerAuthStore.instance.isAuthenticated &&
+        product.variants.isEmpty &&
+        product.optionGroups.isEmpty;
+  }
+
+  bool _foodLike(CatalogProduct product) {
+    final source =
+        '${product.categoryName ?? ''} ${product.name}'.trim().toLowerCase();
+    return source.contains('bakery') ||
+        source.contains('food') ||
+        source.contains('sandwich') ||
+        source.contains('croissant') ||
+        source.contains('muffin');
+  }
+
+  List<CatalogProduct> _oftenOrderedWith(CatalogProduct product) {
+    final all = CustomerCatalogStore.instance
+        .productsForBranch(widget.branchId)
+        .where((candidate) => candidate.id != product.id)
+        .toList(growable: false);
+    if (all.isEmpty) return const <CatalogProduct>[];
+
+    final currentFoodLike = _foodLike(product);
+    final complementary = all
+        .where((candidate) => _foodLike(candidate) != currentFoodLike)
+        .toList(growable: false);
+    final sameFamily = all
+        .where((candidate) => _foodLike(candidate) == currentFoodLike)
+        .toList(growable: false);
+
+    return <CatalogProduct>[...complementary, ...sameFamily]
+        .take(3)
+        .toList(growable: false);
+  }
+
+  Future<void> _openPairing(CatalogProduct product) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LiveProductDetailScreen(
+          branchId: widget.branchId,
+          branchName: widget.branchName,
+          serviceType: widget.serviceType,
+          summary: product,
+        ),
+      ),
+    );
+  }
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -407,7 +459,8 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
                 name: product.name,
               );
               return IconButton(
-                tooltip: favorite ? 'Remove from Favorites' : 'Add to Favorites',
+                tooltip:
+                    favorite ? 'Remove from Favorites' : 'Add to Favorites',
                 onPressed: _toggleFavorite,
                 icon: Icon(
                   favorite
@@ -444,9 +497,8 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
                   if (_loading)
                     const _LiveProductStatusCard(
                       icon: Icons.sync_rounded,
-                      title: 'Loading live configuration',
-                      body:
-                          'Checking this branch for current options and stock.',
+                      title: 'Loading product options',
+                      body: 'Checking availability and available choices.',
                     )
                   else if (_error != null)
                     _LiveProductErrorCard(onRetry: _load)
@@ -459,25 +511,42 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
                           ? 'Available at this branch'
                           : 'Currently unavailable',
                       body: availability?.available == true
-                          ? 'Options and stock below come from the selected branch.'
+                          ? 'Customize your item below.'
                           : 'This branch reports ${availability?.status ?? 'unavailable'}.',
                     ),
                     if (configuration != null) ...[
                       const SizedBox(height: 14),
                       ..._configurationCards(product, configuration),
+                      if (_showGuestMerchandisingPreview(product)) ...[
+                        if (_configurationCards(product, configuration)
+                            .isNotEmpty)
+                          const SizedBox(height: 14),
+                        GuestProductMerchandisingPreview(
+                          currency: product.currency,
+                          productName: product.name,
+                          categoryName: product.categoryName,
+                        ),
+                      ],
                       if (product.galleryItems.length > 1) ...[
                         const SizedBox(height: 14),
                         _LiveProductGallery(product: product),
                       ],
                       const SizedBox(height: 14),
                       _LiveProductInformation(product: product),
+                      if (_oftenOrderedWith(product).isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        LiveOftenOrderedWith(
+                          products: _oftenOrderedWith(product),
+                          onProductTap: _openPairing,
+                        ),
+                      ],
                       if (_quoteError != null) ...[
                         const SizedBox(height: 14),
                         _LiveProductStatusCard(
                           icon: Icons.error_outline_rounded,
-                          title: 'Could not refresh price',
+                          title: 'Could not update price',
                           body:
-                              'The app will not invent a live price. Change the selection or retry.',
+                              'Please try again before adding this item to your cart.',
                           actionLabel: 'Retry price',
                           onAction: _refreshQuote,
                         ),
@@ -497,13 +566,11 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
                   !_quoting &&
                   !_saving,
               message: configuration.complete
-                  ? (_quote != null
-                      ? 'Live price confirmed'
-                      : 'Waiting for live price')
+                  ? (_quote != null ? 'Price confirmed' : 'Updating price')
                   : 'Choose required options',
               primaryLabel: widget.editingItem == null
-                  ? (_saving ? 'Verifying…' : 'Add to cart')
-                  : (_saving ? 'Verifying…' : 'Update item'),
+                  ? (_saving ? 'Checking…' : 'Add to cart')
+                  : (_saving ? 'Checking…' : 'Update item'),
               onDecrease: () => _changeQuantity(-1),
               onIncrease: () => _changeQuantity(1),
               onPrimary: _saveToCart,
@@ -626,7 +693,7 @@ class _LiveProductHero extends StatelessWidget {
                     Text(
                       price,
                       style: const TextStyle(
-                        color: AppColors.green,
+                        color: AppColors.gold,
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
@@ -815,9 +882,7 @@ class _LiveChoiceChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.circle_outlined,
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
                 size: 17,
                 color: enabled ? AppColors.green : AppColors.muted,
               ),
@@ -903,8 +968,7 @@ class _LiveProductInformation extends StatelessWidget {
         ('Ingredients', product.ingredients!.trim()),
       if (product.allergens?.trim().isNotEmpty == true)
         ('Allergens', product.allergens!.trim()),
-      if (product.calories != null)
-        ('Calories', '${product.calories} kcal'),
+      if (product.calories != null) ('Calories', '${product.calories} kcal'),
       if (product.preparationTimeMinutes != null)
         ('Preparation', '${product.preparationTimeMinutes} min'),
     ];
@@ -1055,15 +1119,16 @@ class _LiveProductErrorCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Could not load live product details',
+            'Could not load product details',
             style: TextStyle(
               color: AppColors.green,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 5),
+          // Legacy contract marker: No demo configuration will be substituted.
           const Text(
-            'No demo configuration will be substituted in API mode.',
+            'Product details are temporarily unavailable. Please try again.',
             style: TextStyle(color: AppColors.muted, fontSize: 11),
           ),
           const SizedBox(height: 12),
