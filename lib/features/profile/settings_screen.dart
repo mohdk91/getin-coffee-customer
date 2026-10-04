@@ -165,7 +165,7 @@ class SettingsScreen extends StatelessWidget {
                       label: 'Help & Support',
                       subtitle: store.supportRequests.isEmpty
                           ? 'Orders, payments, delivery and account'
-                          : '${store.supportRequests.length} demo request${store.supportRequests.length == 1 ? '' : 's'}',
+                          : '${store.supportRequests.length} open request${store.supportRequests.length == 1 ? '' : 's'}',
                       onTap: () => _push(
                         context,
                         const SettingsHelpSupportScreen(),
@@ -221,7 +221,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Account identity, preferences, devices and sessions are connected to Laravel when API mode is enabled. Other feature integrations remain separated by roadmap phase.',
+                  'Getin Coffee · App Version 1.0.0 (1)',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.muted,

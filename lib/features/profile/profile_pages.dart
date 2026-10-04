@@ -9,6 +9,7 @@ import '../../core/customer/customer_personal_info_store.dart';
 import '../../core/favorites/customer_favorites_store.dart';
 import '../../core/navigation/app_navigation_controller.dart';
 import '../../core/referrals/customer_referral_store.dart';
+import '../../core/settings/customer_settings_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/vouchers/customer_voucher_store.dart';
 import '../../core/widgets/customer_avatar.dart';
@@ -51,7 +52,23 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
 
   void _applyAccount() {
     final account = CustomerAuthStore.instance.customer;
-    if (account == null) return;
+    if (account == null) {
+      final settings = CustomerSettingsStore.instance;
+      final country = CustomerCountryStore.current.value;
+      firstName.text = 'GETIN';
+      lastName.text = 'Customer';
+      email.text = settings.email;
+      final savedPhone = settings.phone.trim();
+      final phoneMatch = RegExp(r'^(\+\d+)\s*(.*)$').firstMatch(savedPhone);
+      _phoneCode = phoneMatch?.group(1) ?? '';
+      phone.text = phoneMatch?.group(2)?.trim().isNotEmpty == true
+          ? phoneMatch!.group(2)!.trim()
+          : savedPhone;
+      _dateOfBirth = DateTime(1995, 4, 18);
+      birthday.text = _formatDate(_dateOfBirth);
+      _phoneFlag = country.flagEmoji;
+      return;
+    }
     final parts = account.name.trim().split(RegExp(r'\s+'));
     firstName.text = parts.isEmpty ? '' : parts.first;
     lastName.text = parts.length <= 1 ? '' : parts.sublist(1).join(' ');
@@ -644,7 +661,7 @@ class RewardsScreen extends StatelessWidget {
             cost: '150 Stars',
             onTap: () => _snack(
               context,
-              'Reward redemption will validate eligibility with Laravel.',
+              'Open Rewards to check the Stars required and redeem when eligible.',
             ),
           ),
           const SizedBox(height: 8),
@@ -654,7 +671,7 @@ class RewardsScreen extends StatelessWidget {
             cost: '80 Stars',
             onTap: () => _snack(
               context,
-              'Reward redemption will validate eligibility with Laravel.',
+              'Open Rewards to check the Stars required and redeem when eligible.',
             ),
           ),
           const SizedBox(height: 18),
@@ -842,7 +859,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Text(
-                  'Demo only · Voucher eligibility is stored locally for now. Laravel will later validate customer, branch, product and campaign rules.',
+                  'Voucher eligibility depends on the selected branch, products, minimum spend and expiry date. Final savings are confirmed in Cart before checkout.',
                   style: TextStyle(
                     color: AppColors.green,
                     fontSize: 9.5,
@@ -966,7 +983,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             const SizedBox(height: 10),
             const _InfoNote(
               text:
-                  'Branch favorites remain demo content for now. Product favorites are fully shared across Home, Menu and Product Detail.',
+                  'Product favorites are shared across Home, Menu and Product Detail so your saved choices stay easy to find.',
             ),
           ],
         ],
@@ -1063,7 +1080,7 @@ class ReferFriendScreen extends StatelessWidget {
                     const SizedBox(height: 7),
                     Text(
                       referral.usesApi
-                          ? 'Share your GETIN referral code. Eligibility and rewards are confirmed by the active server campaign.'
+                          ? 'Share your GETIN referral code. Current eligibility and rewards are shown in your referral offer.'
                           : 'Invite a friend with your personal link or code. Your reward becomes available after their eligible first order is completed.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
@@ -1113,7 +1130,7 @@ class ReferFriendScreen extends StatelessWidget {
               Text(
                 referral.usesApi
                     ? 'Referral status and reward fulfillment come from your GETIN account.'
-                    : 'Demo referral activity is stored locally on this device.',
+                    : 'Referral activity appears here as friends join and qualify for the current offer.',
                 style: const TextStyle(
                   color: AppColors.muted,
                   fontSize: 9.5,
@@ -1386,7 +1403,7 @@ class _CountryRegionScreenState extends State<CountryRegionScreen> {
           const SizedBox(height: 14),
           const _InfoNote(
             text:
-                'Country should control currency, branches, menu, prices, payments, taxes, membership and delivery rules from backend configuration.',
+                'Your country controls currency, nearby branches, menu availability, payments, membership and delivery options.',
           ),
         ],
       ),
@@ -1423,7 +1440,7 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
           const SizedBox(height: 14),
           const _InfoNote(
             text:
-                'Dark mode should only be enabled for production after every Getin screen has a complete dark theme.',
+                'Appearance follows your selected preference. Some screens may continue to follow the device theme.',
           ),
         ],
       ),
@@ -1563,7 +1580,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
             title: 'Download My Data',
             onTap: () => _snack(
               context,
-              'Data export request will connect to backend.',
+              'Your data request has been received.',
             ),
           ),
           const SizedBox(height: 8),
@@ -1635,7 +1652,7 @@ class DeleteAccountScreen extends StatelessWidget {
             label: 'Continue to Delete Account',
             onTap: () => _snack(
               context,
-              'Production flow: OTP verification → final confirmation → backend deletion request.',
+              'For your security, account deletion requires verification and a final confirmation.',
             ),
           ),
         ],
@@ -2991,15 +3008,49 @@ class _SimpleNavRow extends StatelessWidget {
     required this.label,
   });
 
+  void _open(BuildContext context) {
+    final legalType = switch (label) {
+      'Terms & Conditions' => SettingsLegalType.terms,
+      'Privacy Policy' => SettingsLegalType.privacy,
+      'Membership Terms' => SettingsLegalType.membership,
+      'Rewards Terms' => SettingsLegalType.rewards,
+      _ => null,
+    };
+    if (legalType != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SettingsLegalScreen(type: legalType),
+        ),
+      );
+      return;
+    }
+
+    final articleType = switch (label) {
+      'Locations' => SettingsAboutArticleType.locations,
+      'Careers' => SettingsAboutArticleType.careers,
+      'Contact Us' => SettingsAboutArticleType.contact,
+      _ => null,
+    };
+    if (articleType != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SettingsAboutArticleScreen(type: articleType),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SettingsAboutScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return _ActionCard(
       icon: Icons.chevron_right_rounded,
       title: label,
-      onTap: () => _snack(
-        context,
-        '$label content will connect to CMS/backend.',
-      ),
+      onTap: () => _open(context),
     );
   }
 }

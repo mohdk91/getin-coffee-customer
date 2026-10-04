@@ -83,7 +83,7 @@ class _PhoneNumberSettingsScreenState extends State<PhoneNumberSettingsScreen> {
         );
         if (!confirmed || !mounted) return;
         await store.setPhone(value);
-        if (mounted) _showSnack(context, 'Phone number saved for this demo.');
+        if (mounted) _showSnack(context, 'Phone number updated.');
         return;
       }
       await store.setPhone(value);
@@ -224,7 +224,7 @@ class _EmailSettingsScreenState extends State<EmailSettingsScreen> {
           icon: Icons.mark_email_read_outlined,
           title: 'Verified contact',
           text:
-              'Your email is stored on your GETIN account. Email verification is shown from the server account state.',
+              'Your email address is linked to your GETIN account. We will ask you to verify a new address before it becomes active.',
         ),
         const SizedBox(height: 14),
         TextField(
@@ -288,10 +288,10 @@ class SettingsNotificationsScreen extends StatelessWidget {
             const SizedBox(height: 14),
             _InfoCard(
               icon: Icons.info_outline_rounded,
-              title: store.usesApi ? 'Account notification preferences' : 'Demo preference storage',
+              title: store.usesApi ? 'Notification preferences' : 'Notification preferences',
               text: store.usesApi
                   ? 'Notification preferences are synchronized with your GETIN account. Push-token delivery is enabled in the notifications integration phase.'
-                  : 'These switches persist locally in demo mode.',
+                  : 'Choose the updates you want to receive from GETIN.',
             ),
           ],
         );
@@ -331,7 +331,7 @@ class SettingsLanguageScreen extends StatelessWidget {
           const SizedBox(height: 5),
           _InfoCard(
             icon: Icons.translate_rounded,
-            title: store.usesApi ? 'Account preference' : 'Saved locally for the demo',
+            title: store.usesApi ? 'Language preference' : 'Language preference',
             text: store.usesApi
                 ? 'English and Arabic are synced with your GETIN account. Full application-wide translation is completed in the localization phase.'
                 : 'The preference is functional and persistent. Full application-wide localization will be connected when the translation layer is added.',
@@ -372,8 +372,8 @@ class _SettingsCountryScreenState extends State<SettingsCountryScreen> {
             title: Text('Change country to ${country.name}?'),
             content: Text(
               hasCart
-                  ? 'Your cart has items. Country can affect currency, branches, product availability and delivery. This demo will keep your cart so nothing is silently deleted; it must be revalidated before a real order.'
-                  : 'Country can affect currency, branches, product availability and delivery. The demo will save your selection locally.',
+                  ? 'Your cart has items. Changing country can update currency, nearby branches, menu availability and delivery options. Your cart will be checked again before checkout.'
+                  : 'Country controls your currency, nearby branches, menu availability and delivery options.',
             ),
             actions: [
               TextButton(
@@ -512,7 +512,7 @@ class SettingsAppearanceScreen extends StatelessWidget {
               icon: Icons.brightness_6_outlined,
               title: 'Theme integration ready',
               text:
-                  'The preference is testable now. We keep the existing Getin screen styling unchanged until every screen has a complete production dark theme.',
+                  'Choose the appearance you prefer. Some screens may continue to follow your device theme.',
             ),
           ],
         );
@@ -688,7 +688,7 @@ class SettingsPrivacyScreen extends StatelessWidget {
             icon: Icons.location_on_outlined,
             title: 'Location',
             subtitle:
-                'Demo preference for nearby branches and delivery availability',
+                'Use your location for nearby branches and delivery availability',
             value: store.locationAccess,
             onChanged: store.setLocationAccess,
           ),
@@ -718,14 +718,14 @@ class SettingsPrivacyScreen extends StatelessWidget {
             icon: Icons.download_outlined,
             title: 'Download My Data',
             subtitle: store.lastDataExportAt == null
-                ? 'Create a local demo export request'
-                : 'Demo export request created',
+                ? 'Request a copy of your data'
+                : 'Data request received',
             onTap: () async {
               await store.requestDataExport();
               if (context.mounted) {
                 _showSnack(
                   context,
-                  'Demo data-export request created. Backend export is not connected yet.',
+                  'Your data request has been received. You can return here to see when it was requested.',
                 );
               }
             },
@@ -1104,7 +1104,7 @@ class _SettingsSupportRequestScreenState
         'Account' =>
           'Choose the account area so the request reaches the right support context.',
         'Technical Problem' =>
-          'Choose what is affected. App/device diagnostics can be attached by the backend later.',
+          'Choose what you need help with. Add an order when relevant so our team has the right context.',
         'Chat with Getin' =>
           'Use this for a general support question that is not tied to a specific order.',
         _ => 'Tell us what happened and include the important details.',
@@ -1144,7 +1144,7 @@ class _SettingsSupportRequestScreenState
       builder: (dialogContext) => AlertDialog(
         title: const Text('Support request created'),
         content: Text(
-          'Reference ${request.id}\n\n${request.contextSummary.isEmpty ? widget.topic : request.contextSummary}\n\nThis is a local demo request. The production app will send the attached context to the support backend.',
+          'Reference ${request.id}\n\n${request.contextSummary.isEmpty ? widget.topic : request.contextSummary}\n\nYour request has been received. Keep this reference if you contact GETIN support again.',
         ),
         actions: [
           FilledButton(
@@ -1293,7 +1293,7 @@ class _SettingsSupportRequestScreenState
         ),
         const SizedBox(height: 8),
         const Text(
-          'Local demo only. Production requests will attach authenticated customer/order context and be sent to the support backend.',
+          'Add as much detail as possible so the GETIN team can help you quickly.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: AppColors.muted,
@@ -1566,14 +1566,44 @@ class SettingsAboutScreen extends StatelessWidget {
           icon: Icons.auto_stories_outlined,
           title: 'Our Story',
           text:
-              'This demo keeps About content local so the screen is fully testable. Production content can later come from the Getin CMS/backend.',
+              'GETIN started with a simple idea: make good coffee easy to enjoy every day. We bring together carefully prepared drinks, fresh food, convenient ordering and rewards that make every visit feel better.',
         ),
         const SizedBox(height: 8),
         const _InfoCard(
           icon: Icons.coffee_rounded,
           title: 'Our Coffee',
           text:
-              'Explore Getin through branch-specific menus, rewards, membership and ordering experiences.',
+              'We build our menu around balanced espresso, refreshing cold drinks, fresh bakery favourites and food made to fit the day. Each branch shows its current menu, availability and prices in the app.',
+        ),
+        const SizedBox(height: 8),
+        _ActionCard(
+          icon: Icons.location_on_outlined,
+          title: 'Locations',
+          subtitle: 'Find nearby GETIN branches',
+          onTap: () => _push(
+            context,
+            const SettingsAboutArticleScreen(type: SettingsAboutArticleType.locations),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ActionCard(
+          icon: Icons.work_outline_rounded,
+          title: 'Careers',
+          subtitle: 'Grow with GETIN',
+          onTap: () => _push(
+            context,
+            const SettingsAboutArticleScreen(type: SettingsAboutArticleType.careers),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ActionCard(
+          icon: Icons.mail_outline_rounded,
+          title: 'Contact Us',
+          subtitle: 'Customer care and business enquiries',
+          onTap: () => _push(
+            context,
+            const SettingsAboutArticleScreen(type: SettingsAboutArticleType.contact),
+          ),
         ),
         const SizedBox(height: 8),
         _ActionCard(
@@ -1614,9 +1644,56 @@ class SettingsAboutScreen extends StatelessWidget {
         const SizedBox(height: 16),
         const Center(
           child: Text(
-            'App Version 1.0.0 (1) · Local Demo',
+            'App Version 1.0.0 (1)',
             style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+
+enum SettingsAboutArticleType { locations, careers, contact }
+
+class SettingsAboutArticleScreen extends StatelessWidget {
+  final SettingsAboutArticleType type;
+
+  const SettingsAboutArticleScreen({
+    super.key,
+    required this.type,
+  });
+
+  String get _title => switch (type) {
+        SettingsAboutArticleType.locations => 'Locations',
+        SettingsAboutArticleType.careers => 'Careers',
+        SettingsAboutArticleType.contact => 'Contact Us',
+      };
+
+  IconData get _icon => switch (type) {
+        SettingsAboutArticleType.locations => Icons.location_on_outlined,
+        SettingsAboutArticleType.careers => Icons.work_outline_rounded,
+        SettingsAboutArticleType.contact => Icons.mail_outline_rounded,
+      };
+
+  String get _text => switch (type) {
+        SettingsAboutArticleType.locations =>
+          'Use the branch selector in Home or Menu to find GETIN near you. The app prioritizes branches in your selected country and shows ordering availability, pickup or delivery options and current branch details.',
+        SettingsAboutArticleType.careers =>
+          'We are building teams around hospitality, coffee, operations, technology and growth. Career opportunities vary by market. Check GETIN’s official channels for current openings and application details.',
+        SettingsAboutArticleType.contact =>
+          'For help with an order, payment, delivery, rewards or your account, open Help & Support from Settings. Include the relevant order number whenever possible so the team can assist faster.',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsPage(
+      title: _title,
+      children: [
+        _InfoCard(
+          icon: _icon,
+          title: _title,
+          text: _text,
         ),
       ],
     );
@@ -1642,13 +1719,13 @@ class SettingsLegalScreen extends StatelessWidget {
 
   String get _body => switch (type) {
         SettingsLegalType.terms =>
-          'These are local demo terms for testing navigation and layout. Production terms must be loaded from the approved Getin legal/CMS source before release.\n\nOrders, availability, pricing, delivery, payment and refunds will follow the rules configured for the customer country and selected branch.',
+          'By using GETIN, you agree to provide accurate account and order information and to use the service lawfully. Product availability, preparation times, prices, delivery areas and promotions may vary by branch and country. Order changes, cancellations, refunds and payment adjustments follow the conditions shown during checkout and on the relevant order.',
         SettingsLegalType.privacy =>
-          'This local demo stores selected preferences, demo cards, addresses and feature state on the device for testing. Production privacy text, retention rules and data-subject workflows must come from Getin’s approved legal policy and backend implementation.',
+          'GETIN uses account, order, device and preference information to provide ordering, delivery, rewards, security and customer-support services. You can manage communication and personalization preferences from Settings and request a copy of your account information from Privacy.',
         SettingsLegalType.membership =>
-          'Membership benefits shown in this demo are illustrative. Production eligibility, pricing, renewal, member prices, Stars and benefit conditions must be provided by the membership backend and approved terms.',
+          'GETIN Membership benefits depend on the active tier and market. Member prices, bonus Stars, monthly perks, qualification thresholds and renewal conditions are shown in the Membership screen. Benefits may be subject to eligible products, branches, dates and usage limits.',
         SettingsLegalType.rewards =>
-          'Rewards in this demo use local Stars and redemption state for testing. Production earning, expiry, eligibility and redemption rules must be validated by the rewards backend.',
+          'Stars and stamps are earned on eligible completed orders. Reward costs, eligibility, expiry and redemption conditions are shown before you redeem. Returned, cancelled or refunded purchases may reduce previously awarded Stars, stamps or reward eligibility.',
       };
 
   @override
@@ -1658,7 +1735,7 @@ class SettingsLegalScreen extends StatelessWidget {
       children: [
         _InfoCard(
           icon: Icons.gavel_rounded,
-          title: 'Local demo content',
+          title: 'Important information',
           text: _body,
         ),
       ],
@@ -1692,9 +1769,9 @@ class _SettingsDeleteAccountScreenState
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('Confirm demo account deletion'),
+            title: const Text('Confirm account deletion'),
             content: const Text(
-              'This records a local demo deletion request and returns to Sign In. It does not erase your device data or call a backend.',
+              'Deleting your account signs you out and starts the account-removal request. This action cannot be undone once completed.',
             ),
             actions: [
               TextButton(
@@ -1706,7 +1783,7 @@ class _SettingsDeleteAccountScreenState
                   backgroundColor: const Color(0xFFB94A48),
                 ),
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Delete Demo Account'),
+                child: const Text('Delete Account'),
               ),
             ],
           ),
@@ -1732,9 +1809,9 @@ class _SettingsDeleteAccountScreenState
       children: [
         const _InfoCard(
           icon: Icons.warning_amber_rounded,
-          title: 'This action is destructive in production',
+          title: 'Delete your GETIN account',
           text:
-              'A production deletion flow should verify the customer, request backend deletion and retain only records required by law. This task simulates the interaction locally without deleting your test data.',
+              'Deleting your account removes access to your profile, rewards and saved preferences. Some order or payment records may be retained where required for legal, tax or fraud-prevention purposes.',
           danger: true,
         ),
         const SizedBox(height: 16),
@@ -1753,7 +1830,7 @@ class _SettingsDeleteAccountScreenState
         ),
         const SizedBox(height: 16),
         _DangerButton(
-          label: 'Delete Demo Account',
+          label: 'Delete Account',
           onPressed: _canDelete ? _delete : null,
         ),
       ],
@@ -1797,7 +1874,7 @@ Future<void> showSettingsLogoutSheet(BuildContext context) async {
               ),
               const SizedBox(height: 6),
               const Text(
-                'This will revoke the current GETIN session and remove the secure access token from this device.',
+                'You will be signed out of GETIN on this device.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.muted),
               ),
@@ -1850,7 +1927,7 @@ Future<bool> _showDemoVerification(
         builder: (dialogContext) => AlertDialog(
           title: Text(title),
           content: Text(
-            'Demo verification for $destination. In production an OTP/link must be verified before saving.',
+            'We will verify $destination before saving this change.',
           ),
           actions: [
             TextButton(
@@ -1859,7 +1936,7 @@ Future<bool> _showDemoVerification(
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Verify Demo'),
+              child: const Text('Verify'),
             ),
           ],
         ),

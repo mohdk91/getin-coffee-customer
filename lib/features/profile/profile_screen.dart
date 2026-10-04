@@ -4,7 +4,9 @@ import '../../core/auth/customer_auth_store.dart';
 import '../../core/customer/customer_country.dart';
 import '../../core/favorites/customer_favorites_store.dart';
 import '../../core/gift_cards/customer_gift_card_store.dart';
+import '../../core/membership/customer_membership_store.dart';
 import '../../core/rewards/customer_rewards_store.dart';
+import '../../core/rewards/customer_stamp_card_store.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/vouchers/customer_voucher_store.dart';
 import '../../core/widgets/customer_avatar.dart';
@@ -35,6 +37,8 @@ class ProfileScreen extends StatelessWidget {
     return AnimatedBuilder(
       animation: Listenable.merge([
         CustomerRewardsStore.instance,
+        CustomerStampCardStore.instance,
+        CustomerMembershipStore.instance,
         CustomerVoucherStore.instance,
         CustomerFavoritesStore.instance,
         CustomerGiftCardStore.instance,
@@ -42,6 +46,8 @@ class ProfileScreen extends StatelessWidget {
       ]),
       builder: (context, _) {
         final rewards = CustomerRewardsStore.instance;
+        final stamps = CustomerStampCardStore.instance;
+        final membership = CustomerMembershipStore.instance;
         final vouchers = CustomerVoucherStore.instance;
         final favorites = CustomerFavoritesStore.instance;
         final giftCards = CustomerGiftCardStore.instance;
@@ -66,10 +72,15 @@ class ProfileScreen extends StatelessWidget {
                     delegate: SliverChildListDelegate(
                       [
                         _MembershipBanner(
+                          membership: membership,
                           onTap: onOpenMembership,
                         ),
                         const SizedBox(height: 12),
-                        _StatsRow(rewards: rewards),
+                        _StatsRow(
+                          rewards: rewards,
+                          vouchers: vouchers,
+                          stamps: stamps,
+                        ),
                         const SizedBox(height: 18),
                         _ProfileSection(
                           title: 'Your Getin',
@@ -116,7 +127,9 @@ class ProfileScreen extends StatelessWidget {
                             _ProfileTile(
                               icon: Icons.workspace_premium_outlined,
                               label: 'Membership',
-                              subtitle: 'Member prices, 1.5× Stars and perks',
+                              subtitle: membership.isActive
+                                  ? '${membership.tierName ?? 'Green'} Member · ${membership.earningMultiplierLabel} Stars'
+                                  : 'Join for member prices, bonus Stars and perks',
                               onTap: onOpenMembership,
                             ),
                             _ProfileTile(
@@ -343,9 +356,11 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _MembershipBanner extends StatelessWidget {
+  final CustomerMembershipStore membership;
   final VoidCallback onTap;
 
   const _MembershipBanner({
+    required this.membership,
     required this.onTap,
   });
 
@@ -372,12 +387,12 @@ class _MembershipBanner extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
+                          const Text(
                             'GETIN MEMBERSHIP',
                             style: TextStyle(
                               color: AppColors.gold,
@@ -386,20 +401,24 @@ class _MembershipBanner extends StatelessWidget {
                               letterSpacing: 0.8,
                             ),
                           ),
-                          SizedBox(height: 5),
+                          const SizedBox(height: 5),
                           Text(
-                            'More coffee.\nMore good days.',
-                            style: TextStyle(
+                            membership.isActive
+                                ? '${membership.tierName ?? 'Green'} Member\n${membership.earningMultiplierLabel} Stars'
+                                : 'More coffee.\nMore good days.',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 21,
                               height: 1.05,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 6),
                           Text(
-                            'Member prices · 1.5× Stars · monthly perks',
-                            style: TextStyle(
+                            membership.isActive
+                                ? 'Active membership · member prices · monthly perks'
+                                : 'Member prices · bonus Stars · monthly perks',
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 9.5,
                             ),
@@ -438,16 +457,30 @@ class _MembershipBanner extends StatelessWidget {
 
 class _StatsRow extends StatelessWidget {
   final CustomerRewardsStore rewards;
+  final CustomerVoucherStore vouchers;
+  final CustomerStampCardStore stamps;
 
-  const _StatsRow({required this.rewards});
+  const _StatsRow({
+    required this.rewards,
+    required this.vouchers,
+    required this.stamps,
+  });
 
   @override
   Widget build(BuildContext context) {
     final stats = [
       ('${rewards.stars}', 'Stars', Icons.star_rounded),
-      ('2', 'Vouchers', Icons.confirmation_number_outlined),
+      (
+        '${vouchers.availableCount}',
+        'Vouchers',
+        Icons.confirmation_number_outlined,
+      ),
       ('${rewards.activeRewardCount}', 'Rewards', Icons.local_cafe_outlined),
-      ('EGP 280', 'Saved', Icons.savings_outlined),
+      (
+        '${stamps.currentStamps}/${stamps.requiredStamps}',
+        'Stamps',
+        Icons.coffee_rounded,
+      ),
     ];
 
     return LayoutBuilder(
