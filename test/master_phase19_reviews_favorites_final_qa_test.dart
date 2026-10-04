@@ -34,7 +34,8 @@ void main() {
 
     expect(liveOrder, contains('_reviewStatus!.delivery.eligible'));
     expect(liveOrder, contains('_reviewStatus!.employee.eligible'));
-    expect(orders, contains('onRate: !controller.usesApi &&'));
+    expect(
+        orders, contains('onRate: (!controller.usesApi || !authenticated) &&'));
     expect(
       reviewScreens,
       contains('GETIN does not expose this review type in the production API.'),

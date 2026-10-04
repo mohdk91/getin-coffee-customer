@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/customer_auth_store.dart';
 import '../../../core/catalog/customer_catalog_models.dart';
 import '../../../core/catalog/customer_catalog_store.dart';
 import '../../../core/content/mobile_app_content_models.dart';
@@ -110,8 +111,18 @@ class ManagedProductSections extends StatelessWidget {
               }
               break;
             case 'order_history':
-              // Order Again must come from authenticated customer order history.
-              // Task 246B-5 wires that source; do not invent local products here.
+              if (!CustomerAuthStore.instance.isAuthenticated &&
+                  products.isNotEmpty) {
+                addSection(
+                  _ManagedProductSection(
+                    config: section,
+                    products: _orderAgainPreviewProducts(products),
+                    branchId: branchId,
+                    branchName: branchName,
+                    serviceType: serviceType,
+                  ),
+                );
+              }
               break;
           }
         }
@@ -160,6 +171,13 @@ class ManagedProductSections extends StatelessWidget {
         .map((id) => byId[id])
         .whereType<CatalogProduct>()
         .toList(growable: false);
+  }
+
+  List<CatalogProduct> _orderAgainPreviewProducts(
+    List<CatalogProduct> products,
+  ) {
+    if (products.length <= 4) return products;
+    return products.skip(1).take(4).toList(growable: false);
   }
 
   List<CatalogProduct> _productsFor(

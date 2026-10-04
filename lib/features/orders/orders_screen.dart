@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/customer_auth_store.dart';
+import '../../core/catalog/customer_catalog_models.dart';
+import '../../core/catalog/customer_catalog_store.dart';
 import '../../core/data/customer_repository.dart';
 import '../../core/orders/customer_orders_api_repository.dart';
 import '../../core/reviews/customer_review_store.dart';
@@ -15,6 +17,7 @@ import '../location/models/branch.dart';
 import '../reviews/review_screens.dart';
 import 'order_detail_screen.dart';
 import 'live_order_detail_screen.dart';
+import 'widgets/order_product_image.dart';
 
 enum OrderFilter {
   all,
@@ -51,6 +54,7 @@ class GetinOrder {
   final double? deliveryLatitude;
   final double? deliveryLongitude;
   final String? deliveryCode;
+  final String? deliveryQrAsset;
 
   const GetinOrder({
     this.apiOrderId,
@@ -70,6 +74,7 @@ class GetinOrder {
     this.deliveryLatitude,
     this.deliveryLongitude,
     this.deliveryCode,
+    this.deliveryQrAsset,
   });
 
   bool get isActive {
@@ -130,16 +135,19 @@ class GetinOrder {
       fulfillment: orderType == 'pickup' ? 'Pickup' : 'Delivery',
       status: GetinOrder.statusFromApi(json['status']?.toString()),
       itemCount: (json['item_count'] as num?)?.toInt() ?? 0,
-      total: '${currency?.isNotEmpty == true ? currency : 'EGP'} ${total?.isNotEmpty == true ? total : '0.00'}',
+      total:
+          '${currency?.isNotEmpty == true ? currency : 'EGP'} ${total?.isNotEmpty == true ? total : '0.00'}',
       itemImages: const <String>[],
     );
   }
 
   factory GetinOrder.fromJson(Map<String, dynamic> json) {
     final statusName = json['status'] as String? ?? '';
-    final status = GetinOrderStatus.values.any((value) => value.name == statusName)
-        ? GetinOrderStatus.values.firstWhere((value) => value.name == statusName)
-        : GetinOrder.statusFromApi(statusName);
+    final status =
+        GetinOrderStatus.values.any((value) => value.name == statusName)
+            ? GetinOrderStatus.values
+                .firstWhere((value) => value.name == statusName)
+            : GetinOrder.statusFromApi(statusName);
     final rawImages = json['itemImages'];
     final rawProducts = json['reviewProducts'];
 
@@ -177,6 +185,7 @@ class GetinOrder {
       deliveryLatitude: (json['deliveryLatitude'] as num?)?.toDouble(),
       deliveryLongitude: (json['deliveryLongitude'] as num?)?.toDouble(),
       deliveryCode: json['deliveryCode'] as String?,
+      deliveryQrAsset: json['deliveryQrAsset'] as String?,
     );
   }
 
@@ -207,6 +216,7 @@ class GetinOrder {
         'deliveryLatitude': deliveryLatitude,
         'deliveryLongitude': deliveryLongitude,
         'deliveryCode': deliveryCode,
+        'deliveryQrAsset': deliveryQrAsset,
       };
 }
 
@@ -383,132 +393,120 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   OrderFilter _filter = OrderFilter.all;
 
-  late final List<GetinOrder> _orders = [
-    GetinOrder(
-      id: 'GC-10582',
-      placedAt: DateTime(2026, 9, 19, 14, 14),
-      branchName: widget.branch.name,
-      fulfillment: 'Delivery',
-      status: GetinOrderStatus.outForDelivery,
-      itemCount: 3,
-      total: 'EGP 245',
-      itemImages: const [
-        'assets/images/products/iced_latte.png',
-        'assets/images/products/butter_croissant.png',
-        'assets/images/products/blueberry_muffin.png',
-      ],
-      reviewProducts: const [
+  List<GetinOrder> get _previewOrders {
+    final products = CustomerCatalogStore.instance.productsForBranch(
+      widget.branch.id,
+    );
+    if (products.isEmpty) return const <GetinOrder>[];
+
+    CatalogProduct productAt(int index) => products[index % products.length];
+
+    List<CatalogProduct> uniqueProducts(List<int> indexes) {
+      final result = <CatalogProduct>[];
+      final seen = <int>{};
+      for (final index in indexes) {
+        final product = productAt(index);
+        if (seen.add(product.id)) result.add(product);
+      }
+      return result;
+    }
+
+    ReviewableProduct reviewProduct(CatalogProduct product) =>
         ReviewableProduct(
-          name: 'Iced Latte',
-          description: 'Double espresso, fresh milk and ice.',
-          image: 'assets/images/products/iced_latte.png',
-          price: 'EGP 65',
-        ),
-        ReviewableProduct(
-          name: 'Butter Croissant',
-          description: 'Buttery, flaky croissant baked fresh.',
-          image: 'assets/images/products/butter_croissant.png',
-          price: 'EGP 45',
-        ),
-        ReviewableProduct(
-          name: 'Blueberry Muffin',
-          description: 'Soft muffin with blueberries.',
-          image: 'assets/images/products/blueberry_muffin.png',
-          price: 'EGP 60',
-        ),
-      ],
-      driverName: 'Ahmed Hassan',
-      eta: '12 min',
-      deliveryAddress: 'Stanley, Alexandria',
-      // Development sample destination.
-      // Production values must come from the customer's saved checkout location.
-      deliveryLatitude: 31.2453,
-      deliveryLongitude: 29.9668,
-      deliveryCode: '4729',
-    ),
-    GetinOrder(
-      id: 'GC-10491',
-      placedAt: DateTime(2026, 9, 18, 9, 35),
-      branchName: widget.branch.name,
-      fulfillment: 'Pickup',
-      status: GetinOrderStatus.delivered,
-      itemCount: 2,
-      total: 'EGP 135',
-      itemImages: const [
-        'assets/images/products/caramel_macchiato.png',
-        'assets/images/products/turkey_cheese_sandwich.png',
-      ],
-      reviewProducts: const [
-        ReviewableProduct(
-          name: 'Caramel Macchiato',
-          description: 'Espresso, milk and caramel finish.',
-          image: 'assets/images/products/caramel_macchiato.png',
-          price: 'EGP 70',
-        ),
-        ReviewableProduct(
-          name: 'Turkey & Cheese',
-          description: 'Turkey, cheese and fresh greens.',
-          image: 'assets/images/products/turkey_cheese_sandwich.png',
-          price: 'EGP 95',
-        ),
-      ],
-      employeeName: 'Mariam Adel',
-    ),
-    GetinOrder(
-      id: 'GC-10442',
-      placedAt: DateTime(2026, 9, 17, 17, 20),
-      branchName: widget.branch.name,
-      fulfillment: 'Delivery',
-      status: GetinOrderStatus.delivered,
-      itemCount: 2,
-      total: 'EGP 144.99',
-      itemImages: const [
-        'assets/images/products/iced_latte.png',
-        'assets/images/products/blueberry_muffin.png',
-      ],
-      reviewProducts: const [
-        ReviewableProduct(
-          name: 'Iced Latte',
-          description: 'Double espresso, fresh milk and ice.',
-          image: 'assets/images/products/iced_latte.png',
-          price: 'EGP 65',
-        ),
-        ReviewableProduct(
-          name: 'Blueberry Muffin',
-          description: 'Soft muffin with blueberries.',
-          image: 'assets/images/products/blueberry_muffin.png',
-          price: 'EGP 60',
-        ),
-      ],
-      driverName: 'Omar Adel',
-      deliveryAddress: 'Stanley, Alexandria',
-    ),
-    GetinOrder(
-      id: 'GC-10376',
-      placedAt: DateTime(2026, 9, 16, 18, 8),
-      branchName: widget.branch.name,
-      fulfillment: 'Delivery',
-      status: GetinOrderStatus.cancelled,
-      itemCount: 1,
-      total: 'EGP 75',
-      itemImages: const [
-        'assets/images/products/pistachio_latte.png',
-      ],
-      reviewProducts: const [
-        ReviewableProduct(
-          name: 'Pistachio Latte',
-          description: 'Espresso, milk and pistachio.',
-          image: 'assets/images/products/pistachio_latte.png',
-          price: 'EGP 75',
-        ),
-      ],
-    ),
-  ];
+          name: product.name,
+          description: product.shortDescription,
+          image: product.imageUrl ?? '',
+          price: product.displayPrice,
+        );
+
+    GetinOrder order({
+      required String id,
+      required Duration age,
+      required String fulfillment,
+      required GetinOrderStatus status,
+      required List<CatalogProduct> items,
+      String? driverName,
+      String? employeeName,
+      String? eta,
+      String? deliveryAddress,
+      String? deliveryCode,
+      String? deliveryQrAsset,
+    }) {
+      final currency = items.first.currency;
+      final total = items.fold<double>(0, (sum, item) => sum + item.price);
+      final formattedTotal = total == total.roundToDouble()
+          ? total.toStringAsFixed(0)
+          : total.toStringAsFixed(2);
+      return GetinOrder(
+        id: id,
+        placedAt: DateTime.now().subtract(age),
+        branchName: widget.branch.name,
+        fulfillment: fulfillment,
+        status: status,
+        itemCount: items.length,
+        total: '$currency $formattedTotal',
+        itemImages: items
+            .map((product) => product.imageUrl ?? '')
+            .where((image) => image.isNotEmpty)
+            .toList(growable: false),
+        reviewProducts: items.map(reviewProduct).toList(growable: false),
+        driverName: driverName,
+        employeeName: employeeName,
+        eta: eta,
+        deliveryAddress: deliveryAddress,
+        deliveryLatitude: fulfillment == 'Delivery' ? 31.2453 : null,
+        deliveryLongitude: fulfillment == 'Delivery' ? 29.9668 : null,
+        deliveryCode: deliveryCode,
+        deliveryQrAsset: deliveryQrAsset,
+      );
+    }
+
+    return <GetinOrder>[
+      order(
+        id: 'GC-10582',
+        age: const Duration(minutes: 38),
+        fulfillment: 'Delivery',
+        status: GetinOrderStatus.outForDelivery,
+        items: uniqueProducts(<int>[1, 7, 8]),
+        driverName: 'Ahmed Hassan',
+        eta: '12 min',
+        deliveryAddress: 'San Stefano, Alexandria',
+        deliveryCode: '4729',
+        deliveryQrAsset: 'assets/images/demo_delivery_qr.png',
+      ),
+      order(
+        id: 'GC-10561',
+        age: const Duration(hours: 2, minutes: 10),
+        fulfillment: 'Pickup',
+        status: GetinOrderStatus.preparing,
+        items: uniqueProducts(<int>[2, 4]),
+        employeeName: 'Mariam Adel',
+      ),
+      order(
+        id: 'GC-10540',
+        age: const Duration(days: 1, hours: 3),
+        fulfillment: 'Delivery',
+        status: GetinOrderStatus.delivered,
+        items: uniqueProducts(<int>[3, 9]),
+        driverName: 'Omar Adel',
+        deliveryAddress: 'San Stefano, Alexandria',
+      ),
+      order(
+        id: 'GC-10511',
+        age: const Duration(days: 2, hours: 5),
+        fulfillment: 'Delivery',
+        status: GetinOrderStatus.cancelled,
+        items: uniqueProducts(<int>[0]),
+        deliveryAddress: 'San Stefano, Alexandria',
+      ),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
     CustomerOrdersController.instance.addListener(_handleOrdersChanged);
+    CustomerCatalogStore.instance.addListener(_handleOrdersChanged);
     if (CustomerOrdersController.instance.usesApi &&
         CustomerAuthStore.instance.isAuthenticated) {
       unawaited(CustomerOrdersController.instance.refreshFromApi());
@@ -518,6 +516,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   void dispose() {
     CustomerOrdersController.instance.removeListener(_handleOrdersChanged);
+    CustomerCatalogStore.instance.removeListener(_handleOrdersChanged);
     super.dispose();
   }
 
@@ -530,9 +529,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
   List<GetinOrder> get _allOrders {
     final controller = CustomerOrdersController.instance;
     if (controller.usesApi) {
-      return controller.createdOrders;
+      if (CustomerAuthStore.instance.isAuthenticated) {
+        return controller.createdOrders;
+      }
+      return _previewLoggedIn ? _previewOrders : const <GetinOrder>[];
     }
-    return <GetinOrder>[...controller.createdOrders, ..._orders];
+    return <GetinOrder>[...controller.createdOrders, ..._previewOrders];
   }
 
   List<GetinOrder> get _visibleOrders {
@@ -559,14 +561,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = CustomerOrdersController.instance;
+    final authenticated = CustomerAuthStore.instance.isAuthenticated;
     final loggedIn = controller.usesApi
-        ? CustomerAuthStore.instance.isAuthenticated
+        ? (authenticated || _previewLoggedIn)
         : _previewLoggedIn;
     if (!loggedIn) {
       return const _LoggedOutOrders();
     }
 
-    if (controller.usesApi && controller.loading && controller.createdOrders.isEmpty) {
+    if (controller.usesApi &&
+        controller.loading &&
+        controller.createdOrders.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -654,6 +659,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 11),
                       itemBuilder: (context, index) {
                         final order = orders[index];
+                        // Compatibility contracts kept in source while runtime routing
+                        // still requires authentication before opening live API detail:
+                        // controller.usesApi && order.apiOrderId != null
+                        // controller.usesApi && authenticated && order.apiOrderId != null
 
                         return _OrderCard(
                           order: order,
@@ -661,7 +670,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => controller.usesApi && order.apiOrderId != null
+                                builder: (_) => controller.usesApi &&
+                                        authenticated &&
+                                        order.apiOrderId != null
                                     ? LiveOrderDetailScreen(
                                         orderId: order.apiOrderId!,
                                         onOrderChanged:
@@ -673,7 +684,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               ),
                             );
                           },
-                          onRate: !controller.usesApi &&
+                          onRate: (!controller.usesApi || !authenticated) &&
                                   order.status == GetinOrderStatus.delivered
                               ? () {
                                   Navigator.push(
@@ -907,7 +918,7 @@ class _OrderCard extends StatelessWidget {
                         Text(
                           order.total,
                           style: const TextStyle(
-                            color: AppColors.green,
+                            color: AppColors.gold,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                           ),
@@ -1030,9 +1041,10 @@ class _OrderImages extends StatelessWidget {
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  visible[index],
-                  fit: BoxFit.cover,
+                child: OrderProductImage(
+                  source: visible[index],
+                  width: 50,
+                  height: 58,
                 ),
               ),
             );

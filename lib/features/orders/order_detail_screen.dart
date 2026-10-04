@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../reviews/review_screens.dart';
 import '../chat/driver_chat_screen.dart';
 import 'orders_screen.dart';
+import 'widgets/order_product_image.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final GetinOrder order;
@@ -39,34 +40,22 @@ class OrderDetailScreen extends StatelessWidget {
             _OrderTimeline(status: order.status),
             if (order.status == GetinOrderStatus.outForDelivery) ...[
               const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Text(
-                  'Demo order tracking is local-only. Production delivery tracking is loaded from GETIN driver GPS in Live Order Detail.',
-                  style: TextStyle(
-                    color: AppColors.green,
-                    fontSize: 10.5,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
               _DriverCard(order: order),
               const SizedBox(height: 14),
               DeliveryConfirmationCard(
                 code: order.deliveryCode ?? '----',
+                qrAsset: order.deliveryQrAsset,
               ),
             ],
             const SizedBox(height: 14),
             _DeliveryInformation(order: order),
             const SizedBox(height: 14),
             _OrderItems(order: order),
+            if (order.status == GetinOrderStatus.delivered &&
+                order.fulfillment == 'Delivery') ...[
+              const SizedBox(height: 14),
+              const _CompletedVerificationCard(),
+            ],
             if (order.status == GetinOrderStatus.delivered) ...[
               const SizedBox(height: 14),
               _ReviewOrderCard(order: order),
@@ -345,7 +334,7 @@ class _DriverCard extends StatelessWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Demo: calling ${order.driverName ?? 'your driver'} will be enabled with the live delivery provider.',
+                        'Call ${order.driverName ?? 'your driver'} when you need help with the handover.',
                       ),
                     ),
                   );
@@ -406,10 +395,12 @@ class _DriverCard extends StatelessWidget {
 
 class DeliveryConfirmationCard extends StatefulWidget {
   final String code;
+  final String? qrAsset;
 
   const DeliveryConfirmationCard({
     super.key,
     required this.code,
+    this.qrAsset,
   });
 
   @override
@@ -454,7 +445,7 @@ class _DeliveryConfirmationCardState extends State<DeliveryConfirmationCard> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Give this one-time code to the driver only after you receive your order.',
+            'When the driver arrives, show this QR for scanning or use the backup PIN after you receive your order.',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 10.5,
@@ -462,6 +453,35 @@ class _DeliveryConfirmationCardState extends State<DeliveryConfirmationCard> {
             ),
           ),
           const SizedBox(height: 14),
+          if (_visible && widget.qrAsset != null) ...[
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Image.asset(
+                  widget.qrAsset!,
+                  width: 148,
+                  height: 148,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Center(
+              child: Text(
+                'Backup PIN',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
           Center(
             child: Text(
               displayCode,
@@ -490,7 +510,7 @@ class _DeliveryConfirmationCardState extends State<DeliveryConfirmationCard> {
                 size: 18,
               ),
               label: Text(
-                _visible ? 'Hide code' : 'Show delivery code',
+                _visible ? 'Hide QR & PIN' : 'Show QR & PIN',
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                 ),
@@ -601,11 +621,10 @@ class _OrderItems extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Image.asset(
-                          product.image,
+                        child: OrderProductImage(
+                          source: product.image,
                           width: 48,
                           height: 48,
-                          fit: BoxFit.cover,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -625,7 +644,7 @@ class _OrderItems extends StatelessWidget {
                             Text(
                               product.price,
                               style: const TextStyle(
-                                color: AppColors.muted,
+                                color: AppColors.gold,
                                 fontSize: 9.5,
                               ),
                             ),
@@ -655,11 +674,10 @@ class _OrderItems extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Image.asset(
-                          entry.value,
+                        child: OrderProductImage(
+                          source: entry.value,
                           width: 48,
                           height: 48,
-                          fit: BoxFit.cover,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -806,6 +824,57 @@ class _ReviewOrderCard extends StatelessWidget {
   }
 }
 
+class _CompletedVerificationCard extends StatelessWidget {
+  const _CompletedVerificationCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SimpleCard(
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.green.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.verified_rounded,
+              color: AppColors.green,
+            ),
+          ),
+          const SizedBox(width: 11),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Delivery verified',
+                  style: TextStyle(
+                    color: AppColors.green,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'The handover was confirmed successfully using a one-time QR or PIN.',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 10,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PaymentSummary extends StatelessWidget {
   final GetinOrder order;
 
@@ -831,7 +900,7 @@ class _PaymentSummary extends StatelessWidget {
           Text(
             order.total,
             style: const TextStyle(
-              color: AppColors.green,
+              color: AppColors.gold,
               fontSize: 15,
               fontWeight: FontWeight.w900,
             ),

@@ -18,8 +18,10 @@ void main() {
     expect(liveOrder, contains('Rate pickup employee'));
     expect(
       liveOrder,
-      contains('Production currently supports delivery-driver reviews and pickup-employee reviews.'),
+      contains(
+          'You can rate your delivery driver or pickup employee when available.'),
     );
-    expect(orders, contains('onRate: !controller.usesApi &&'));
+    expect(
+        orders, contains('onRate: (!controller.usesApi || !authenticated) &&'));
   });
 }

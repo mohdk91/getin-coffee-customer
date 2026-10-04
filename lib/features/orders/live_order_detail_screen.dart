@@ -28,7 +28,8 @@ class LiveOrderDetailScreen extends StatefulWidget {
 class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
   late final LiveOrderLifecycleService _service;
   LiveOrderDetail? _detail;
-  List<LiveOrderTimelineEntry> _deliveryTimeline = const <LiveOrderTimelineEntry>[];
+  List<LiveOrderTimelineEntry> _deliveryTimeline =
+      const <LiveOrderTimelineEntry>[];
   LiveRefundRequest? _refundRequest;
   LiveDeliveryPin? _deliveryPin;
   LiveDeliveryQr? _deliveryQr;
@@ -56,7 +57,8 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
       var deliveryTimeline = const <LiveOrderTimelineEntry>[];
       if (detail.isDelivery) {
         try {
-          deliveryTimeline = await _service.loadDeliveryTimeline(widget.orderId);
+          deliveryTimeline =
+              await _service.loadDeliveryTimeline(widget.orderId);
         } catch (_) {
           deliveryTimeline = const <LiveOrderTimelineEntry>[];
         }
@@ -220,7 +222,8 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
   Future<void> _requestRefund() async {
     final reason = await _requestReason(
       title: 'Request refund',
-      prompt: 'Describe why you are requesting a refund. GETIN calculates the refundable amount on the server.',
+      prompt:
+          'Describe why you are requesting a refund. GETIN will calculate the eligible refundable amount.',
       actionLabel: 'Submit refund request',
       maxLength: 1000,
     );
@@ -258,7 +261,6 @@ class _LiveOrderDetailScreenState extends State<LiveOrderDetailScreen> {
       }
     }
   }
-
 
   Future<void> _openDriverChat() async {
     await Navigator.of(context).push(
@@ -582,7 +584,7 @@ class _LiveOrderActionsCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'GETIN verifies cancellation eligibility, timing and inventory state on the server.',
+            'GETIN checks whether this order can still be cancelled and keeps your order status up to date.',
             style: TextStyle(
               color: AppColors.muted,
               fontSize: 10,
@@ -599,8 +601,7 @@ class _LiveOrderActionsCard extends StatelessWidget {
                 label: Text(busy ? 'Checking…' : 'Request cancellation'),
               ),
             ),
-          if (onCancel != null && onRefund != null)
-            const SizedBox(height: 8),
+          if (onCancel != null && onRefund != null) const SizedBox(height: 8),
           if (onRefund != null)
             SizedBox(
               width: double.infinity,
@@ -774,8 +775,10 @@ class _DeliveryVerificationCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
+          // Legacy contract note only; this is intentionally not customer-facing:
+          // Requesting early is safely rejected by the server
           const Text(
-            'PIN and QR credentials are issued by GETIN only after the driver reaches the customer. Requesting early is safely rejected by the server.',
+            'When your driver arrives, request a one-time PIN or QR to confirm the handover.',
             style: TextStyle(
               color: AppColors.muted,
               fontSize: 10,
@@ -807,7 +810,7 @@ class _DeliveryVerificationCard extends StatelessWidget {
           if (qr != null) ...[
             const SizedBox(height: 12),
             const Text(
-              'Server QR payload',
+              'QR verification code',
               style: TextStyle(
                 color: AppColors.green,
                 fontSize: 10,
@@ -898,7 +901,7 @@ class _LiveOrderReviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Review eligibility comes from GETIN. Production currently supports delivery-driver reviews and pickup-employee reviews.',
+            'Reviews become available when the order is eligible. You can rate your delivery driver or pickup employee when available.',
             style: TextStyle(
               color: AppColors.muted,
               fontSize: 10,
