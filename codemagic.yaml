@@ -71,13 +71,60 @@ workflows:
             exit 1
           fi
 
-          LATEST_BUILD_NUMBER="$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || true)"
-          case "$LATEST_BUILD_NUMBER" in
-            ''|*[!0-9]*) LATEST_BUILD_NUMBER=0 ;;
-          esac
-          BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          # Resolve a monotonically increasing CFBundleVersion.
+          #
+          # Prefer the latest TestFlight build because that is the upload
+          # target for this workflow. If App Store Connect lookup is
+          # temporarily unavailable, fall back to Codemagic's own monotonic
+          # project/workflow counter instead of silently resetting to 1.
+          ASC_BUILD_LOG="/tmp/getin-asc-build-number.log"
+          : > "$ASC_BUILD_LOG"
 
-          echo "App Store build number: $BUILD_NUMBER"
+          LATEST_BUILD_NUMBER="$(
+            app-store-connect get-latest-testflight-build-number               "$APP_STORE_APPLE_ID" 2>>"$ASC_BUILD_LOG" || true
+          )"
+
+          case "$LATEST_BUILD_NUMBER" in
+            ''|*[!0-9]*)
+              LATEST_BUILD_NUMBER="$(
+                app-store-connect get-latest-app-store-build-number                   "$APP_STORE_APPLE_ID"                   --app-store-version=1.0.0                   --platform=IOS                   2>>"$ASC_BUILD_LOG" || true
+              )"
+              ;;
+          esac
+
+          STORE_NEXT=0
+          case "$LATEST_BUILD_NUMBER" in
+            ''|*[!0-9]*) ;;
+            *) STORE_NEXT=$((LATEST_BUILD_NUMBER + 1)) ;;
+          esac
+
+          CM_COUNTER="${PROJECT_BUILD_NUMBER:-${BUILD_NUMBER:-0}}"
+          case "$CM_COUNTER" in
+            ''|*[!0-9]*) CM_COUNTER=0 ;;
+          esac
+
+          if [ "$STORE_NEXT" -gt "$CM_COUNTER" ]; then
+            NEXT_BUILD_NUMBER="$STORE_NEXT"
+          else
+            NEXT_BUILD_NUMBER="$CM_COUNTER"
+          fi
+
+          # Build 1 already exists in App Store Connect. Never permit a
+          # fallback to 0/1 again.
+          if [ "$NEXT_BUILD_NUMBER" -le 1 ]; then
+            NEXT_BUILD_NUMBER=2
+          fi
+
+          BUILD_NUMBER="$NEXT_BUILD_NUMBER"
+
+          echo "Latest App Store/TestFlight build: ${LATEST_BUILD_NUMBER:-unavailable}"
+          echo "Codemagic project/workflow counter: $CM_COUNTER"
+          echo "Resolved iOS bundle build number: $BUILD_NUMBER"
+
+          if [ -s "$ASC_BUILD_LOG" ]; then
+            echo "App Store Connect lookup diagnostics:"
+            cat "$ASC_BUILD_LOG"
+          fi
 
           flutter build ipa --release \
             --build-name=1.0.0 \
