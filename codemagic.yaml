@@ -32,9 +32,14 @@ workflows:
           grep -A1 '<key>BUNDLE_ID</key>' ios/Runner/GoogleService-Info.plist | grep -q 'com.getincoffee.getinCoffee'
           echo "Bundle identifier verification: PASS"
 
-      - name: Get Flutter packages
+      - name: Configure CocoaPods compatibility
         script: |
+          set -e
+          grep -q 'enable-swift-package-manager: false' pubspec.yaml
+          flutter config --no-enable-swift-package-manager
+          flutter clean
           flutter pub get
+          echo "Swift Package Manager disabled for this project; CocoaPods will manage iOS Flutter plugins."
 
       - name: Flutter analyze
         script: |
@@ -49,7 +54,7 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd ios
-          pod install
+          pod install --repo-update
           cd ..
 
       - name: Apply provisioning profiles
