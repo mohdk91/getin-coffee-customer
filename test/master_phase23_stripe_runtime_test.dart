@@ -23,7 +23,7 @@ void main() {
     expect(service, contains('paymentIntentClientSecret'));
     expect(repository, contains('/checkout/payment-session'));
     expect(mainActivity, contains('FlutterFragmentActivity'));
-    expect(project, contains('IPHONEOS_DEPLOYMENT_TARGET = 13.0;'));
+    expect(project, contains('IPHONEOS_DEPLOYMENT_TARGET = 15.5;'));
     expect(service, isNot(contains('cardNumber')));
     expect(service, isNot(contains('cvc')));
   });
