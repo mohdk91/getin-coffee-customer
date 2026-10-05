@@ -45,6 +45,7 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
   bool _quoting = false;
   bool _saving = false;
   bool _addedToCart = false;
+  final Set<int> _pairingSavingIds = <int>{};
   late int _quantity;
   Timer? _quoteTimer;
   int _quoteGeneration = 0;
@@ -443,6 +444,106 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
     );
   }
 
+  Future<void> _quickAddPairing(CatalogProduct summary) async {
+    if (_pairingSavingIds.contains(summary.id)) return;
+
+    setState(() => _pairingSavingIds.add(summary.id));
+
+    try {
+      final results = await Future.wait<dynamic>(<Future<dynamic>>[
+        CustomerCatalogStore.instance.loadProduct(
+          widget.branchId,
+          summary.id,
+        ),
+        CustomerCatalogStore.instance.loadAvailability(
+          widget.branchId,
+          summary.id,
+        ),
+      ]);
+      if (!mounted) return;
+
+      final product = results[0] as CatalogProduct?;
+      final availability = results[1] as CatalogProductAvailability?;
+
+      if (product == null || availability == null || !availability.available) {
+        _showMessage('This product is currently unavailable at this branch.');
+        return;
+      }
+
+      // Never silently choose a variant or required customization.
+      // For configurable products the + button opens the authoritative
+      // product configurator; simple products are added in one tap.
+      if (product.isVariable || product.optionGroups.isNotEmpty) {
+        await _openPairing(product);
+        return;
+      }
+
+      final freshQuote = await CustomerCatalogStore.instance.quoteProduct(
+        branchId: widget.branchId,
+        orderType: widget.serviceType,
+        productId: product.id,
+        quantity: 1,
+        variantId: null,
+        optionValueIds: const <int>[],
+      );
+      if (freshQuote == null) {
+        throw StateError('Live pricing is unavailable.');
+      }
+      if (!mounted) return;
+
+      final image = product.imageUrl ??
+          (product.gallery.isNotEmpty ? product.gallery.first : '');
+
+      final item = CartItem(
+        branchId: widget.branchId,
+        productId: product.id,
+        variantId: null,
+        optionValueIds: const <int>[],
+        name: product.name,
+        description: product.shortDescription,
+        image: image,
+        branchName: widget.branchName,
+        serviceType: widget.serviceType,
+        currency: freshQuote.currency,
+        basePrice: product.price,
+        unitPrice: freshQuote.unitTotal,
+        quantity: 1,
+        strength: 'Regular',
+        sweetness: 'Regular',
+        addOns: const <String>[],
+        productType: GetinProductCatalog.typeFromCategory(
+          product.categoryName ?? '',
+        ),
+      );
+
+      final cart = CartController.instance;
+
+      if (!cart.canAccept(item)) {
+        final replace = await _confirmCartReplacement(cart, item);
+        if (!replace || !mounted) return;
+        cart.clear();
+      }
+
+      final added = cart.addOrMerge(item);
+      if (!added) {
+        _showMessage('Could not add this item to the current cart.');
+        return;
+      }
+
+      _showMessage('${product.name} added to cart.');
+    } catch (_) {
+      if (mounted) {
+        _showMessage(
+          'Could not verify live availability and price. Nothing was added.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _pairingSavingIds.remove(summary.id));
+      }
+    }
+  }
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -557,7 +658,9 @@ class _LiveProductDetailScreenState extends State<LiveProductDetailScreen> {
                         const SizedBox(height: 18),
                         LiveOftenOrderedWith(
                           products: _oftenOrderedWith(product),
+                          addingProductIds: _pairingSavingIds,
                           onProductTap: _openPairing,
+                          onQuickAdd: _quickAddPairing,
                         ),
                       ],
                       if (_quoteError != null) ...[

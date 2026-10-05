@@ -210,12 +210,16 @@ class _GuestProductMerchandisingPreviewState
 
 class LiveOftenOrderedWith extends StatelessWidget {
   final List<CatalogProduct> products;
+  final Set<int> addingProductIds;
   final ValueChanged<CatalogProduct> onProductTap;
+  final ValueChanged<CatalogProduct> onQuickAdd;
 
   const LiveOftenOrderedWith({
     super.key,
     required this.products,
+    required this.addingProductIds,
     required this.onProductTap,
+    required this.onQuickAdd,
   });
 
   @override
@@ -252,7 +256,9 @@ class LiveOftenOrderedWith extends StatelessWidget {
               final product = products[index];
               return _PairingCard(
                 product: product,
+                adding: addingProductIds.contains(product.id),
                 onTap: () => onProductTap(product),
+                onQuickAdd: () => onQuickAdd(product),
               );
             },
           ),
@@ -466,11 +472,15 @@ class _PreviewChip extends StatelessWidget {
 
 class _PairingCard extends StatelessWidget {
   final CatalogProduct product;
+  final bool adding;
   final VoidCallback onTap;
+  final VoidCallback onQuickAdd;
 
   const _PairingCard({
     required this.product,
+    required this.adding,
     required this.onTap,
+    required this.onQuickAdd,
   });
 
   @override
@@ -478,74 +488,104 @@ class _PairingCard extends StatelessWidget {
     final image = product.imageUrl ??
         (product.gallery.isNotEmpty ? product.gallery.first : '');
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 132,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
+    return SizedBox(
+      width: 132,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Material(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 82,
-                  child: _RemoteAwareProductImage(image: image),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
                 ),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                product.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.green,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      product.displayPrice,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.gold,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 82,
+                        child: _RemoteAwareProductImage(image: image),
                       ),
                     ),
-                  ),
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: const BoxDecoration(
-                      color: AppColors.green,
-                      shape: BoxShape.circle,
+                    const SizedBox(height: 7),
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.green,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.add_rounded,
-                      color: AppColors.beige,
-                      size: 17,
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 38),
+                      child: Text(
+                        product.displayPrice,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            right: 6,
+            bottom: 6,
+            child: Semantics(
+              button: true,
+              enabled: !adding,
+              label: adding
+                  ? 'Adding ${product.name}'
+                  : 'Add ${product.name} to cart',
+              child: Material(
+                color: AppColors.green,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: adding ? null : onQuickAdd,
+                  customBorder: const CircleBorder(),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Center(
+                      child: adding
+                          ? const SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.8,
+                                color: AppColors.beige,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.add_rounded,
+                              color: AppColors.beige,
+                              size: 20,
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

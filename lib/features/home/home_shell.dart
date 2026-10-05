@@ -384,15 +384,25 @@ class _GetinNavItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: selected ? AppColors.green : AppColors.muted,
-                  fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              SizedBox(
+                width: double.infinity,
+                height: 14,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: selected ? AppColors.green : AppColors.muted,
+                      fontSize: 10.5,
+                      height: 1,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
                 ),
               ),
             ],
