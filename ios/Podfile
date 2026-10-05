@@ -1,5 +1,4 @@
 platform :ios, '15.5'
-use_modular_headers!
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -24,7 +23,20 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
-target 'Runner' do
+target 'Runner' do  # Task 246B-11H: Firebase-only modular headers
+  # FirebaseAuth/Core are Swift pods linked through CocoaPods static libraries.
+  # Their Objective-C transitive dependencies need module maps, while unrelated
+  # Flutter plugins (notably speech_to_text) must retain their normal pod setup.
+  pod 'FirebaseAuth', :modular_headers => true
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'FirebaseCoreExtension', :modular_headers => true
+  pod 'FirebaseAuthInterop', :modular_headers => true
+  pod 'FirebaseAppCheckInterop', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+  pod 'RecaptchaInterop', :modular_headers => true
+  # End Task 246B-11H Firebase-only modular headers
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths
