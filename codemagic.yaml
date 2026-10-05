@@ -7,6 +7,9 @@ workflows:
     environment:
       groups:
         - appstore_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.getincoffee.getinCoffee
       vars:
         BUNDLE_ID: com.getincoffee.getinCoffee
         APP_ENV: prod
@@ -48,20 +51,6 @@ workflows:
           cd ios
           pod install
           cd ..
-
-      - name: Initialize signing keychain
-        script: |
-          keychain initialize
-
-      - name: Fetch or create App Store signing files
-        script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-
-      - name: Add signing certificates to keychain
-        script: |
-          keychain add-certificates
 
       - name: Apply provisioning profiles
         script: |
