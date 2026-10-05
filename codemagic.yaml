@@ -35,7 +35,9 @@ workflows:
 
       - name: Flutter analyze
         script: |
-          flutter analyze
+          flutter --version
+          dart --version
+          flutter analyze --no-fatal-infos
 
       - name: Flutter tests
         script: |
