@@ -35,7 +35,6 @@ workflows:
       - name: Configure CocoaPods compatibility
         script: |
           set -e
-          grep -q 'enable-swift-package-manager: false' pubspec.yaml
           flutter config --no-enable-swift-package-manager
           flutter clean
           flutter pub get
